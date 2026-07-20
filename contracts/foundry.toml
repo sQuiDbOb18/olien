@@ -8,6 +8,10 @@ optimizer_runs = 200
 
 # Golden vectors are the shared source of truth for forge and the TS engine mirror;
 # the test harness reads them and the GenVectorHashes script writes hashes.json here.
-fs_permissions = [{ access = "read-write", path = "../packages/vectors" }]
+# The deploy script writes the address book to ../deployments.
+fs_permissions = [
+    { access = "read-write", path = "../packages/vectors" },
+    { access = "read-write", path = "../deployments" },
+]
 
 # See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options
