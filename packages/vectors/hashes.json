@@ -1,0 +1,58 @@
+{
+  "damaged-no-photo-denied": {
+    "policyHash": "0x2ce410167d966a34d58dcbbd593ba6bb027194b80fbae42a33a3569254de9a0c",
+    "verdictHash": "0xaf918ddf052c1fb757b67944312f362175230904afde2778e5ebed02e8de7604"
+  },
+  "damaged-photo-and-description-full": {
+    "policyHash": "0x2ce410167d966a34d58dcbbd593ba6bb027194b80fbae42a33a3569254de9a0c",
+    "verdictHash": "0xa485f9ad75da1c529d577e93dbacade6ec2102a0c8a2d86c21dc7333dcc29e80"
+  },
+  "damaged-photo-full": {
+    "policyHash": "0x2ce410167d966a34d58dcbbd593ba6bb027194b80fbae42a33a3569254de9a0c",
+    "verdictHash": "0x33a66049e01940d292c0a3f5cf8b72b06de79d31079a9d06ff9c4dbfb5872e31"
+  },
+  "damaged-photo-late-denied": {
+    "policyHash": "0x2ce410167d966a34d58dcbbd593ba6bb027194b80fbae42a33a3569254de9a0c",
+    "verdictHash": "0x3003450f36fae76854422c815b2f9ac191a3d4a577f7cdbf44e5842cfd6e8282"
+  },
+  "damaged-photo-window-boundary-inclusive": {
+    "policyHash": "0x2ce410167d966a34d58dcbbd593ba6bb027194b80fbae42a33a3569254de9a0c",
+    "verdictHash": "0xa49148359a257af83241b39c4833529a1c9a896f1940590abfc3f61b5ed46a12"
+  },
+  "default-nonzero-applies-with-no-rules": {
+    "policyHash": "0x7256788421200b3c60e54fc0c306ddfc2e9d84a612d7dab2ebb31366d5e5ef1c",
+    "verdictHash": "0x7fa2cedd04c7f4dff6bc8c90d7758261cac37538007129827b9f3ffdd7cb887f"
+  },
+  "filed-before-paid-denied": {
+    "policyHash": "0x2ce410167d966a34d58dcbbd593ba6bb027194b80fbae42a33a3569254de9a0c",
+    "verdictHash": "0x5ce83e1847d796b83d887a43ed3cf0715327f84cc9e3e4623b1504132d5e2a05"
+  },
+  "first-match-wins": {
+    "policyHash": "0xa829d6d324ecbad12a55bd726482d04d9afead5eec4999a3a7b90f565652297d",
+    "verdictHash": "0x14379912c761740b4fea7b0ea8dd822b6f2114c2e54633535cc5531edffbe35f"
+  },
+  "not-as-described-half": {
+    "policyHash": "0x2ce410167d966a34d58dcbbd593ba6bb027194b80fbae42a33a3569254de9a0c",
+    "verdictHash": "0xa386b1b6adfcee53df97d2300bbb6752a2b733440015833b0a24e6b7ebbbe686"
+  },
+  "not-as-described-missing-description-denied": {
+    "policyHash": "0x2ce410167d966a34d58dcbbd593ba6bb027194b80fbae42a33a3569254de9a0c",
+    "verdictHash": "0xd5b3664f0dac484c7f7a0626f5cfe9fe03d98216f94bea5cdc96d1c58c2e71f3"
+  },
+  "not-delivered-attested-full": {
+    "policyHash": "0x2ce410167d966a34d58dcbbd593ba6bb027194b80fbae42a33a3569254de9a0c",
+    "verdictHash": "0xe9ebee104e602652c54873e35d765908b5c000c600e998653bfed9ac947e9b95"
+  },
+  "not-delivered-but-delivered-denied": {
+    "policyHash": "0x2ce410167d966a34d58dcbbd593ba6bb027194b80fbae42a33a3569254de9a0c",
+    "verdictHash": "0xea6a79813f653ad09078278d26af602f41e4726330b54fa98cede8a8021e5e05"
+  },
+  "not-delivered-no-attestation-denied": {
+    "policyHash": "0x2ce410167d966a34d58dcbbd593ba6bb027194b80fbae42a33a3569254de9a0c",
+    "verdictHash": "0xe69999061a341aef5155f11e2c3ce59e1483bc9e425dd36bd9f7bfc0d5337a46"
+  },
+  "unknown-claimtype-falls-to-default": {
+    "policyHash": "0x2ce410167d966a34d58dcbbd593ba6bb027194b80fbae42a33a3569254de9a0c",
+    "verdictHash": "0xc8b07f83ee4d2e4f4556f270528384122500b35521f46e1972d77305803adc5c"
+  }
+}

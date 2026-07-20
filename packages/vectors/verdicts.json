@@ -1,5 +1,6 @@
 {
   "not-delivered-attested-full": {
+    "paymentId": 1,
     "policy": {
       "merchant": "0x00000000000000000000000000000000000000A1",
       "disputeWindow": 1209600,
@@ -18,6 +19,7 @@
     "expect": { "refundBps": 10000, "requiresReturn": false, "ruleIndex": 0, "matched": true }
   },
   "not-delivered-but-delivered-denied": {
+    "paymentId": 2,
     "policy": {
       "merchant": "0x00000000000000000000000000000000000000A1",
       "disputeWindow": 1209600,
@@ -36,6 +38,7 @@
     "expect": { "refundBps": 0, "requiresReturn": false, "ruleIndex": 255, "matched": false }
   },
   "not-delivered-no-attestation-denied": {
+    "paymentId": 3,
     "policy": {
       "merchant": "0x00000000000000000000000000000000000000A1",
       "disputeWindow": 1209600,
@@ -54,6 +57,7 @@
     "expect": { "refundBps": 0, "requiresReturn": false, "ruleIndex": 255, "matched": false }
   },
   "damaged-photo-full": {
+    "paymentId": 4,
     "policy": {
       "merchant": "0x00000000000000000000000000000000000000A1",
       "disputeWindow": 1209600,
@@ -72,6 +76,7 @@
     "expect": { "refundBps": 10000, "requiresReturn": true, "ruleIndex": 1, "matched": true }
   },
   "damaged-photo-and-description-full": {
+    "paymentId": 5,
     "policy": {
       "merchant": "0x00000000000000000000000000000000000000A1",
       "disputeWindow": 1209600,
@@ -90,6 +95,7 @@
     "expect": { "refundBps": 10000, "requiresReturn": true, "ruleIndex": 1, "matched": true }
   },
   "damaged-no-photo-denied": {
+    "paymentId": 6,
     "policy": {
       "merchant": "0x00000000000000000000000000000000000000A1",
       "disputeWindow": 1209600,
@@ -108,6 +114,7 @@
     "expect": { "refundBps": 0, "requiresReturn": false, "ruleIndex": 255, "matched": false }
   },
   "damaged-photo-late-denied": {
+    "paymentId": 7,
     "policy": {
       "merchant": "0x00000000000000000000000000000000000000A1",
       "disputeWindow": 1209600,
@@ -126,6 +133,7 @@
     "expect": { "refundBps": 0, "requiresReturn": false, "ruleIndex": 255, "matched": false }
   },
   "damaged-photo-window-boundary-inclusive": {
+    "paymentId": 8,
     "policy": {
       "merchant": "0x00000000000000000000000000000000000000A1",
       "disputeWindow": 1209600,
@@ -144,6 +152,7 @@
     "expect": { "refundBps": 10000, "requiresReturn": true, "ruleIndex": 1, "matched": true }
   },
   "not-as-described-half": {
+    "paymentId": 9,
     "policy": {
       "merchant": "0x00000000000000000000000000000000000000A1",
       "disputeWindow": 1209600,
@@ -162,6 +171,7 @@
     "expect": { "refundBps": 5000, "requiresReturn": false, "ruleIndex": 2, "matched": true }
   },
   "not-as-described-missing-description-denied": {
+    "paymentId": 10,
     "policy": {
       "merchant": "0x00000000000000000000000000000000000000A1",
       "disputeWindow": 1209600,
@@ -180,6 +190,7 @@
     "expect": { "refundBps": 0, "requiresReturn": false, "ruleIndex": 255, "matched": false }
   },
   "unknown-claimtype-falls-to-default": {
+    "paymentId": 11,
     "policy": {
       "merchant": "0x00000000000000000000000000000000000000A1",
       "disputeWindow": 1209600,
@@ -198,6 +209,7 @@
     "expect": { "refundBps": 0, "requiresReturn": false, "ruleIndex": 255, "matched": false }
   },
   "filed-before-paid-denied": {
+    "paymentId": 12,
     "policy": {
       "merchant": "0x00000000000000000000000000000000000000A1",
       "disputeWindow": 1209600,
@@ -216,6 +228,7 @@
     "expect": { "refundBps": 0, "requiresReturn": false, "ruleIndex": 255, "matched": false }
   },
   "first-match-wins": {
+    "paymentId": 13,
     "policy": {
       "merchant": "0x00000000000000000000000000000000000000B2",
       "disputeWindow": 1209600,
@@ -234,6 +247,7 @@
     "expect": { "refundBps": 10000, "requiresReturn": true, "ruleIndex": 0, "matched": true }
   },
   "default-nonzero-applies-with-no-rules": {
+    "paymentId": 14,
     "policy": {
       "merchant": "0x00000000000000000000000000000000000000C3",
       "disputeWindow": 604800,
