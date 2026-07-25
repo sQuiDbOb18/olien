@@ -27,6 +27,7 @@ export interface ApiPayment {
   ruleIndex: number | null;
   matched: boolean | null;
   verdictHash: string | null;
+  orderRef: string | null;
   updatedAt: string;
 }
 
