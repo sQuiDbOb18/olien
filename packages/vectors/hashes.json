@@ -1,4 +1,60 @@
 {
+  "agent-attestor-silent-falls-to-default": {
+    "policyHash": "0x77dd3c3cb53b01545ab5391fb334db34c2c668e8a4becc6767a4e3778c639151",
+    "verdictHash": "0x4dd7be8b8102c41c8f0b36184dc771aeec8e0869fe0e6ed91cf6813d3f0e79b4"
+  },
+  "agent-claim-outside-window-denied": {
+    "policyHash": "0x77dd3c3cb53b01545ab5391fb334db34c2c668e8a4becc6767a4e3778c639151",
+    "verdictHash": "0xefc10dd7b52de58b9783d2d7522a6f1e7f6b53ca033cc90df18474d77febc8ee"
+  },
+  "agent-claim-window-boundary-inclusive": {
+    "policyHash": "0x77dd3c3cb53b01545ab5391fb334db34c2c668e8a4becc6767a4e3778c639151",
+    "verdictHash": "0x59cd5f2daddb06d25909b2c17db2ab22264b99a0f7b91b0acc10a44f6d356c31"
+  },
+  "agent-not-served-missing-probe-denied": {
+    "policyHash": "0x77dd3c3cb53b01545ab5391fb334db34c2c668e8a4becc6767a4e3778c639151",
+    "verdictHash": "0x8111ec184f23ac80cecab71dd9c9e2ddee2c24459daa76ef7c53b317eafc7866"
+  },
+  "agent-not-served-unreachable-full": {
+    "policyHash": "0x77dd3c3cb53b01545ab5391fb334db34c2c668e8a4becc6767a4e3778c639151",
+    "verdictHash": "0xd4d59e0dd7f57d9c9d2b0187bd3a7f998f1c596a4ed81b8d1539806eb1e9bae7"
+  },
+  "agent-partial-failure-clean-no-refund": {
+    "policyHash": "0x77dd3c3cb53b01545ab5391fb334db34c2c668e8a4becc6767a4e3778c639151",
+    "verdictHash": "0x901e393cce5e983a19e34d11c71f8a0b2ebda2a0ee1f881b9660ef6240100a6b"
+  },
+  "agent-partial-failure-minor": {
+    "policyHash": "0x77dd3c3cb53b01545ab5391fb334db34c2c668e8a4becc6767a4e3778c639151",
+    "verdictHash": "0xf04512e084bfb3e0daaae6c05d457f8ca4c299eb8e6234c1a6449b3931bfa381"
+  },
+  "agent-partial-failure-moderate": {
+    "policyHash": "0x77dd3c3cb53b01545ab5391fb334db34c2c668e8a4becc6767a4e3778c639151",
+    "verdictHash": "0x93ef9bdb336447c470c1b714554c05a88d81a9b50dc1bd5924301989798681c8"
+  },
+  "agent-partial-failure-severe": {
+    "policyHash": "0x77dd3c3cb53b01545ab5391fb334db34c2c668e8a4becc6767a4e3778c639151",
+    "verdictHash": "0x9cbd7a70394bcaae8016ce5ffa6c9d2a3a3ce2755e26af6fa1449e928ae3f295"
+  },
+  "agent-partial-failure-total": {
+    "policyHash": "0x77dd3c3cb53b01545ab5391fb334db34c2c668e8a4becc6767a4e3778c639151",
+    "verdictHash": "0x8fdf3ff565b9ba5da7a27eab06dba76042f38eed0ec7c49866bb1b7293e91f06"
+  },
+  "agent-schema-violation-both-bits-full": {
+    "policyHash": "0x77dd3c3cb53b01545ab5391fb334db34c2c668e8a4becc6767a4e3778c639151",
+    "verdictHash": "0xdda64d910cbf780d0c31bc5a33929e85f6f922acfa21c2853c9bde0157846577"
+  },
+  "agent-schema-violation-log-only-denied": {
+    "policyHash": "0x77dd3c3cb53b01545ab5391fb334db34c2c668e8a4becc6767a4e3778c639151",
+    "verdictHash": "0xfdbdea387a650f6694d208a7e3db9ad07b500324242af6fcaf3ae0fa7ee7b7b1"
+  },
+  "agent-sla-breach-attested-partial": {
+    "policyHash": "0x77dd3c3cb53b01545ab5391fb334db34c2c668e8a4becc6767a4e3778c639151",
+    "verdictHash": "0xfc50ad7e1b9c6bf0be94c70a2e3961b8a993c646fe9e0040987bd601b7b026ce"
+  },
+  "agent-sla-breach-wrong-severity-denied": {
+    "policyHash": "0x77dd3c3cb53b01545ab5391fb334db34c2c668e8a4becc6767a4e3778c639151",
+    "verdictHash": "0x24afb4ea7be16205be827f4b0949bcefba630789aece57c800da87bcf8021d0a"
+  },
   "damaged-no-photo-denied": {
     "policyHash": "0x2ce410167d966a34d58dcbbd593ba6bb027194b80fbae42a33a3569254de9a0c",
     "verdictHash": "0xaf918ddf052c1fb757b67944312f362175230904afde2778e5ebed02e8de7604"

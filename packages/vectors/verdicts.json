@@ -6,17 +6,57 @@
       "disputeWindow": 1209600,
       "defaultRefundBps": 0,
       "rules": {
-        "claimType": [0, 1, 2],
-        "requiredEvidenceMask": [0, 1, 3],
-        "attType": [1, 0, 0],
-        "attExpected": [2, 0, 0],
-        "claimWindow": [1209600, 259200, 604800],
-        "refundBps": [10000, 10000, 5000],
-        "requiresReturn": [false, true, false]
+        "claimType": [
+          0,
+          1,
+          2
+        ],
+        "requiredEvidenceMask": [
+          0,
+          1,
+          3
+        ],
+        "attType": [
+          1,
+          0,
+          0
+        ],
+        "attExpected": [
+          2,
+          0,
+          0
+        ],
+        "claimWindow": [
+          1209600,
+          259200,
+          604800
+        ],
+        "refundBps": [
+          10000,
+          10000,
+          5000
+        ],
+        "requiresReturn": [
+          false,
+          true,
+          false
+        ]
       }
     },
-    "input": { "claimType": 0, "evidenceMask": 0, "attType": 1, "attValue": 2, "paidAt": 1000, "filedAt": 2000 },
-    "expect": { "refundBps": 10000, "requiresReturn": false, "ruleIndex": 0, "matched": true }
+    "input": {
+      "claimType": 0,
+      "evidenceMask": 0,
+      "attType": 1,
+      "attValue": 2,
+      "paidAt": 1000,
+      "filedAt": 2000
+    },
+    "expect": {
+      "refundBps": 10000,
+      "requiresReturn": false,
+      "ruleIndex": 0,
+      "matched": true
+    }
   },
   "not-delivered-but-delivered-denied": {
     "paymentId": 2,
@@ -25,17 +65,57 @@
       "disputeWindow": 1209600,
       "defaultRefundBps": 0,
       "rules": {
-        "claimType": [0, 1, 2],
-        "requiredEvidenceMask": [0, 1, 3],
-        "attType": [1, 0, 0],
-        "attExpected": [2, 0, 0],
-        "claimWindow": [1209600, 259200, 604800],
-        "refundBps": [10000, 10000, 5000],
-        "requiresReturn": [false, true, false]
+        "claimType": [
+          0,
+          1,
+          2
+        ],
+        "requiredEvidenceMask": [
+          0,
+          1,
+          3
+        ],
+        "attType": [
+          1,
+          0,
+          0
+        ],
+        "attExpected": [
+          2,
+          0,
+          0
+        ],
+        "claimWindow": [
+          1209600,
+          259200,
+          604800
+        ],
+        "refundBps": [
+          10000,
+          10000,
+          5000
+        ],
+        "requiresReturn": [
+          false,
+          true,
+          false
+        ]
       }
     },
-    "input": { "claimType": 0, "evidenceMask": 0, "attType": 1, "attValue": 1, "paidAt": 1000, "filedAt": 2000 },
-    "expect": { "refundBps": 0, "requiresReturn": false, "ruleIndex": 255, "matched": false }
+    "input": {
+      "claimType": 0,
+      "evidenceMask": 0,
+      "attType": 1,
+      "attValue": 1,
+      "paidAt": 1000,
+      "filedAt": 2000
+    },
+    "expect": {
+      "refundBps": 0,
+      "requiresReturn": false,
+      "ruleIndex": 255,
+      "matched": false
+    }
   },
   "not-delivered-no-attestation-denied": {
     "paymentId": 3,
@@ -44,17 +124,57 @@
       "disputeWindow": 1209600,
       "defaultRefundBps": 0,
       "rules": {
-        "claimType": [0, 1, 2],
-        "requiredEvidenceMask": [0, 1, 3],
-        "attType": [1, 0, 0],
-        "attExpected": [2, 0, 0],
-        "claimWindow": [1209600, 259200, 604800],
-        "refundBps": [10000, 10000, 5000],
-        "requiresReturn": [false, true, false]
+        "claimType": [
+          0,
+          1,
+          2
+        ],
+        "requiredEvidenceMask": [
+          0,
+          1,
+          3
+        ],
+        "attType": [
+          1,
+          0,
+          0
+        ],
+        "attExpected": [
+          2,
+          0,
+          0
+        ],
+        "claimWindow": [
+          1209600,
+          259200,
+          604800
+        ],
+        "refundBps": [
+          10000,
+          10000,
+          5000
+        ],
+        "requiresReturn": [
+          false,
+          true,
+          false
+        ]
       }
     },
-    "input": { "claimType": 0, "evidenceMask": 0, "attType": 0, "attValue": 0, "paidAt": 1000, "filedAt": 2000 },
-    "expect": { "refundBps": 0, "requiresReturn": false, "ruleIndex": 255, "matched": false }
+    "input": {
+      "claimType": 0,
+      "evidenceMask": 0,
+      "attType": 0,
+      "attValue": 0,
+      "paidAt": 1000,
+      "filedAt": 2000
+    },
+    "expect": {
+      "refundBps": 0,
+      "requiresReturn": false,
+      "ruleIndex": 255,
+      "matched": false
+    }
   },
   "damaged-photo-full": {
     "paymentId": 4,
@@ -63,17 +183,57 @@
       "disputeWindow": 1209600,
       "defaultRefundBps": 0,
       "rules": {
-        "claimType": [0, 1, 2],
-        "requiredEvidenceMask": [0, 1, 3],
-        "attType": [1, 0, 0],
-        "attExpected": [2, 0, 0],
-        "claimWindow": [1209600, 259200, 604800],
-        "refundBps": [10000, 10000, 5000],
-        "requiresReturn": [false, true, false]
+        "claimType": [
+          0,
+          1,
+          2
+        ],
+        "requiredEvidenceMask": [
+          0,
+          1,
+          3
+        ],
+        "attType": [
+          1,
+          0,
+          0
+        ],
+        "attExpected": [
+          2,
+          0,
+          0
+        ],
+        "claimWindow": [
+          1209600,
+          259200,
+          604800
+        ],
+        "refundBps": [
+          10000,
+          10000,
+          5000
+        ],
+        "requiresReturn": [
+          false,
+          true,
+          false
+        ]
       }
     },
-    "input": { "claimType": 1, "evidenceMask": 1, "attType": 0, "attValue": 0, "paidAt": 1000, "filedAt": 5000 },
-    "expect": { "refundBps": 10000, "requiresReturn": true, "ruleIndex": 1, "matched": true }
+    "input": {
+      "claimType": 1,
+      "evidenceMask": 1,
+      "attType": 0,
+      "attValue": 0,
+      "paidAt": 1000,
+      "filedAt": 5000
+    },
+    "expect": {
+      "refundBps": 10000,
+      "requiresReturn": true,
+      "ruleIndex": 1,
+      "matched": true
+    }
   },
   "damaged-photo-and-description-full": {
     "paymentId": 5,
@@ -82,17 +242,57 @@
       "disputeWindow": 1209600,
       "defaultRefundBps": 0,
       "rules": {
-        "claimType": [0, 1, 2],
-        "requiredEvidenceMask": [0, 1, 3],
-        "attType": [1, 0, 0],
-        "attExpected": [2, 0, 0],
-        "claimWindow": [1209600, 259200, 604800],
-        "refundBps": [10000, 10000, 5000],
-        "requiresReturn": [false, true, false]
+        "claimType": [
+          0,
+          1,
+          2
+        ],
+        "requiredEvidenceMask": [
+          0,
+          1,
+          3
+        ],
+        "attType": [
+          1,
+          0,
+          0
+        ],
+        "attExpected": [
+          2,
+          0,
+          0
+        ],
+        "claimWindow": [
+          1209600,
+          259200,
+          604800
+        ],
+        "refundBps": [
+          10000,
+          10000,
+          5000
+        ],
+        "requiresReturn": [
+          false,
+          true,
+          false
+        ]
       }
     },
-    "input": { "claimType": 1, "evidenceMask": 3, "attType": 0, "attValue": 0, "paidAt": 1000, "filedAt": 5000 },
-    "expect": { "refundBps": 10000, "requiresReturn": true, "ruleIndex": 1, "matched": true }
+    "input": {
+      "claimType": 1,
+      "evidenceMask": 3,
+      "attType": 0,
+      "attValue": 0,
+      "paidAt": 1000,
+      "filedAt": 5000
+    },
+    "expect": {
+      "refundBps": 10000,
+      "requiresReturn": true,
+      "ruleIndex": 1,
+      "matched": true
+    }
   },
   "damaged-no-photo-denied": {
     "paymentId": 6,
@@ -101,17 +301,57 @@
       "disputeWindow": 1209600,
       "defaultRefundBps": 0,
       "rules": {
-        "claimType": [0, 1, 2],
-        "requiredEvidenceMask": [0, 1, 3],
-        "attType": [1, 0, 0],
-        "attExpected": [2, 0, 0],
-        "claimWindow": [1209600, 259200, 604800],
-        "refundBps": [10000, 10000, 5000],
-        "requiresReturn": [false, true, false]
+        "claimType": [
+          0,
+          1,
+          2
+        ],
+        "requiredEvidenceMask": [
+          0,
+          1,
+          3
+        ],
+        "attType": [
+          1,
+          0,
+          0
+        ],
+        "attExpected": [
+          2,
+          0,
+          0
+        ],
+        "claimWindow": [
+          1209600,
+          259200,
+          604800
+        ],
+        "refundBps": [
+          10000,
+          10000,
+          5000
+        ],
+        "requiresReturn": [
+          false,
+          true,
+          false
+        ]
       }
     },
-    "input": { "claimType": 1, "evidenceMask": 2, "attType": 0, "attValue": 0, "paidAt": 1000, "filedAt": 5000 },
-    "expect": { "refundBps": 0, "requiresReturn": false, "ruleIndex": 255, "matched": false }
+    "input": {
+      "claimType": 1,
+      "evidenceMask": 2,
+      "attType": 0,
+      "attValue": 0,
+      "paidAt": 1000,
+      "filedAt": 5000
+    },
+    "expect": {
+      "refundBps": 0,
+      "requiresReturn": false,
+      "ruleIndex": 255,
+      "matched": false
+    }
   },
   "damaged-photo-late-denied": {
     "paymentId": 7,
@@ -120,17 +360,57 @@
       "disputeWindow": 1209600,
       "defaultRefundBps": 0,
       "rules": {
-        "claimType": [0, 1, 2],
-        "requiredEvidenceMask": [0, 1, 3],
-        "attType": [1, 0, 0],
-        "attExpected": [2, 0, 0],
-        "claimWindow": [1209600, 259200, 604800],
-        "refundBps": [10000, 10000, 5000],
-        "requiresReturn": [false, true, false]
+        "claimType": [
+          0,
+          1,
+          2
+        ],
+        "requiredEvidenceMask": [
+          0,
+          1,
+          3
+        ],
+        "attType": [
+          1,
+          0,
+          0
+        ],
+        "attExpected": [
+          2,
+          0,
+          0
+        ],
+        "claimWindow": [
+          1209600,
+          259200,
+          604800
+        ],
+        "refundBps": [
+          10000,
+          10000,
+          5000
+        ],
+        "requiresReturn": [
+          false,
+          true,
+          false
+        ]
       }
     },
-    "input": { "claimType": 1, "evidenceMask": 1, "attType": 0, "attValue": 0, "paidAt": 1000, "filedAt": 260201 },
-    "expect": { "refundBps": 0, "requiresReturn": false, "ruleIndex": 255, "matched": false }
+    "input": {
+      "claimType": 1,
+      "evidenceMask": 1,
+      "attType": 0,
+      "attValue": 0,
+      "paidAt": 1000,
+      "filedAt": 260201
+    },
+    "expect": {
+      "refundBps": 0,
+      "requiresReturn": false,
+      "ruleIndex": 255,
+      "matched": false
+    }
   },
   "damaged-photo-window-boundary-inclusive": {
     "paymentId": 8,
@@ -139,17 +419,57 @@
       "disputeWindow": 1209600,
       "defaultRefundBps": 0,
       "rules": {
-        "claimType": [0, 1, 2],
-        "requiredEvidenceMask": [0, 1, 3],
-        "attType": [1, 0, 0],
-        "attExpected": [2, 0, 0],
-        "claimWindow": [1209600, 259200, 604800],
-        "refundBps": [10000, 10000, 5000],
-        "requiresReturn": [false, true, false]
+        "claimType": [
+          0,
+          1,
+          2
+        ],
+        "requiredEvidenceMask": [
+          0,
+          1,
+          3
+        ],
+        "attType": [
+          1,
+          0,
+          0
+        ],
+        "attExpected": [
+          2,
+          0,
+          0
+        ],
+        "claimWindow": [
+          1209600,
+          259200,
+          604800
+        ],
+        "refundBps": [
+          10000,
+          10000,
+          5000
+        ],
+        "requiresReturn": [
+          false,
+          true,
+          false
+        ]
       }
     },
-    "input": { "claimType": 1, "evidenceMask": 1, "attType": 0, "attValue": 0, "paidAt": 1000, "filedAt": 260200 },
-    "expect": { "refundBps": 10000, "requiresReturn": true, "ruleIndex": 1, "matched": true }
+    "input": {
+      "claimType": 1,
+      "evidenceMask": 1,
+      "attType": 0,
+      "attValue": 0,
+      "paidAt": 1000,
+      "filedAt": 260200
+    },
+    "expect": {
+      "refundBps": 10000,
+      "requiresReturn": true,
+      "ruleIndex": 1,
+      "matched": true
+    }
   },
   "not-as-described-half": {
     "paymentId": 9,
@@ -158,17 +478,57 @@
       "disputeWindow": 1209600,
       "defaultRefundBps": 0,
       "rules": {
-        "claimType": [0, 1, 2],
-        "requiredEvidenceMask": [0, 1, 3],
-        "attType": [1, 0, 0],
-        "attExpected": [2, 0, 0],
-        "claimWindow": [1209600, 259200, 604800],
-        "refundBps": [10000, 10000, 5000],
-        "requiresReturn": [false, true, false]
+        "claimType": [
+          0,
+          1,
+          2
+        ],
+        "requiredEvidenceMask": [
+          0,
+          1,
+          3
+        ],
+        "attType": [
+          1,
+          0,
+          0
+        ],
+        "attExpected": [
+          2,
+          0,
+          0
+        ],
+        "claimWindow": [
+          1209600,
+          259200,
+          604800
+        ],
+        "refundBps": [
+          10000,
+          10000,
+          5000
+        ],
+        "requiresReturn": [
+          false,
+          true,
+          false
+        ]
       }
     },
-    "input": { "claimType": 2, "evidenceMask": 3, "attType": 0, "attValue": 0, "paidAt": 1000, "filedAt": 5000 },
-    "expect": { "refundBps": 5000, "requiresReturn": false, "ruleIndex": 2, "matched": true }
+    "input": {
+      "claimType": 2,
+      "evidenceMask": 3,
+      "attType": 0,
+      "attValue": 0,
+      "paidAt": 1000,
+      "filedAt": 5000
+    },
+    "expect": {
+      "refundBps": 5000,
+      "requiresReturn": false,
+      "ruleIndex": 2,
+      "matched": true
+    }
   },
   "not-as-described-missing-description-denied": {
     "paymentId": 10,
@@ -177,17 +537,57 @@
       "disputeWindow": 1209600,
       "defaultRefundBps": 0,
       "rules": {
-        "claimType": [0, 1, 2],
-        "requiredEvidenceMask": [0, 1, 3],
-        "attType": [1, 0, 0],
-        "attExpected": [2, 0, 0],
-        "claimWindow": [1209600, 259200, 604800],
-        "refundBps": [10000, 10000, 5000],
-        "requiresReturn": [false, true, false]
+        "claimType": [
+          0,
+          1,
+          2
+        ],
+        "requiredEvidenceMask": [
+          0,
+          1,
+          3
+        ],
+        "attType": [
+          1,
+          0,
+          0
+        ],
+        "attExpected": [
+          2,
+          0,
+          0
+        ],
+        "claimWindow": [
+          1209600,
+          259200,
+          604800
+        ],
+        "refundBps": [
+          10000,
+          10000,
+          5000
+        ],
+        "requiresReturn": [
+          false,
+          true,
+          false
+        ]
       }
     },
-    "input": { "claimType": 2, "evidenceMask": 1, "attType": 0, "attValue": 0, "paidAt": 1000, "filedAt": 5000 },
-    "expect": { "refundBps": 0, "requiresReturn": false, "ruleIndex": 255, "matched": false }
+    "input": {
+      "claimType": 2,
+      "evidenceMask": 1,
+      "attType": 0,
+      "attValue": 0,
+      "paidAt": 1000,
+      "filedAt": 5000
+    },
+    "expect": {
+      "refundBps": 0,
+      "requiresReturn": false,
+      "ruleIndex": 255,
+      "matched": false
+    }
   },
   "unknown-claimtype-falls-to-default": {
     "paymentId": 11,
@@ -196,17 +596,57 @@
       "disputeWindow": 1209600,
       "defaultRefundBps": 0,
       "rules": {
-        "claimType": [0, 1, 2],
-        "requiredEvidenceMask": [0, 1, 3],
-        "attType": [1, 0, 0],
-        "attExpected": [2, 0, 0],
-        "claimWindow": [1209600, 259200, 604800],
-        "refundBps": [10000, 10000, 5000],
-        "requiresReturn": [false, true, false]
+        "claimType": [
+          0,
+          1,
+          2
+        ],
+        "requiredEvidenceMask": [
+          0,
+          1,
+          3
+        ],
+        "attType": [
+          1,
+          0,
+          0
+        ],
+        "attExpected": [
+          2,
+          0,
+          0
+        ],
+        "claimWindow": [
+          1209600,
+          259200,
+          604800
+        ],
+        "refundBps": [
+          10000,
+          10000,
+          5000
+        ],
+        "requiresReturn": [
+          false,
+          true,
+          false
+        ]
       }
     },
-    "input": { "claimType": 3, "evidenceMask": 0, "attType": 0, "attValue": 0, "paidAt": 1000, "filedAt": 5000 },
-    "expect": { "refundBps": 0, "requiresReturn": false, "ruleIndex": 255, "matched": false }
+    "input": {
+      "claimType": 3,
+      "evidenceMask": 0,
+      "attType": 0,
+      "attValue": 0,
+      "paidAt": 1000,
+      "filedAt": 5000
+    },
+    "expect": {
+      "refundBps": 0,
+      "requiresReturn": false,
+      "ruleIndex": 255,
+      "matched": false
+    }
   },
   "filed-before-paid-denied": {
     "paymentId": 12,
@@ -215,17 +655,57 @@
       "disputeWindow": 1209600,
       "defaultRefundBps": 0,
       "rules": {
-        "claimType": [0, 1, 2],
-        "requiredEvidenceMask": [0, 1, 3],
-        "attType": [1, 0, 0],
-        "attExpected": [2, 0, 0],
-        "claimWindow": [1209600, 259200, 604800],
-        "refundBps": [10000, 10000, 5000],
-        "requiresReturn": [false, true, false]
+        "claimType": [
+          0,
+          1,
+          2
+        ],
+        "requiredEvidenceMask": [
+          0,
+          1,
+          3
+        ],
+        "attType": [
+          1,
+          0,
+          0
+        ],
+        "attExpected": [
+          2,
+          0,
+          0
+        ],
+        "claimWindow": [
+          1209600,
+          259200,
+          604800
+        ],
+        "refundBps": [
+          10000,
+          10000,
+          5000
+        ],
+        "requiresReturn": [
+          false,
+          true,
+          false
+        ]
       }
     },
-    "input": { "claimType": 1, "evidenceMask": 1, "attType": 0, "attValue": 0, "paidAt": 5000, "filedAt": 1000 },
-    "expect": { "refundBps": 0, "requiresReturn": false, "ruleIndex": 255, "matched": false }
+    "input": {
+      "claimType": 1,
+      "evidenceMask": 1,
+      "attType": 0,
+      "attValue": 0,
+      "paidAt": 5000,
+      "filedAt": 1000
+    },
+    "expect": {
+      "refundBps": 0,
+      "requiresReturn": false,
+      "ruleIndex": 255,
+      "matched": false
+    }
   },
   "first-match-wins": {
     "paymentId": 13,
@@ -234,17 +714,50 @@
       "disputeWindow": 1209600,
       "defaultRefundBps": 0,
       "rules": {
-        "claimType": [1, 1],
-        "requiredEvidenceMask": [1, 1],
-        "attType": [0, 0],
-        "attExpected": [0, 0],
-        "claimWindow": [1209600, 1209600],
-        "refundBps": [10000, 5000],
-        "requiresReturn": [true, false]
+        "claimType": [
+          1,
+          1
+        ],
+        "requiredEvidenceMask": [
+          1,
+          1
+        ],
+        "attType": [
+          0,
+          0
+        ],
+        "attExpected": [
+          0,
+          0
+        ],
+        "claimWindow": [
+          1209600,
+          1209600
+        ],
+        "refundBps": [
+          10000,
+          5000
+        ],
+        "requiresReturn": [
+          true,
+          false
+        ]
       }
     },
-    "input": { "claimType": 1, "evidenceMask": 1, "attType": 0, "attValue": 0, "paidAt": 1000, "filedAt": 5000 },
-    "expect": { "refundBps": 10000, "requiresReturn": true, "ruleIndex": 0, "matched": true }
+    "input": {
+      "claimType": 1,
+      "evidenceMask": 1,
+      "attType": 0,
+      "attValue": 0,
+      "paidAt": 1000,
+      "filedAt": 5000
+    },
+    "expect": {
+      "refundBps": 10000,
+      "requiresReturn": true,
+      "ruleIndex": 0,
+      "matched": true
+    }
   },
   "default-nonzero-applies-with-no-rules": {
     "paymentId": 14,
@@ -262,7 +775,1335 @@
         "requiresReturn": []
       }
     },
-    "input": { "claimType": 4, "evidenceMask": 0, "attType": 0, "attValue": 0, "paidAt": 1000, "filedAt": 5000 },
-    "expect": { "refundBps": 2500, "requiresReturn": false, "ruleIndex": 255, "matched": false }
+    "input": {
+      "claimType": 4,
+      "evidenceMask": 0,
+      "attType": 0,
+      "attValue": 0,
+      "paidAt": 1000,
+      "filedAt": 5000
+    },
+    "expect": {
+      "refundBps": 2500,
+      "requiresReturn": false,
+      "ruleIndex": 255,
+      "matched": false
+    }
+  },
+  "agent-partial-failure-clean-no-refund": {
+    "paymentId": 101,
+    "policy": {
+      "merchant": "0x00000000000000000000000000000000000000A2",
+      "disputeWindow": 3600,
+      "defaultRefundBps": 5000,
+      "rules": {
+        "claimType": [
+          8,
+          8,
+          8,
+          8,
+          8,
+          5,
+          6,
+          7
+        ],
+        "requiredEvidenceMask": [
+          16,
+          16,
+          16,
+          16,
+          16,
+          128,
+          48,
+          64
+        ],
+        "attType": [
+          2,
+          2,
+          2,
+          2,
+          2,
+          0,
+          0,
+          2
+        ],
+        "attExpected": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          0,
+          0,
+          2
+        ],
+        "claimWindow": [
+          3600,
+          3600,
+          3600,
+          3600,
+          3600,
+          3600,
+          3600,
+          3600
+        ],
+        "refundBps": [
+          0,
+          1000,
+          2500,
+          5000,
+          10000,
+          10000,
+          10000,
+          2500
+        ],
+        "requiresReturn": [
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false
+        ]
+      }
+    },
+    "input": {
+      "claimType": 8,
+      "evidenceMask": 16,
+      "attType": 2,
+      "attValue": 0,
+      "paidAt": 1700000000,
+      "filedAt": 1700000600
+    },
+    "expect": {
+      "refundBps": 0,
+      "requiresReturn": false,
+      "ruleIndex": 0,
+      "matched": true
+    }
+  },
+  "agent-partial-failure-minor": {
+    "paymentId": 102,
+    "policy": {
+      "merchant": "0x00000000000000000000000000000000000000A2",
+      "disputeWindow": 3600,
+      "defaultRefundBps": 5000,
+      "rules": {
+        "claimType": [
+          8,
+          8,
+          8,
+          8,
+          8,
+          5,
+          6,
+          7
+        ],
+        "requiredEvidenceMask": [
+          16,
+          16,
+          16,
+          16,
+          16,
+          128,
+          48,
+          64
+        ],
+        "attType": [
+          2,
+          2,
+          2,
+          2,
+          2,
+          0,
+          0,
+          2
+        ],
+        "attExpected": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          0,
+          0,
+          2
+        ],
+        "claimWindow": [
+          3600,
+          3600,
+          3600,
+          3600,
+          3600,
+          3600,
+          3600,
+          3600
+        ],
+        "refundBps": [
+          0,
+          1000,
+          2500,
+          5000,
+          10000,
+          10000,
+          10000,
+          2500
+        ],
+        "requiresReturn": [
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false
+        ]
+      }
+    },
+    "input": {
+      "claimType": 8,
+      "evidenceMask": 16,
+      "attType": 2,
+      "attValue": 1,
+      "paidAt": 1700000000,
+      "filedAt": 1700000600
+    },
+    "expect": {
+      "refundBps": 1000,
+      "requiresReturn": false,
+      "ruleIndex": 1,
+      "matched": true
+    }
+  },
+  "agent-partial-failure-moderate": {
+    "paymentId": 103,
+    "policy": {
+      "merchant": "0x00000000000000000000000000000000000000A2",
+      "disputeWindow": 3600,
+      "defaultRefundBps": 5000,
+      "rules": {
+        "claimType": [
+          8,
+          8,
+          8,
+          8,
+          8,
+          5,
+          6,
+          7
+        ],
+        "requiredEvidenceMask": [
+          16,
+          16,
+          16,
+          16,
+          16,
+          128,
+          48,
+          64
+        ],
+        "attType": [
+          2,
+          2,
+          2,
+          2,
+          2,
+          0,
+          0,
+          2
+        ],
+        "attExpected": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          0,
+          0,
+          2
+        ],
+        "claimWindow": [
+          3600,
+          3600,
+          3600,
+          3600,
+          3600,
+          3600,
+          3600,
+          3600
+        ],
+        "refundBps": [
+          0,
+          1000,
+          2500,
+          5000,
+          10000,
+          10000,
+          10000,
+          2500
+        ],
+        "requiresReturn": [
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false
+        ]
+      }
+    },
+    "input": {
+      "claimType": 8,
+      "evidenceMask": 16,
+      "attType": 2,
+      "attValue": 2,
+      "paidAt": 1700000000,
+      "filedAt": 1700000600
+    },
+    "expect": {
+      "refundBps": 2500,
+      "requiresReturn": false,
+      "ruleIndex": 2,
+      "matched": true
+    }
+  },
+  "agent-partial-failure-severe": {
+    "paymentId": 104,
+    "policy": {
+      "merchant": "0x00000000000000000000000000000000000000A2",
+      "disputeWindow": 3600,
+      "defaultRefundBps": 5000,
+      "rules": {
+        "claimType": [
+          8,
+          8,
+          8,
+          8,
+          8,
+          5,
+          6,
+          7
+        ],
+        "requiredEvidenceMask": [
+          16,
+          16,
+          16,
+          16,
+          16,
+          128,
+          48,
+          64
+        ],
+        "attType": [
+          2,
+          2,
+          2,
+          2,
+          2,
+          0,
+          0,
+          2
+        ],
+        "attExpected": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          0,
+          0,
+          2
+        ],
+        "claimWindow": [
+          3600,
+          3600,
+          3600,
+          3600,
+          3600,
+          3600,
+          3600,
+          3600
+        ],
+        "refundBps": [
+          0,
+          1000,
+          2500,
+          5000,
+          10000,
+          10000,
+          10000,
+          2500
+        ],
+        "requiresReturn": [
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false
+        ]
+      }
+    },
+    "input": {
+      "claimType": 8,
+      "evidenceMask": 16,
+      "attType": 2,
+      "attValue": 3,
+      "paidAt": 1700000000,
+      "filedAt": 1700000600
+    },
+    "expect": {
+      "refundBps": 5000,
+      "requiresReturn": false,
+      "ruleIndex": 3,
+      "matched": true
+    }
+  },
+  "agent-partial-failure-total": {
+    "paymentId": 105,
+    "policy": {
+      "merchant": "0x00000000000000000000000000000000000000A2",
+      "disputeWindow": 3600,
+      "defaultRefundBps": 5000,
+      "rules": {
+        "claimType": [
+          8,
+          8,
+          8,
+          8,
+          8,
+          5,
+          6,
+          7
+        ],
+        "requiredEvidenceMask": [
+          16,
+          16,
+          16,
+          16,
+          16,
+          128,
+          48,
+          64
+        ],
+        "attType": [
+          2,
+          2,
+          2,
+          2,
+          2,
+          0,
+          0,
+          2
+        ],
+        "attExpected": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          0,
+          0,
+          2
+        ],
+        "claimWindow": [
+          3600,
+          3600,
+          3600,
+          3600,
+          3600,
+          3600,
+          3600,
+          3600
+        ],
+        "refundBps": [
+          0,
+          1000,
+          2500,
+          5000,
+          10000,
+          10000,
+          10000,
+          2500
+        ],
+        "requiresReturn": [
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false
+        ]
+      }
+    },
+    "input": {
+      "claimType": 8,
+      "evidenceMask": 16,
+      "attType": 2,
+      "attValue": 4,
+      "paidAt": 1700000000,
+      "filedAt": 1700000600
+    },
+    "expect": {
+      "refundBps": 10000,
+      "requiresReturn": false,
+      "ruleIndex": 4,
+      "matched": true
+    }
+  },
+  "agent-attestor-silent-falls-to-default": {
+    "paymentId": 106,
+    "policy": {
+      "merchant": "0x00000000000000000000000000000000000000A2",
+      "disputeWindow": 3600,
+      "defaultRefundBps": 5000,
+      "rules": {
+        "claimType": [
+          8,
+          8,
+          8,
+          8,
+          8,
+          5,
+          6,
+          7
+        ],
+        "requiredEvidenceMask": [
+          16,
+          16,
+          16,
+          16,
+          16,
+          128,
+          48,
+          64
+        ],
+        "attType": [
+          2,
+          2,
+          2,
+          2,
+          2,
+          0,
+          0,
+          2
+        ],
+        "attExpected": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          0,
+          0,
+          2
+        ],
+        "claimWindow": [
+          3600,
+          3600,
+          3600,
+          3600,
+          3600,
+          3600,
+          3600,
+          3600
+        ],
+        "refundBps": [
+          0,
+          1000,
+          2500,
+          5000,
+          10000,
+          10000,
+          10000,
+          2500
+        ],
+        "requiresReturn": [
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false
+        ]
+      }
+    },
+    "input": {
+      "claimType": 8,
+      "evidenceMask": 16,
+      "attType": 0,
+      "attValue": 0,
+      "paidAt": 1700000000,
+      "filedAt": 1700000600
+    },
+    "expect": {
+      "refundBps": 5000,
+      "requiresReturn": false,
+      "ruleIndex": 255,
+      "matched": false
+    }
+  },
+  "agent-not-served-unreachable-full": {
+    "paymentId": 107,
+    "policy": {
+      "merchant": "0x00000000000000000000000000000000000000A2",
+      "disputeWindow": 3600,
+      "defaultRefundBps": 5000,
+      "rules": {
+        "claimType": [
+          8,
+          8,
+          8,
+          8,
+          8,
+          5,
+          6,
+          7
+        ],
+        "requiredEvidenceMask": [
+          16,
+          16,
+          16,
+          16,
+          16,
+          128,
+          48,
+          64
+        ],
+        "attType": [
+          2,
+          2,
+          2,
+          2,
+          2,
+          0,
+          0,
+          2
+        ],
+        "attExpected": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          0,
+          0,
+          2
+        ],
+        "claimWindow": [
+          3600,
+          3600,
+          3600,
+          3600,
+          3600,
+          3600,
+          3600,
+          3600
+        ],
+        "refundBps": [
+          0,
+          1000,
+          2500,
+          5000,
+          10000,
+          10000,
+          10000,
+          2500
+        ],
+        "requiresReturn": [
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false
+        ]
+      }
+    },
+    "input": {
+      "claimType": 5,
+      "evidenceMask": 128,
+      "attType": 0,
+      "attValue": 0,
+      "paidAt": 1700000000,
+      "filedAt": 1700000600
+    },
+    "expect": {
+      "refundBps": 10000,
+      "requiresReturn": false,
+      "ruleIndex": 5,
+      "matched": true
+    }
+  },
+  "agent-not-served-missing-probe-denied": {
+    "paymentId": 108,
+    "policy": {
+      "merchant": "0x00000000000000000000000000000000000000A2",
+      "disputeWindow": 3600,
+      "defaultRefundBps": 5000,
+      "rules": {
+        "claimType": [
+          8,
+          8,
+          8,
+          8,
+          8,
+          5,
+          6,
+          7
+        ],
+        "requiredEvidenceMask": [
+          16,
+          16,
+          16,
+          16,
+          16,
+          128,
+          48,
+          64
+        ],
+        "attType": [
+          2,
+          2,
+          2,
+          2,
+          2,
+          0,
+          0,
+          2
+        ],
+        "attExpected": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          0,
+          0,
+          2
+        ],
+        "claimWindow": [
+          3600,
+          3600,
+          3600,
+          3600,
+          3600,
+          3600,
+          3600,
+          3600
+        ],
+        "refundBps": [
+          0,
+          1000,
+          2500,
+          5000,
+          10000,
+          10000,
+          10000,
+          2500
+        ],
+        "requiresReturn": [
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false
+        ]
+      }
+    },
+    "input": {
+      "claimType": 5,
+      "evidenceMask": 16,
+      "attType": 0,
+      "attValue": 0,
+      "paidAt": 1700000000,
+      "filedAt": 1700000600
+    },
+    "expect": {
+      "refundBps": 5000,
+      "requiresReturn": false,
+      "ruleIndex": 255,
+      "matched": false
+    }
+  },
+  "agent-schema-violation-both-bits-full": {
+    "paymentId": 109,
+    "policy": {
+      "merchant": "0x00000000000000000000000000000000000000A2",
+      "disputeWindow": 3600,
+      "defaultRefundBps": 5000,
+      "rules": {
+        "claimType": [
+          8,
+          8,
+          8,
+          8,
+          8,
+          5,
+          6,
+          7
+        ],
+        "requiredEvidenceMask": [
+          16,
+          16,
+          16,
+          16,
+          16,
+          128,
+          48,
+          64
+        ],
+        "attType": [
+          2,
+          2,
+          2,
+          2,
+          2,
+          0,
+          0,
+          2
+        ],
+        "attExpected": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          0,
+          0,
+          2
+        ],
+        "claimWindow": [
+          3600,
+          3600,
+          3600,
+          3600,
+          3600,
+          3600,
+          3600,
+          3600
+        ],
+        "refundBps": [
+          0,
+          1000,
+          2500,
+          5000,
+          10000,
+          10000,
+          10000,
+          2500
+        ],
+        "requiresReturn": [
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false
+        ]
+      }
+    },
+    "input": {
+      "claimType": 6,
+      "evidenceMask": 48,
+      "attType": 0,
+      "attValue": 0,
+      "paidAt": 1700000000,
+      "filedAt": 1700000600
+    },
+    "expect": {
+      "refundBps": 10000,
+      "requiresReturn": false,
+      "ruleIndex": 6,
+      "matched": true
+    }
+  },
+  "agent-schema-violation-log-only-denied": {
+    "paymentId": 110,
+    "policy": {
+      "merchant": "0x00000000000000000000000000000000000000A2",
+      "disputeWindow": 3600,
+      "defaultRefundBps": 5000,
+      "rules": {
+        "claimType": [
+          8,
+          8,
+          8,
+          8,
+          8,
+          5,
+          6,
+          7
+        ],
+        "requiredEvidenceMask": [
+          16,
+          16,
+          16,
+          16,
+          16,
+          128,
+          48,
+          64
+        ],
+        "attType": [
+          2,
+          2,
+          2,
+          2,
+          2,
+          0,
+          0,
+          2
+        ],
+        "attExpected": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          0,
+          0,
+          2
+        ],
+        "claimWindow": [
+          3600,
+          3600,
+          3600,
+          3600,
+          3600,
+          3600,
+          3600,
+          3600
+        ],
+        "refundBps": [
+          0,
+          1000,
+          2500,
+          5000,
+          10000,
+          10000,
+          10000,
+          2500
+        ],
+        "requiresReturn": [
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false
+        ]
+      }
+    },
+    "input": {
+      "claimType": 6,
+      "evidenceMask": 16,
+      "attType": 0,
+      "attValue": 0,
+      "paidAt": 1700000000,
+      "filedAt": 1700000600
+    },
+    "expect": {
+      "refundBps": 5000,
+      "requiresReturn": false,
+      "ruleIndex": 255,
+      "matched": false
+    }
+  },
+  "agent-sla-breach-attested-partial": {
+    "paymentId": 111,
+    "policy": {
+      "merchant": "0x00000000000000000000000000000000000000A2",
+      "disputeWindow": 3600,
+      "defaultRefundBps": 5000,
+      "rules": {
+        "claimType": [
+          8,
+          8,
+          8,
+          8,
+          8,
+          5,
+          6,
+          7
+        ],
+        "requiredEvidenceMask": [
+          16,
+          16,
+          16,
+          16,
+          16,
+          128,
+          48,
+          64
+        ],
+        "attType": [
+          2,
+          2,
+          2,
+          2,
+          2,
+          0,
+          0,
+          2
+        ],
+        "attExpected": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          0,
+          0,
+          2
+        ],
+        "claimWindow": [
+          3600,
+          3600,
+          3600,
+          3600,
+          3600,
+          3600,
+          3600,
+          3600
+        ],
+        "refundBps": [
+          0,
+          1000,
+          2500,
+          5000,
+          10000,
+          10000,
+          10000,
+          2500
+        ],
+        "requiresReturn": [
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false
+        ]
+      }
+    },
+    "input": {
+      "claimType": 7,
+      "evidenceMask": 64,
+      "attType": 2,
+      "attValue": 2,
+      "paidAt": 1700000000,
+      "filedAt": 1700000600
+    },
+    "expect": {
+      "refundBps": 2500,
+      "requiresReturn": false,
+      "ruleIndex": 7,
+      "matched": true
+    }
+  },
+  "agent-sla-breach-wrong-severity-denied": {
+    "paymentId": 112,
+    "policy": {
+      "merchant": "0x00000000000000000000000000000000000000A2",
+      "disputeWindow": 3600,
+      "defaultRefundBps": 5000,
+      "rules": {
+        "claimType": [
+          8,
+          8,
+          8,
+          8,
+          8,
+          5,
+          6,
+          7
+        ],
+        "requiredEvidenceMask": [
+          16,
+          16,
+          16,
+          16,
+          16,
+          128,
+          48,
+          64
+        ],
+        "attType": [
+          2,
+          2,
+          2,
+          2,
+          2,
+          0,
+          0,
+          2
+        ],
+        "attExpected": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          0,
+          0,
+          2
+        ],
+        "claimWindow": [
+          3600,
+          3600,
+          3600,
+          3600,
+          3600,
+          3600,
+          3600,
+          3600
+        ],
+        "refundBps": [
+          0,
+          1000,
+          2500,
+          5000,
+          10000,
+          10000,
+          10000,
+          2500
+        ],
+        "requiresReturn": [
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false
+        ]
+      }
+    },
+    "input": {
+      "claimType": 7,
+      "evidenceMask": 64,
+      "attType": 2,
+      "attValue": 1,
+      "paidAt": 1700000000,
+      "filedAt": 1700000600
+    },
+    "expect": {
+      "refundBps": 5000,
+      "requiresReturn": false,
+      "ruleIndex": 255,
+      "matched": false
+    }
+  },
+  "agent-claim-window-boundary-inclusive": {
+    "paymentId": 113,
+    "policy": {
+      "merchant": "0x00000000000000000000000000000000000000A2",
+      "disputeWindow": 3600,
+      "defaultRefundBps": 5000,
+      "rules": {
+        "claimType": [
+          8,
+          8,
+          8,
+          8,
+          8,
+          5,
+          6,
+          7
+        ],
+        "requiredEvidenceMask": [
+          16,
+          16,
+          16,
+          16,
+          16,
+          128,
+          48,
+          64
+        ],
+        "attType": [
+          2,
+          2,
+          2,
+          2,
+          2,
+          0,
+          0,
+          2
+        ],
+        "attExpected": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          0,
+          0,
+          2
+        ],
+        "claimWindow": [
+          3600,
+          3600,
+          3600,
+          3600,
+          3600,
+          3600,
+          3600,
+          3600
+        ],
+        "refundBps": [
+          0,
+          1000,
+          2500,
+          5000,
+          10000,
+          10000,
+          10000,
+          2500
+        ],
+        "requiresReturn": [
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false
+        ]
+      }
+    },
+    "input": {
+      "claimType": 8,
+      "evidenceMask": 16,
+      "attType": 2,
+      "attValue": 4,
+      "paidAt": 1700000000,
+      "filedAt": 1700003600
+    },
+    "expect": {
+      "refundBps": 10000,
+      "requiresReturn": false,
+      "ruleIndex": 4,
+      "matched": true
+    }
+  },
+  "agent-claim-outside-window-denied": {
+    "paymentId": 114,
+    "policy": {
+      "merchant": "0x00000000000000000000000000000000000000A2",
+      "disputeWindow": 3600,
+      "defaultRefundBps": 5000,
+      "rules": {
+        "claimType": [
+          8,
+          8,
+          8,
+          8,
+          8,
+          5,
+          6,
+          7
+        ],
+        "requiredEvidenceMask": [
+          16,
+          16,
+          16,
+          16,
+          16,
+          128,
+          48,
+          64
+        ],
+        "attType": [
+          2,
+          2,
+          2,
+          2,
+          2,
+          0,
+          0,
+          2
+        ],
+        "attExpected": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          0,
+          0,
+          2
+        ],
+        "claimWindow": [
+          3600,
+          3600,
+          3600,
+          3600,
+          3600,
+          3600,
+          3600,
+          3600
+        ],
+        "refundBps": [
+          0,
+          1000,
+          2500,
+          5000,
+          10000,
+          10000,
+          10000,
+          2500
+        ],
+        "requiresReturn": [
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false
+        ]
+      }
+    },
+    "input": {
+      "claimType": 8,
+      "evidenceMask": 16,
+      "attType": 2,
+      "attValue": 4,
+      "paidAt": 1700000000,
+      "filedAt": 1700003601
+    },
+    "expect": {
+      "refundBps": 5000,
+      "requiresReturn": false,
+      "ruleIndex": 255,
+      "matched": false
+    }
   }
 }
