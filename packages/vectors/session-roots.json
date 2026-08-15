@@ -1,0 +1,38 @@
+{
+  "evidence": {
+    "evidence-all-four-bits": {
+      "evidenceMask": 240,
+      "evidenceRoot": "0x660517a9d23246f6edd220468ab1891648a5a4e4ccc3652ace365ab0bd4f46f1"
+    },
+    "evidence-empty": {
+      "evidenceMask": 0,
+      "evidenceRoot": "0x0000000000000000000000000000000000000000000000000000000000000000"
+    },
+    "evidence-log-and-schema": {
+      "evidenceMask": 48,
+      "evidenceRoot": "0x1c48ae5b2dbab1d4784acb122ffb7dd5371e2dc90f8dfa1536162872f7b489f6"
+    },
+    "evidence-log-root-only": {
+      "evidenceMask": 16,
+      "evidenceRoot": "0x0af4dd5e82a589e3725ffd1c1a845f4e2c9bcdfd392614216b2bff4492fa8f8a"
+    },
+    "evidence-order-swapped": {
+      "evidenceMask": 48,
+      "evidenceRoot": "0x853b97c0eca3363a2a437b1271801a9da0aa0e8d69290ce44ec7f926cddbdbac"
+    },
+    "evidence-unreachable-only": {
+      "evidenceMask": 128,
+      "evidenceRoot": "0xb34790c107d7a606c90d9f4890889e1ca51d76967f88e2bff49cf5eeac6c0136"
+    }
+  },
+  "sessions": {
+    "session-all-clean": "0x6bd5f121172aadc9ef80aa61f233e45005ff14224701924bb4b70b9122bb3cf6",
+    "session-empty": "0x0000000000000000000000000000000000000000000000000000000000000000",
+    "session-large": "0xeb816ca79ddf1e59a2f3d52d5780c140b8322bb8658a650177d289de9528833f",
+    "session-mixed-failures": "0xc995186250fb2513bd3a0595e6490c4c07b52d4ec0c1f1520fdbe28e8f1f6941",
+    "session-one-schema-failure": "0xac0b7f0f7a20a2261339e653b6b50c23fa00c477bc19862d658f294bd0c19684",
+    "session-order-sensitive-a": "0x0eeecf1b61a391e120f13a5afbcba5b4f650c00e46b013e22395018577703f08",
+    "session-order-sensitive-b": "0xe3444549b06ba3fe6f921670972f7085ac8f2c644a4d1423fbbc289029c494a8",
+    "session-single-clean": "0x52ca8e341ddaa185c5507b633ce2eecdc6d42e9e9dcdcc0e577447a0986c7d6e"
+  }
+}
