@@ -14,4 +14,13 @@ fs_permissions = [
     { access = "read-write", path = "../deployments" },
 ]
 
+# 32k calls per invariant. Below the defaults so the suite stays usable during
+# development; the handler swallows reverts, so afterInvariant asserts the run
+# actually reached paid, disputed, attested and settled states rather than passing
+# on an empty sequence.
+[invariant]
+runs = 128
+depth = 256
+fail_on_revert = false
+
 # See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options
