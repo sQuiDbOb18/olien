@@ -139,12 +139,15 @@ proposals (
   "to", value, data, operation, safe_tx_gas, base_gas, gas_price, gas_token, refund_receiver,
   kind, intent JSONB,                        -- decoded meaning: recipients, amounts, memo, invoice ids
   proposer_address, origin,
-  status,                                    -- draft | open | ready | executing | executed | failed | cancelled | replaced
-  replaces_proposal_id NULL, execute_after NULL, executed_tx bytea, executed_at, created_at
+  status,                                    -- draft | open | ready | executing | executed | failed | cancelled | replaced | stale
+  replaces_proposal_id NULL, execute_after NULL, expires_at,   -- a proposal nobody executed lapses; see 06 §5
+  owners_snapshot JSONB,                     -- owners and threshold when proposed; a change makes it stale
+  executed_tx bytea, executed_at, created_at
 )
 confirmations (
   proposal_id, owner_address, signature bytea, signature_type, -- eoa | eth_sign | contract | approved_hash
-  signed_at, UNIQUE (proposal_id, owner_address)
+  signed_at, expires_at,                     -- the service will not relay a signature older than the policy allows
+  UNIQUE (proposal_id, owner_address)
 )
 policies (
   id, treasury_id, tier,                     -- hard | soft

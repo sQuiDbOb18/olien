@@ -108,6 +108,15 @@ Cost: about 44k gas more than an EOA signature. The Recovery Key never takes par
 it can only sign owner swaps on the account itself, so a compromised Recourse cannot
 vote in anyone's treasury.
 
+## Sub-accounts
+
+Squads gives a treasury numbered vaults under one member set. The Safe equivalent
+is a child Safe whose single owner is the parent Safe (threshold 1): the parent's
+members approve as usual, the child holds a budget, an allowance or a guard scoped to
+its purpose (payroll, a vendor programme, a card), and the ledger shows both. A child
+executes through the parent's signature, which is one nested contract signature,
+the same shape as a Recourse member. Nothing to write.
+
 ## Deploying a treasury
 
 ```

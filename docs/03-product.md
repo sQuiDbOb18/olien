@@ -87,5 +87,8 @@ approve and execute, and pushes on new proposals.
 
 Free for a treasury with up to three members and manual payments. Paid tiers for
 payroll runs, approval policies, exports and API access, priced per treasury per
-month, which is how Squads and the Safe-based products charge. FX spread on
-conversions. No AUM fee.
+month. Benchmarks: Squads charges 49 USD a month for Pro (sub-accounts, fee relayer,
+permissions) and lets the treasury pay it through a monthly spending limit drawn from
+its own vault; its developer product starts at 499 USD a month. The same trick works
+here: the subscription is an Allowance the treasury grants to the service, visible
+and revocable like any other rule. FX spread on conversions. No AUM fee.

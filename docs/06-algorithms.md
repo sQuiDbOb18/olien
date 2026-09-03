@@ -118,6 +118,18 @@ Reconciliation runs on every indexed block: `chainNonce = Safe.nonce()`; any ope
 proposal with `nonce < chainNonce` is `executed` (if its hash appears in the logs) or
 `replaced`.
 
+- **Expiry.** A proposal lapses at `expires_at` (default 7 days) and its signatures
+  with it; the service will not relay them afterwards and the client asks for fresh
+  ones. A signature over `safeTxHash` stays valid on-chain until the nonce moves, so
+  this is a service rule, not a chain rule; what makes it matter is that a phished or
+  stockpiled approval is not silently executable months later (the Drift treasury
+  lost about 285M USD in April 2026 to approvals collected early and executed late).
+  On-chain expiry needs a deadline inside the transaction; see `09-open-questions.md`.
+- **Stale after a rule change.** When owners, threshold, modules or the guard change,
+  every open proposal is marked `stale` and must be re-approved; Squads does the same
+  with its stale transaction index. The signatures may still be valid on-chain, so
+  the client says so and offers to cancel the slot.
+
 ## 6. Policy evaluation
 
 Hard policies are on-chain and the service only predicts them (so a member is not

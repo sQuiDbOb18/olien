@@ -39,6 +39,12 @@ way. Each has an owner (you, unless it says research) and a way to settle it.
    two members confirm a new address, and the first payment to it is capped by
    policy.
 
+8b. **On-chain expiry for approvals.** Safe 1.4.1 transactions carry no deadline, so
+   a signature is good until the nonce moves. Service-side expiry covers the common
+   case; a hard version means routing transfers through a small executor contract
+   that checks a deadline in the calldata, or waiting for a Safe release with
+   expiring signatures. Decide after phase 3, with data on how long approvals sit.
+
 ## Chain
 
 9. **Mainnet.** No published addresses or date. Everything here is deterministic

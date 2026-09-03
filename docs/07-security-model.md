@@ -87,6 +87,22 @@ next-day job rather than a week.
   seen the raw bytes and a warning.
 - Let a soft policy lower the number of required signatures below the threshold.
 
+## Lessons taken from incidents elsewhere
+
+- **Drift, April 2026 (Squads, 2-of-5, no time lock).** Signers were led to approve
+  proposals whose execution was held back and fired later. Taken: approvals expire
+  (`06-algorithms.md` §5), a rule change makes open proposals stale, a time lock on
+  rule changes is on by default for treasuries above a size, and the client never
+  shows an approval as "safe to give" without the decoded intent and the hash.
+- **Safe front end, February 2025.** A hostile build of the web client showed one
+  transaction and had signers approve another. Taken: the hash on the hardware
+  device is the truth; the service exposes it everywhere; unreadable calldata is
+  flagged; a static, verifiable build of the client is published so members can
+  check what they are running, as Squads does with its public client.
+- **Chains where the program is frozen cannot fix bugs.** Safe 1.4.1 is not
+  upgradeable either, which is a feature, so the rules that need to evolve live in
+  modules and in the service, never in a fork of the account.
+
 ## Incident playbook, minimum
 
 - Relayer key leak: rotate the key, top up the new one, the treasuries are unaffected.
