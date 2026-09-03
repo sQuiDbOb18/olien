@@ -172,11 +172,36 @@ This design uses both and labels which is which.
   Safe through its transaction service. Safe{Wallet}'s own export is a value-only CSV
   and a local address book CSV. US rules to know: ASC 350-60 fair-value accounting
   for digital assets from fiscal 2025; 1099-DA broker reporting from 2025 sales.
-- **Payroll products**: Request Finance (invoices, bills, payroll, approval policies
-  with departments, Safe app), Rise (entity and roles model, batch payments, fiat
-  and crypto in 190 countries), Toku (contractor to EOR tiers), Sablier (streams).
-  Utopia Labs' team went to Coinbase in 2024; Coinshift sunset its Safe treasury
-  product in March 2026. The category is not crowded on any chain, and empty on Arc.
+- **Payroll products**, from their docs and contracts:
+  - *Rise*: pay cycles weekly to monthly with auto-payroll; every action is an
+    on-chain transaction on Arbitrum signed as EIP-712 typed data and **Rise pays the
+    gas**; a "RiseID" contract holds a company's wallets with roles, and a Safe can
+    be its owner or delegate; workers hold a Rise balance and choose fiat or crypto
+    each cycle (a pull after the payer pushed); 1099 and W-8/W-9 issued
+    automatically; 49 USD per contractor a month.
+  - *Toku*: the compliance layer (EOR and AOR in 100+ countries, withholding computed
+    on fiat-denominated gross, token grant administration); employers fund a
+    payroll wallet in USDC, recipients receive to any wallet including multisigs.
+  - *Request Finance*: salaries are invoices with a recurring rule; batch payments
+    from CSV with one approval through `BatchNoConversionPayments`, which pulls the
+    tokens once and distributes through the fee proxy with a fee in basis points
+    capped at 150 USD; a Safe app for bill pay; stablecoin payouts free, fiat
+    off-ramp 0.5 percent.
+  - *Streams*: Superfluid (funds stay in the sender's balance, a buffer covers
+    insolvency, sentinels close streams), Sablier Lockup (deposit locked up front)
+    and Flow (no deposit, contract tracks debt, pause and refund), LlamaPay (shared
+    payer balance, fee-free), Hedgey (vesting plans as NFTs). None needed for a
+    first version; the batch plus the cheque covers what a team pays monthly.
+  - *Franklin* (non-custodial, gas-subsidised, W-2 and 1099), *Deel* (custodial
+    withdrawals through Coinbase at 1.5 percent). Utopia Labs' team went to Coinbase
+    in 2024; Coinshift sunset its Safe treasury product in March 2026; Parcel is
+    gone. The category is thin on every chain and empty on Arc.
+- **Circle's own pieces a payroll on Arc can use**: the Compliance Engine screens
+  inbound and outbound transfers per call (DENIED and REVIEW decisions), Gateway
+  gives a unified USDC balance across chains with a 7-day trustless withdrawal, CCTP
+  v2 moves USDC to and from Arc in seconds. x402, Coinbase's payments protocol, uses
+  the same `transferWithAuthorization` this design uses for cheques, with random
+  32-byte nonces and a validity window that starts ten minutes in the past.
 
 ## Consumer wallets that inform the member model
 

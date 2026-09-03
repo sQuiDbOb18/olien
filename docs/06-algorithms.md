@@ -249,6 +249,12 @@ emits `TransferWithReference(token, to, amount, reference)`) when the payout goe
 through a transfer; for cheques, the reference is the invoice id the recipient
 already holds. The ledger stores the reference on the entry either way.
 
+A recipient with no wallet gets a Recourse account: the invite is an @handle claim,
+the account is a Safe, and the first payout lands there. Recipients that must be
+screened go through Circle's Compliance Engine before the run is proposed, and a
+REVIEW or DENIED decision removes the row and says so. Tax documents are not in the
+first version; the ledger keeps what a Toku or Rise integration would need later.
+
 Two USDC-native options a payroll product elsewhere cannot offer:
 
 - **Cheques as payables.** A run can issue EIP-3009 authorizations signed by the

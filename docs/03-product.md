@@ -43,6 +43,11 @@ that caused it and the invoice or payroll run it belonged to. Exports for the
 accountant. Balances in USDC and EURC, and conversion between them through Arc's FX
 when a team holds both.
 
+**Getting paid.** A recipient needs nothing but an @handle: the invite makes a
+Recourse account, the payout lands in it, and the payslip is a ledger entry with the
+transaction hash. Recipients who prefer their own wallet or a hardware wallet give an
+address; the address book records who vouched for it.
+
 **Members that are people, not keys.** A Recourse account is a member like any
 other. Its owner approves with Face ID; if they lose the phone, their own recovery
 brings them back without the treasury changing anything.
