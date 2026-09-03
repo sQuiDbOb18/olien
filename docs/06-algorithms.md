@@ -173,10 +173,13 @@ refundReceiver= relayer
 gasToken      = address(0)    # native = USDC on Arc
 ```
 
-The Safe transfers `min(gasUsed + baseGas, safeTxGas + baseGas) * gasPrice` of
-native USDC to the relayer inside the same transaction, so the relayer's balance
-only drifts by the difference between the cap and the actual price. Alarm when the
-relayer key falls below a day of expected executions.
+Safe 1.4.1 pays `(gasUsed + baseGas) * min(gasPrice, tx.gasprice)` of the native
+token, USDC on Arc, to `refundReceiver` (or `tx.origin` when zero) inside the same
+transaction, so the relayer's balance only drifts by the difference between the cap
+and the actual price. With `gasPrice > 0`, `safeTxGas` is a strict limit on the inner
+call, so estimate it and add a margin. Alarm when the relayer key falls below a day
+of expected executions. For scale: Safe's own benchmarks put a 2-of-2 ERC-20
+transfer at about 90k gas and each extra ECDSA signature at about 7k.
 
 **User operation** (the consumer path, also fine for a team):
 `executeUserOp(to, value, data, operation)` through the 4337 module, priced with

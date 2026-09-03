@@ -17,7 +17,7 @@ Owners are any of:
 | Owner kind | What signs | On-chain shape |
 | --- | --- | --- |
 | EOA (browser wallet, hardware wallet) | secp256k1 over `safeTxHash` or `eth_sign` | 65-byte signature |
-| Passkey signer | WebAuthn P-256 | `SafeWebAuthnSignerFactory` proxy (to deploy) or our `P256Owner` for raw P-256 |
+| Passkey signer | WebAuthn P-256 | `SafeWebAuthnSignerFactory` proxy (factory to deploy; its `FCLP256Verifier` and the shared signer are already on Arc) or our `P256Owner` for raw P-256 |
 | Recourse consumer account | its own two keys | nested contract signature (proven) |
 | Another treasury Safe (a subsidiary, a DAO) | its owners | nested contract signature |
 
@@ -29,9 +29,9 @@ service.
 | Need | Mechanism | Status on Arc | Action |
 | --- | --- | --- | --- |
 | One-signature spending under a cap, per member, per period | Safe **Allowance module** v0.1.1 (`allowances[safe][delegate][token]`: amount, spent, resetTimeMin, lastResetMin; `executeAllowanceTransfer` with the delegate's signature; **no destination check**, so pair it with the service's allowlist or the guard) | **present** at `0xAA46724893dedD72658219405185Fb0Fc91e091C`, registered for mainnet 5042 too | use; pin the bytecode hash |
-| Time lock on member, threshold, module and policy changes | **Zodiac Delay** modifier (mastercopy + EIP-1167 proxy per Safe via `ModuleProxyFactory`; `txCooldown`, `txExpiration`, queue with `executeNextTx`, `skipExpired`) | absent | deploy `ModuleProxyFactory` and the Delay mastercopy at canonical addresses; the Safe enables the Delay as a module and the service submits owner changes through it |
+| Time lock on member, threshold, module and policy changes | **Zodiac Delay** modifier (mastercopy + EIP-1167 proxy per Safe via `ModuleProxyFactory`; `setUp(owner, avatar, target, cooldown, expiration)`; queued calls execute by anyone after `txCooldown`, lapse after `txExpiration`, are cancelled by the owner advancing `txNonce`). This is also what Safe{Wallet}'s own recovery feature deploys | absent; the ERC-2470 factory its mastercopies deploy through is present, and Nick's factory for the proxy factory | deploy the mastercopy (2.0.0) and `ModuleProxyFactory` at canonical addresses with the published salts; the Safe enables the Delay as a module and the service submits owner changes through it |
 | Deny unreadable or disallowed calls at execution | **Guard** (`checkTransaction` before, `checkAfterExecution` after) | none | write `TreasuryGuard` (below) only if a hard allowlist is demanded; otherwise none, because a guard that reverts can also brick a Safe if it is buggy |
-| Lost-key recovery for treasuries whose members are EOAs | **Candide social recovery** (guardians, threshold, grace period) or the Recourse pattern (a Recourse account as member already has recovery) | absent | later; a treasury of Recourse accounts needs nothing here |
+| Lost-key recovery for treasuries whose members are EOAs | **Safe SocialRecoveryModule v0.1.0** (guardians with a threshold; `confirmRecovery` by signature, `finalizeRecovery` by anyone after the 14-day period, `cancelRecovery` by the Safe; audited by Ackee, Nethermind and Certora) | **present** at `0x4Aa5Bf7D840aC607cb5BD3249e6Af6FC86C04897` | offer to treasuries whose members are all plain keys; a treasury with Recourse members needs nothing here |
 | Batch many transfers in one approval | `MultiSendCallOnly` (delegatecall) | present | use |
 | Gas paid by the Safe | native refund in `execTransaction`, or the 4337 module | present | use |
 | Cheques and invoices from the treasury | USDC EIP-3009 with 1271 | present, verified | use the consumer app's cheque code with the treasury as writer |
@@ -107,6 +107,10 @@ Verified in `0x242880bba98c628f8bfe1dcf18bd7ab63bc66a66d8d51c5a29f34a1d43044fce`
 Cost: about 44k gas more than an EOA signature. The Recovery Key never takes part:
 it can only sign owner swaps on the account itself, so a compromised Recourse cannot
 vote in anyone's treasury.
+
+Safe's own SDK signs this shape too: protocol-kit's `SigningMethod.SAFE_SIGNATURE`
+with `preimageSafeAddress` produces exactly the nested contract signature for Safe
+1.3.0 and 1.4.1 owners, so a treasury built here stays readable by Safe tooling.
 
 ## Sub-accounts
 

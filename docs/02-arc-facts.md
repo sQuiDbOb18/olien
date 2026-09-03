@@ -73,6 +73,10 @@ Canonical Safe 1.4.1, listed as `"5042002": "canonical"` in `safe-deployments`
 | SafeWebAuthnSharedSigner | `0x94a4F6affBd8975951142c3999aEAB7ecee555c2` | 2,954 |
 | Safe singleton factory | `0x914d7Fec6aaC8cd542e72Bca78B30650d45643d7` | 69 |
 | **Safe Allowance module v0.1.1** | `0xAA46724893dedD72658219405185Fb0Fc91e091C` | 14,908 |
+| SafeL2 1.5.0 singleton | `0xEdd160fEBBD92E350D4D398fb636302fccd67C7e` | 22,231 |
+| **Safe SocialRecoveryModule v0.1.0** (14-day period; guardians, `confirmRecovery`, `finalizeRecovery`, `cancelRecovery`) | `0x4Aa5Bf7D840aC607cb5BD3249e6Af6FC86C04897` | 13,606 |
+| FCLP256Verifier (Solidity P-256, used by Safe's passkey signers) | `0xA86e0054C51E4894D88762a017ECc5E5235f5DBA` | 5,770 |
+| ERC-2470 singleton factory (what Zodiac mastercopies deploy through) | `0xce0042B868300000d44A59004Da54A005ffdcf9f` | 308 |
 
 The Allowance module is registered in `safe-modules-deployments` for both 5042002
 and mainnet 5042 (an earlier draft of this page looked at the v0.1.0 address,
@@ -85,10 +89,11 @@ and mainnet 5042 (an earlier draft of this page looked at the v0.1.0 address,
 `0x01F8cabB808D7dE0dF4202D4B60C8310d2f1339b`, 2.0.0
 `0x66C985001328Db254F27C8A037Ebb409a5d669C2`, from the repository's
 `mastercopies.json`, each with its deployment factory and salt), Zodiac Roles v2 mastercopy
-(`0x9646fDAD06d3e24444381f44362a3B0eB343D337`), Candide social recovery
-(`0x38275826E1933303E508433dD5f289315Da2541c`), Safe Recovery Hub,
-SafeWebAuthnSignerFactory (`0x1d31F259eE307358a26dFb23EB365939E8641195`), Gelato
-relay. All of these deploy deterministically through the Safe singleton factory or
+(`0x9646fDAD06d3e24444381f44362a3B0eB343D337`), Candide's 3-day recovery variant
+(`0x38275826E1933303E508433dD5f289315Da2541c`), SafeWebAuthnSignerFactory
+(`0x1d31F259eE307358a26dFb23EB365939E8641195`), the Allowance module v1.0.0
+(`0x691f59471Bfd2B7d639DCF74671a2d648ED1E331`, not in Safe's deployments repository),
+Gelato relay. All of these deploy deterministically through the Safe singleton factory or
 the Arachnid CREATE2 proxy (`0x4e59b44847b379578588920ca78fbf26c0b4956c`, present), so
 they can be put at their canonical addresses by anyone; see `05-onchain-design.md`.
 
@@ -129,6 +134,16 @@ team treasury with no extra contracts: Safe 1.4.1 verifies a contract owner thro
 the legacy `isValidSignature(bytes,bytes)`, the inner Safe wraps the outer
 transaction bytes in its own `SafeMessage`, and its owners sign that. The packed
 outer signature was 418 bytes; the inner one 226.
+
+## Safe's own gas numbers, for comparison
+
+From the `safe-smart-account` v1.4.1 benchmark suite run locally (Hardhat): proxy
+creation with fallback handler 166,349 gas for one owner, 189,813 for two, 213,265
+for three; `execTransaction` native transfer 58,730 (1-of-1), 65,796 (2-of-2),
+72,862 (3-of-3), about 7,060 per extra ECDSA signature; an ERC-20 transfer at 2-of-2
+90,041; a guard adds about 5,800. Arc's numbers above are higher because the USDC
+transfer runs through the chain's token implementation and the 4337 path adds the
+EntryPoint; the ratios hold.
 
 ## What this means for the product
 

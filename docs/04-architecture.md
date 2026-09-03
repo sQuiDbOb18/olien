@@ -47,9 +47,16 @@ modules that can be split later, not services that must be separate now.
 ### Transaction service
 
 Owns proposals and confirmations. It is not Safe's transaction service, but its API
-follows Safe's shapes where they matter (`safeTxHash`, `confirmations[]`,
-`nonce`, `origin`) so Safe{Core} SDK clients and Safe{Wallet} could point at it later
-(see `08-roadmap-and-grants.md`).
+mirrors the paths and fields that Safe's SDK and wallet rely on, so `api-kit` can be
+pointed at it by URL and a Safe{Wallet} deployment could follow later:
+`POST /api/v1/safes/{address}/multisig-transactions/` with `to, value, data,
+operation, safeTxGas, baseGas, gasPrice, gasToken, refundReceiver, nonce,
+contractTransactionHash, sender, signature, origin`; `POST
+/api/v1/multisig-transactions/{safeTxHash}/confirmations/` with `signature`;
+`POST .../estimations/`; `GET /api/v1/safes/{address}/` with owners, threshold,
+nonce, modules and guard. Confirmation `signature_type` uses Safe's names: `EOA`,
+`ETH_SIGN`, `approved_hash`, `contract_signature`. Everything beyond that (intent,
+policies, ledger, payroll) lives under `/api/treasuries` and is ours.
 
 Responsibilities:
 

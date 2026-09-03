@@ -86,13 +86,55 @@ entire product layer (Safe{Wallet}, the transaction
 service, the client gateway, chain registration in Safe's deployment lists for
 modules).
 
+Also live on Arc, found by reading code: SafeL2 1.5.0, the Allowance module v0.1.1,
+Safe's SocialRecoveryModule v0.1.0 (14 days), the shared WebAuthn signer with its
+Solidity P-256 verifier, and the ERC-2470 factory the Zodiac modules deploy through.
+
 Safe's shape that this design keeps: owners and threshold on the account; `SafeTx`
 EIP-712 hashing with a two-field domain; signatures packed in owner order with
 contract owners verified through the legacy `isValidSignature(bytes,bytes)`; modules
 that execute through `execTransactionFromModule`; guards that run before and after
-every execution; native gas refunds to a relayer. The details of Safe's transaction
-service, its new-network process and the module audits are added to this document
-as the research lands.
+every execution; native gas refunds to a relayer.
+
+**The transaction service** (`safe-transaction-service`, v6.10.1 in August 2026) is
+Django and Postgres with Redis, RabbitMQ and Celery workers. It stores
+`MultisigTransaction` (safe, to, value, data, operation, the five gas fields, nonce,
+`safe_tx_hash`, proposer, origin, trusted), `MultisigConfirmation` (owner, signature,
+`signature_type` in EOA, ETH_SIGN, approved_hash, contract_signature), a
+`SafeStatus` per Safe (owners, threshold, nonce, master copy, fallback handler,
+guard, modules), module transactions, token transfers and delegates. On L2-style
+chains it indexes with `eth_getLogs` only (50 blocks per pass, 20 concurrent), which
+is the mode Arc needs. Its REST shape: propose with `POST
+/api/v1/safes/{address}/multisig-transactions/` (the body carries the transaction
+fields, `contractTransactionHash`, `sender`, `signature`, `origin`; the hash must
+match what the service computes and the sender must be an owner or delegate), confirm
+with `POST /api/v1/multisig-transactions/{safeTxHash}/confirmations/`, estimate with
+`.../estimations/`, read with `GET /api/v1/safes/{address}/` and
+`.../all-transactions/`. Safe{Wallet} talks to it through a client gateway and a
+config service that holds per-chain metadata (RPCs, explorer templates, relay type).
+
+**Getting a chain into Safe{Wallet}** is a form and a scoring framework: quarterly
+rollouts, medium and large chains only, at least two dedicated RPC providers with one
+of Infura, Alchemy or QuickNode preferred (Alchemy is on Arc), and someone to host
+the service, either Safe, a "Safe Guardian" such as Protofire (120 networks, contracts
+plus indexing plus interface), or the chain's own team. Contracts go through the
+singleton-factory repository, reviewed every two weeks, with bytecode verified in CI.
+No fee is stated and no chain-expansion grant exists; the Safe Ecosystem Foundation's
+grants have six categories, none of which is this.
+
+**The SDK** resolves Arc without custom addresses because the deployments file lists
+the chain; `protocol-kit` builds, hashes and signs `SafeTx` (including nested Safe
+signatures via `SigningMethod.SAFE_SIGNATURE` with `preimageSafeAddress`), `api-kit`
+talks to any transaction service by URL, and `relay-kit`'s `Safe4337Pack` targets the
+0.3.0 module and EntryPoint v0.7 with custom contract addresses. Gelato's relay
+through the SDK ended on 2026-09-01; Safe{Wallet}'s gasless path now goes through
+Rhinestone's orchestrator with a daily throttle. Safe's own gas refund pays whoever
+`refundReceiver` names, `(gasUsed + baseGas) * min(gasPrice, tx.gasprice)` in the
+native token, which on Arc is USDC.
+
+**Scale**: 63M accounts, about 130M transactions and 39B USD of transfer volume in
+the second quarter of 2026, on more than 200 EVM networks; Safe reported over 10M USD
+of annualised revenue in 2025 from swap fees, staking and licensing.
 
 ## Who is on Arc already
 

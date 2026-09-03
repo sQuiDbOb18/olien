@@ -5,11 +5,12 @@ way. Each has an owner (you, unless it says research) and a way to settle it.
 
 ## Product
 
-1. **Safe{Wallet} compatibility or our own client first?** Staying API-compatible
-   with Safe's transaction service keeps the option of Safe listing the chain and
-   pointing at our service. Settle by asking Safe (their new-network process) what
-   they require and whether a third-party service is acceptable; see
-   `08-roadmap-and-grants.md`.
+1. **Safe{Wallet} compatibility or our own client first?** Half settled: Safe's
+   process is public (a form, a scoring framework, quarterly rollouts, two RPC
+   providers, a hosted service) and third-party hosting is normal (Protofire runs it
+   for 120 networks). Our service mirrors the proposal and confirmation API, so both
+   paths stay open. What remains is whether to spend the hosting effort before or
+   after our own client has users; the draft says after.
 2. **Who is the first customer?** A team on Arc testnet today, or the consumer app's
    own users forming teams? Settle by three conversations with Arc pilot teams once
    the market research names them.

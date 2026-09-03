@@ -61,8 +61,12 @@ The transaction service and the web console, treasuries with EOA and hardware me
 - Third-party review of `P256Owner` and, if used, `TreasuryGuard`.
 - Second RPC for execution-gating reads; explorer cross-check.
 - Static, verifiable build of the web client; pinned third-party scripts.
-- Optional: Safe transaction-service API compatibility so Safe{Wallet} can point at
-  this service if Safe lists the chain.
+- Optional: Safe{Wallet} for Arc. Safe's process wants a scored, medium-or-large
+  chain, two dedicated RPC providers with one of Alchemy, Infura or QuickNode
+  (Alchemy is on Arc), and a hosted transaction service in events mode plus a config
+  entry and a client gateway, run by Safe, by a Guardian such as Protofire, or by us.
+  Our service already mirrors the transaction-service API for proposals and
+  confirmations, so this is hosting and a form, not a rewrite.
 
 Total to a product with rules and payroll: about 11 weeks, with the consumer app
 continuing to ship on the same rails.

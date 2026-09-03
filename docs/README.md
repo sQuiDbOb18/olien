@@ -27,8 +27,7 @@ owner contract, and a bundler path with USDC as gas.
 
 ## Status (2026-09-03)
 
-Research complete except for Safe's transaction-service internals, which are being
-added to `01-landscape.md` and `04-architecture.md`. Every on-chain claim in
+Research complete. Every on-chain claim in
 `02-arc-facts.md` is backed by a transaction or a code read on Arc testnet. The
 market, grants, policy-engine, payroll, invoicing and incident sections come from
 primary sources fetched the same day; each carries its URL or document name.
