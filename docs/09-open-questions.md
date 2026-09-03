@@ -23,9 +23,11 @@ way. Each has an owner (you, unless it says research) and a way to settle it.
    with many signers and needs no bundler dependency; user operations need no relayer
    key of ours. Draft: relay for treasuries, user operations for consumer accounts,
    both indexed the same way. Settle by measuring failure modes on testnet under load.
-5. **Does Arc's RPC expose `debug_traceCall` for simulation with balance deltas?**
-   Not yet tested. If not, simulation is decoded intent plus `eth_call`, labelled as
-   expected rather than simulated.
+5. **Simulation.** Settled 2026-09-03. Neither public RPC offers `debug_traceCall`
+   (drpc: paid plan only; official: unsupported). drpc does answer `eth_simulateV1`
+   and both accept `eth_call` state overrides, so simulation is `eth_simulateV1`
+   with `traceTransfers` for balance deltas where available, and `eth_call` with
+   decoded intent labelled "expected" elsewhere. See `06-algorithms.md` §11.
 6. **Contract signatures and gas caps.** A treasury of several Recourse accounts pays
    about 44k gas more per nested signature. At 25 gwei that is a cent; if mainnet gas
    is much higher it changes the tier recommendations, not the design.
@@ -43,8 +45,9 @@ way. Each has an owner (you, unless it says research) and a way to settle it.
    (Safe singleton factory, CREATE2), so the day-one job is a deploy script and a
    verification run, not a redesign.
 10. **Blocklist behaviour.** USDC transfers to a blocklisted address revert at
-    runtime. A payroll batch with one blocked recipient fails whole; the service must
-    pre-check `isBlacklisted` per recipient and split the batch.
+    runtime. A payroll batch with one blocked recipient fails whole. Settled: the
+    token exposes `isBlacklisted(address)` on Arc (checked 2026-09-03), so the service
+    pre-checks every recipient and splits the batch before proposing.
 11. **Privacy features.** Arc's opt-in confidential transfers, if they ship, change
     what the ledger can show to viewers versus members. Track, do not design for yet.
 

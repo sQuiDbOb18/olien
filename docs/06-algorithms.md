@@ -243,14 +243,27 @@ Two USDC-native options a payroll product elsewhere cannot offer:
 
 ## 11. Simulation before signing
 
-Every client shows the result of `eth_call` of `execTransaction` with the collected
-signatures plus a placeholder for the missing ones (Safe reverts with `GS020` on a
-short signature set, so simulate the inner call instead: `eth_call` from the Safe to
-`to` with `data`, and separately the guard's `checkTransaction`). Show balance deltas
-of the Safe and the counterparty (USDC `balanceOf` before and after via state
-override where the RPC allows it; otherwise decode the intent and the transfer
-events from a `debug_traceCall` if available, else from the decoded calldata alone,
-labelled as "expected", not "simulated").
+Safe reverts with `GS020` when fewer than `threshold` signatures are supplied, so a
+proposal is simulated as the inner call rather than as `execTransaction`:
+
+```
+simulate(proposal):
+  if rpc supports eth_simulateV1 (drpc does; the official RPC does not, checked 2026-09-03):
+      result = eth_simulateV1({ blockStateCalls: [{ calls: [{ from: safe, to, value, data }] }],
+                                traceTransfers: true, validation: false })
+      deltas = transfers in result.logs (USDC/EURC Transfer events and traced native moves)
+      status = result.calls[0].status; revert reason decoded if any
+  else:
+      status = eth_call({ from: safe, to, data }, latest, stateOverride: { safe: { balance: enough for gas } })
+      deltas = decoded from calldata; labelled "expected", not "simulated"
+  if guard set: eth_call(guard.checkTransaction(...)) with the same fields
+  if delay applies: note "queued for <cooldown>, executes after <time>"
+```
+
+State overrides work on both public RPCs (verified with a balance override on a
+Safe), which is what lets the simulation run "as the Safe" without funding anything.
+The client shows: status, decoded intent, simulated deltas for the Safe and each
+counterparty, gas, and the `safeTxHash` for hardware comparison.
 
 ## 12. Decoding calldata for people
 
