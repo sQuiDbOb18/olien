@@ -47,9 +47,11 @@ way. Each has an owner (you, unless it says research) and a way to settle it.
 
 ## Chain
 
-9. **Mainnet.** No published addresses or date. Everything here is deterministic
-   (Safe singleton factory, CREATE2), so the day-one job is a deploy script and a
-   verification run, not a redesign.
+9. **Mainnet.** Settled: public on 2026-09-16, chain id 5042, canonical Safe
+   already registered for it. Day-one job: verify code sizes at the canonical
+   addresses, deploy the absent modules and our factory with the same salts, point
+   the address book at 5042. Open: whether Pimlico's bundler and drpc cover mainnet
+   at launch; the relay path needs neither.
 10. **Blocklist behaviour.** USDC transfers to a blocklisted address revert at
     runtime. A payroll batch with one blocked recipient fails whole. Settled: the
     token exposes `isBlacklisted(address)` on Arc (checked 2026-09-03), so the service

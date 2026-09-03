@@ -94,11 +94,30 @@ next-day job rather than a week.
   (`06-algorithms.md` §5), a rule change makes open proposals stale, a time lock on
   rule changes is on by default for treasuries above a size, and the client never
   shows an approval as "safe to give" without the decoded intent and the hash.
-- **Safe front end, February 2025.** A hostile build of the web client showed one
-  transaction and had signers approve another. Taken: the hash on the hardware
-  device is the truth; the service exposes it everywhere; unreadable calldata is
-  flagged; a static, verifiable build of the client is published so members can
-  check what they are running, as Squads does with its public client.
+- **Bybit through Safe's front end, February 2025 (about 1.5B USD).** A Safe
+  developer's machine was compromised, a session token hijacked, and the JavaScript
+  in Safe's hosting bucket edited so that for one target Safe the client swapped `to`
+  and flipped `operation` from call to delegatecall, then restored the original data
+  after signing; the delegatecall overwrote the account's implementation slot.
+  Taken: the hash on the hardware device is the truth and the service exposes it
+  everywhere; **delegatecall is refused except to `MultiSendCallOnly`**, in the client
+  and in the guard; unreadable calldata is flagged; third-party scripts are pinned;
+  a static, verifiable build of the client is published, as Squads does; and the
+  members' checklist follows Safe's own post-incident guidance (verify `to`, `value`,
+  `data`, `operation`, `nonce`, and that gas fields are zero, on a second device).
+- **Radiant, October 2024 (about 50M USD, 3-of-11).** Malware on a signer's machine
+  showed legitimate data in the interface while hardware wallets signed an ownership
+  transfer; "transaction failed" prompts were used to harvest more signatures.
+  Taken: the client never asks a member to sign the same proposal twice without
+  saying why; a failed execution is shown with its receipt, not a retry button; and
+  contract-administration calls (ownership, upgrades) are always time-locked.
+- **Ledger Connect Kit, December 2023.** A published package was replaced through a
+  phished maintainer account and loaded from a CDN into many front ends. Taken: no
+  script loads from a CDN at runtime; dependencies are pinned and integrity-checked.
+- **Security Alliance's signing guidance** (adopted as the members' standard for
+  large treasuries): two devices and two channels per signer, at least two signers
+  simulate independently, simulations can be spoofed so the hash is what is
+  compared, and time locks are the backstop.
 - **Chains where the program is frozen cannot fix bugs.** Safe 1.4.1 is not
   upgradeable either, which is a feature, so the rules that need to evolve live in
   modules and in the service, never in a fork of the account.

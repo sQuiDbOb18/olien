@@ -241,6 +241,14 @@ run(template, at):
       notify approvers; normal queue
 ```
 
+Every payout carries a **payment reference** so accounting tools reconcile by event
+rather than by amount: an 8-byte reference derived Request-style from the invoice or
+run id, a salt and the payee, emitted by a small fee-proxy contract of ours
+(`transferWithReference(token, to, amount, reference)` that forwards the transfer and
+emits `TransferWithReference(token, to, amount, reference)`) when the payout goes
+through a transfer; for cheques, the reference is the invoice id the recipient
+already holds. The ledger stores the reference on the entry either way.
+
 Two USDC-native options a payroll product elsewhere cannot offer:
 
 - **Cheques as payables.** A run can issue EIP-3009 authorizations signed by the

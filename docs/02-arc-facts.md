@@ -2,8 +2,22 @@
 
 Everything here was checked against Arc testnet (chain id 5042002) on 2026-09-03,
 either by reading code at an address, by a transaction that landed, or by a document
-Circle publishes. The method is stated per fact. Testnet only; mainnet has no
-published addresses yet.
+Circle or Arc publishes. The method is stated per fact.
+
+**Mainnet: public on 2026-09-16.** Arc's own announcement and Circle's press release
+of 2026-08-05 say the chain is in private mainnet with more than a hundred builders
+and opens on September 16 (arc.io blog "arc-mainnet-goes-live-on-september-16-2026";
+circle.com pressroom, founding validator cohort). Mainnet chain id 5042 appears in the
+chainid.network registry, The Graph's network list and Safe's deployment registry;
+Arc's docs still say mainnet addresses are not yet available. Founding validators
+(permissioned, proof of authority): BlackRock, DTCC, Galaxy, Global Payments, ICE,
+Mastercard, MoneyGram, SBI, Standard Chartered, Sumitomo, Visa, and Circle.
+
+**Safe on mainnet already.** A Safe-team account registered canonical Safe 1.3.0,
+1.4.1 and 1.5.0 for chain 5042 in `safe-deployments` on 2026-05-21 (pull request
+1622), after registering testnet in January and July. So the account contracts this
+design uses will be at the same addresses on mainnet; the first job on launch day is
+to confirm code sizes, not to deploy.
 
 ## The chain
 
@@ -14,7 +28,8 @@ published addresses yet.
 | EIP-7702 | live, unused (zero type-4 transactions in a 400-block sample) | a signed type-4 transaction is accepted; docs say it behaves as on Ethereum |
 | P-256 precompile (RIP-7212 at `0x100`) | live, about 6,900 gas | RIP-7212 specification vector returns `…01`; `eth_estimateGas` 30,775 for the call |
 | Gas token | USDC. Native balance is 18-decimal, the ERC-20 view is 6-decimal, same ledger | `eth_getBalance` of the EntryPoint equals `balanceOf` times 1e12 |
-| Gas price | 25 gwei base, 5 gwei priority at the time of testing; base fee paid to the proposer, not burned | `eth_gasPrice`, `eth_maxPriorityFeePerGas`; docs "gas-and-fees" |
+| Gas price | 25 gwei base, 5 gwei priority at the time of testing; testnet floor 20 gwei; docs target about 0.01 USD per transaction and say parameters may change before mainnet | `eth_gasPrice`, `eth_maxPriorityFeePerGas`; docs "gas-and-fees", "stable-fee-design" |
+| Fee destination | testnet docs: base fee not burned; the ARC whitepaper (May 2026) describes fees converted to a future ARC token and split between validators and a burn | docs "evm-differences"; the whitepaper. Treat as unsettled until mainnet |
 | Block time | about 1 second | receipts landed within 1 to 3 seconds throughout |
 | Public RPC | `rpc.testnet.arc.network` rate-limits (429) a backend making a dozen calls in a row; `arc-testnet.drpc.org` did not | provisioning failed on the official RPC and succeeded on drpc, same code |
 | Blocklist | USDC transfers to or from blocklisted addresses revert at runtime | docs "evm-differences" |

@@ -83,6 +83,16 @@ approve and execute, and pushes on new proposals.
 - The consumer app is the on-ramp for members: a contractor with a Recourse
   account is already a valid signer and payee.
 
+## Why non-custodial, in one paragraph
+
+Besides security, it is the regulatory line. FinCEN's 2019 guidance says a provider
+whose role is limited to creating unhosted wallets that require a second
+authorization key alongside the owner's is not a money transmitter; the GENIUS Act
+excludes software for a customer's own custody from its service-provider
+definitions. The product never holds a key that can spend from a treasury, and says
+so in Squads' words: the team owns it. The one nuance is the consumer account's
+sealed Recovery Key, which cannot spend; the public wording gets legal review.
+
 ## Pricing (to validate)
 
 Free for a treasury with up to three members and manual payments. Paid tiers for
