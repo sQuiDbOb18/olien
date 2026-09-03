@@ -39,8 +39,8 @@ The transaction service and the web console, treasuries with EOA and hardware me
 
 ## Phase 3: rules (about 3 weeks)
 
-- Deploy Allowance module, Zodiac Delay and ModuleProxyFactory at canonical addresses;
-  pin bytecode hashes.
+- Use the Allowance module already on Arc; deploy Zodiac Delay and ModuleProxyFactory
+  at canonical addresses; pin bytecode hashes.
 - Rules screen: members and threshold through the Delay; allowances; approval tiers
   and known-destination policy (soft); labels "On-chain rule" / "Treasury policy".
 - Exit: a member spends under an allowance with one signature; an owner change waits

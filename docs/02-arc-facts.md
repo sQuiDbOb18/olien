@@ -72,12 +72,19 @@ Canonical Safe 1.4.1, listed as `"5042002": "canonical"` in `safe-deployments`
 | Safe4337Module v0.2.0 (EntryPoint v0.6) | `0xa581c4A4DB7175302464fF3C06380BC3270b4037` | 8,489 |
 | SafeWebAuthnSharedSigner | `0x94a4F6affBd8975951142c3999aEAB7ecee555c2` | 2,954 |
 | Safe singleton factory | `0x914d7Fec6aaC8cd542e72Bca78B30650d45643d7` | 69 |
+| **Safe Allowance module v0.1.1** | `0xAA46724893dedD72658219405185Fb0Fc91e091C` | 14,908 |
 
-**Absent** (code size 0 at their canonical addresses): Safe Allowance module
-(`0xCFbFaC74C26F8647cBDb8c5caf80BB5b32E43134`), Zodiac ModuleProxyFactory
-(`0x000000000000aDdB49795b0f9bA5BC298cDda236`), Zodiac Delay mastercopies (v1.0
-`0xd54895B1121A2eE3f37b502F507631FA1331BED6`, v1.1
-`0xD62129BF40CD1694b3d9D9847367783a1A4d5cB4`), Zodiac Roles v2 mastercopy
+The Allowance module is registered in `safe-modules-deployments` for both 5042002
+and mainnet 5042 (an earlier draft of this page looked at the v0.1.0 address,
+`0xCFbFaC…`, which is not the one Safe deploys now).
+
+**Absent** (code size 0 at their canonical addresses): Zodiac ModuleProxyFactory
+(`0x000000000000aDdB49795b0f9bA5BC298cDda236`), every Zodiac Delay mastercopy
+(1.0.0 `0xD62129BF40CD1694b3d9D9847367783a1A4d5cB4`, 1.0.1
+`0xd54895B1121A2eE3f37b502F507631FA1331BED6`, 1.1.0
+`0x01F8cabB808D7dE0dF4202D4B60C8310d2f1339b`, 2.0.0
+`0x66C985001328Db254F27C8A037Ebb409a5d669C2`, from the repository's
+`mastercopies.json`, each with its deployment factory and salt), Zodiac Roles v2 mastercopy
 (`0x9646fDAD06d3e24444381f44362a3B0eB343D337`), Candide social recovery
 (`0x38275826E1933303E508433dD5f289315Da2541c`), Safe Recovery Hub,
 SafeWebAuthnSignerFactory (`0x1d31F259eE307358a26dFb23EB365939E8641195`), Gelato

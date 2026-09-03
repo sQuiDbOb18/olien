@@ -80,8 +80,9 @@ the rules evolve in modules and the service.
 What is on Arc today, confirmed by code size and by transactions (`02-arc-facts.md`):
 Safe 1.4.1 canonical contracts, the 4337 module, MultiSend, the fallback handler,
 and the singleton factory that lets anyone deploy the rest at canonical addresses.
-What is not: the Allowance module, Zodiac Delay and Roles, recovery modules, the
-passkey signer factory, and the entire product layer (Safe{Wallet}, the transaction
+Also there: the Allowance module (v0.1.1, registered for mainnet as well). What is
+not: Zodiac Delay and Roles, recovery modules, the passkey signer factory, and the
+entire product layer (Safe{Wallet}, the transaction
 service, the client gateway, chain registration in Safe's deployment lists for
 modules).
 
