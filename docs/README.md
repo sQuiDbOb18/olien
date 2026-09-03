@@ -25,6 +25,17 @@ owner contract, and a bundler path with USDC as gas.
 | `08-roadmap-and-grants.md` | Phases, effort, and the programs that fund this category |
 | `09-open-questions.md` | What is undecided and what would change the design |
 
+## Status (2026-09-03)
+
+Research complete except for Safe's transaction-service internals, which are being
+added to `01-landscape.md` and `04-architecture.md`. Every on-chain claim in
+`02-arc-facts.md` is backed by a transaction or a code read on Arc testnet. The
+market, grants, policy-engine, payroll, invoicing and incident sections come from
+primary sources fetched the same day; each carries its URL or document name.
+
+Two dates set the pace: Arc mainnet opens on 2026-09-16, and Circle's developer
+grants (5k to 100k USDC, "treasury management" is a named focus) are open now.
+
 ## Rules for this folder
 
 - A claim about a chain is accompanied by how it was checked (a transaction hash, an
