@@ -6,7 +6,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { durationLabel, errorMessage, proposeSigners, proposalSummary, shortAddress, type AccountView, type SignerKind, type SignerView, type SignersProposalBody } from "@/lib/treasury";
-import { MemberRows, newMember, permissionsOf, validateMembers, type MemberDraft } from "./new-account";
+import { MemberRows, newMember, signerInputOf, usePasskeyMember, validateMembers, type MemberDraft } from "./new-account";
+import { useWalletSession } from "./wallet";
 import { AddressChip, Button, Field, InlineError, Loading, Note, Panel, PermissionTags, plural, StatusPill, Table, Tag } from "./ui";
 import { accountError, applyProposal, useOlienAccount, useProposals } from "./use-olien";
 
@@ -45,13 +46,15 @@ function useProposeSigners(address: string) {
 function AddMemberForm({ address, account, onClose }: { address: string; account: AccountView; onClose: () => void }) {
   const [rows, setRows] = useState<MemberDraft[]>(() => [newMember()]);
   const { propose, busy, error, setError } = useProposeSigners(address);
-  const taken = new Set(account.signers.map((signer) => signer.address?.toLowerCase()).filter((value): value is string => Boolean(value)));
+  const taken = new Set(account.signers.map((signer) => (signer.address ?? signer.signerId).toLowerCase()));
+  const { address: walletAddress } = useWalletSession();
+  const passkey = usePasskeyMember((draft) => setRows((current) => [...current, draft]), walletAddress, setError);
 
   function submit() {
     const problem = validateMembers(rows, taken);
     if (problem) return setError(problem);
     void propose({
-      add: rows.map((row, index) => ({ kind: "ecdsa", address: row.address.toLowerCase(), label: row.label.trim() || `Member ${account.signers.length + index + 1}`, permissions: permissionsOf(row) })),
+      add: rows.map((row, index) => signerInputOf(row, `Member ${account.signers.length + index + 1}`)),
       remove: [],
       replace: [],
     });
@@ -66,7 +69,7 @@ function AddMemberForm({ address, account, onClose }: { address: string; account
         </Button>
       }
     >
-      <MemberRows rows={rows} disabled={busy} onChange={(key, change) => setRows((current) => current.map((row) => (row.key === key ? { ...row, ...change } : row)))} onRemove={(key) => setRows((current) => current.filter((row) => row.key !== key))} />
+      <MemberRows rows={rows} disabled={busy} onChange={(key, change) => setRows((current) => current.map((row) => (row.key === key ? { ...row, ...change } : row)))} onRemove={(key) => setRows((current) => current.filter((row) => row.key !== key))} passkey={passkey} />
       <TimeLockNote account={account} />
       <InlineError message={error} />
       <div className="olien-actions">

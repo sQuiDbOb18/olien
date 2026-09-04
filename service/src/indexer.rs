@@ -8,24 +8,61 @@ use alloy::rpc::types::Log;
 use alloy::sol_types::SolEvent;
 use sqlx::PgPool;
 use std::collections::HashMap;
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use tracing::{info, warn};
 
 use crate::services::olien::{IOlien, OlienClient, IERC20, PATH_RECOVERY, PATH_SINGLE, SCHEDULE_WINDOW};
-use crate::services::treasury::{self, AccountRow};
+use crate::services::treasury::{self, AccountRow, RelayerStatus};
 
 // drpc caps a getLogs answer at 10k entries; a fresh account has few logs, so a large
 // block window is safe and catches up fast.
 const CHUNK_BLOCKS: u64 = 5_000;
 const MAX_CHUNKS_PER_CYCLE: u64 = 50;
 
-pub async fn run(client: OlienClient, pool: PgPool, interval_secs: u64) {
+/// Below this the relayer cannot be trusted to pay for the next creation or execution.
+pub const RELAYER_LOW_USDC: u128 = 5_000_000;
+
+pub async fn run(client: OlienClient, pool: PgPool, interval_secs: u64, relayer: Arc<Mutex<Option<RelayerStatus>>>) {
     let mut ticker = tokio::time::interval(Duration::from_secs(interval_secs.max(5)));
+    let mut cycles: u64 = 0;
     loop {
         ticker.tick().await;
+        // Every sixth cycle, about a minute: the relayer pays for every creation and
+        // execution, so an emptying key is a warning here before it is a failed execute.
+        if cycles.is_multiple_of(6) {
+            watch_relayer(&client, &relayer).await;
+        }
+        cycles += 1;
         if let Err(e) = index_once(&client, &pool).await {
             warn!("olien index cycle failed: {e:#}");
         }
+    }
+}
+
+async fn watch_relayer(client: &OlienClient, status: &Arc<Mutex<Option<RelayerStatus>>>) {
+    match client.usdc_balance(client.relayer()).await {
+        Ok(balance) => {
+            let units: u128 = balance.try_into().unwrap_or(u128::MAX);
+            let low = units < RELAYER_LOW_USDC;
+            if low {
+                warn!(
+                    "relayer {:#x} holds {:.2} USDC, below the {:.0} USDC floor: fund it or executions will fail",
+                    client.relayer(),
+                    units as f64 / 1e6,
+                    RELAYER_LOW_USDC as f64 / 1e6
+                );
+            }
+            if let Ok(mut slot) = status.lock() {
+                *slot = Some(RelayerStatus {
+                    address: format!("{:#x}", client.relayer()),
+                    usdc_balance: units.to_string(),
+                    low,
+                    checked_at: chrono::Utc::now().timestamp(),
+                });
+            }
+        }
+        Err(e) => warn!("could not read the relayer balance: {e:#}"),
     }
 }
 

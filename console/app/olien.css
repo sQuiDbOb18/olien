@@ -2081,3 +2081,30 @@ strong > .olien-tag {
     text-align: left;
   }
 }
+
+/* Passkey members: a tag and the id where an address would be, and the add button
+   under the rows. */
+.olien-passkey-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 36px;
+}
+
+.olien-passkey-row code {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.olien-member-add-passkey {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  padding-top: 4px;
+}
+
+.olien-member-add-passkey .olien-field-hint {
+  flex: 1;
+  min-width: 240px;
+}

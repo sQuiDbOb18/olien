@@ -81,7 +81,12 @@ GET  /api/treasury/accounts/{address}            -> AccountView
 
 `POST /accounts` sends the creation transaction from the relayer and answers only
 when the receipt is in, ten to thirty seconds on testnet, so a client shows a
-waiting state rather than retrying. Body:
+waiting state rather than retrying. A signer is `{ kind, address, label,
+permissions }` for `ecdsa` (the default) and `contract`, and `{ kind, x, y,
+label, permissions, uvRequired }` for `p256` and `webauthn`, where `x` and `y`
+are the public key's coordinates as 32-byte hex and `uvRequired` (passkeys only,
+default true) asks the account to insist on Touch ID or Face ID. The same shape
+is used by the signers builder below. Body:
 
 ```json
 {
@@ -143,6 +148,12 @@ through linked addresses; the console uses them to decide whether to offer
 pending, `live` after, `disabled` if the once-per-account hash self-check failed
 (`06-algorithms.md` §1), in which case every write route answers 409.
 
+```
+PUT  /api/treasury/accounts/{address}/name  { name }   -> AccountView
+```
+
+The name lives in the service, not on chain; any member changes it at once.
+
 ## Proposals
 
 ```
@@ -154,6 +165,20 @@ POST /api/treasury/accounts/{address}/proposals/{txHash}/execute                
 POST /api/treasury/accounts/{address}/proposals/{txHash}/cancel                 -> ProposalView   (a new proposal carrying cancel(txHash))
 DELETE /api/treasury/accounts/{address}/proposals/{txHash}                      -> 204            (only while it has no confirmations)
 ```
+
+A confirmation's `signature` depends on the signer's kind. ECDSA: the EIP-712
+signature over the proposal's typed data (65 bytes, `v` 27 or 28; a wrapped
+EIP-191 signature is accepted with `v` 31 or 32). P-256: `r ‖ s`, 64 bytes,
+`s` in the low half of the curve order. Passkey: the WebAuthn assertion packed
+as `abi.encode(bytes authenticatorData, string clientDataFields, uint256 r,
+uint256 s)`, where the challenge the authenticator saw is the base64url of the
+transaction hash and `clientDataFields` is the client data JSON with its
+`{"type":"webauthn.get","challenge":"…",` prefix removed, which the verifier
+puts back. An empty `signature` records an on-chain `approve` the indexer has
+already seen. An ECDSA or contract signature is accepted only from a session that
+has linked that signer's address; a P-256 or passkey signature over this very
+hash is its own proof of control and needs no link, which is how a laptop's
+Touch ID approves from the console.
 
 `POST /proposals` body. `calls` is the batch exactly as the account will run it;
 `kind` and `intent` are what people see. The service refuses a call to the
@@ -283,6 +308,14 @@ come from the proposal's intent and the address book.
 `AddressBookEntry`: `{ address, label, category, createdAt }`; `category` is an
 empty string when none was given. Posting an address that exists replaces its
 label and category.
+
+## Health
+
+`GET /health` (outside `/api`) carries `relayer: { address, usdcBalance, low,
+checkedAt }` once the indexer has read the relayer's balance, about a minute after
+boot and every minute after; `low` is true under 5 USDC, and the same reading
+is a warning in the logs, because the relayer pays for every creation and
+execution.
 
 ## What the indexer guarantees
 

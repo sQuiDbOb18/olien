@@ -1,11 +1,12 @@
 "use client";
 
 import { useQueryClient } from "@tanstack/react-query";
-import { Check, Plus, Trash2 } from "lucide-react";
+import { Check, KeyRound, Plus, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { createAccount, durationLabel, errorMessage, isValidAddress, shortAddress, type CreateAccountBody, type Permission } from "@/lib/treasury";
-import { AddressChip, Button, cx, Disclosure, DurationInput, Field, InlineError, Note, Panel, PermissionTags, Spinner, Table } from "./ui";
+import { createPasskey, friendlyPasskeyError, passkeySupported, type PasskeyRecord } from "@/lib/passkey";
+import { createAccount, durationLabel, errorMessage, isValidAddress, shortAddress, type CreateAccountBody, type Permission, type SignerInput } from "@/lib/treasury";
+import { AddressChip, Button, cx, Disclosure, DurationInput, Field, InlineError, Note, Panel, PermissionTags, Spinner, Table, Tag } from "./ui";
 import { olienKeys, rememberAccount } from "./use-olien";
 import { useWalletSession } from "./wallet";
 
@@ -15,18 +16,59 @@ const MAX_DELAY = 30 * DAY;
 
 export interface MemberDraft {
   key: number;
+  kind: "ecdsa" | "webauthn";
   address: string;
   label: string;
   approve: boolean;
   veto: boolean;
   recover: boolean;
+  // Passkeys: the public key and the id the contract will give it.
+  x?: string;
+  y?: string;
+  signerId?: string;
+}
+
+export interface PasskeyAdder {
+  add: () => void;
+  busy: boolean;
+  supported: boolean;
 }
 
 let draftSequence = 0;
 
 export function newMember(partial: Partial<MemberDraft> = {}): MemberDraft {
   draftSequence += 1;
-  return { key: draftSequence, address: "", label: "", approve: true, veto: true, recover: false, ...partial };
+  return { key: draftSequence, kind: "ecdsa", address: "", label: "", approve: true, veto: true, recover: false, ...partial };
+}
+
+// A passkey cannot send a veto transaction by itself (that needs a wallet with gas), so
+// it starts as an approver only; the toggles are still there for teams that want more.
+export function newPasskeyMember(record: PasskeyRecord, label: string): MemberDraft {
+  return newMember({ kind: "webauthn", label, approve: true, veto: false, x: record.x, y: record.y, signerId: record.signerId });
+}
+
+export function signerInputOf(row: MemberDraft, fallbackLabel: string): SignerInput {
+  const label = row.label.trim() || fallbackLabel;
+  if (row.kind === "webauthn") return { kind: "webauthn", label, permissions: permissionsOf(row), x: row.x, y: row.y, uvRequired: true };
+  return { kind: "ecdsa", address: row.address.toLowerCase(), label, permissions: permissionsOf(row) };
+}
+
+// Creates a passkey on this device and hands it to the list as a member draft. One
+// Touch ID or Face ID prompt; the public key comes back from the browser.
+export function usePasskeyMember(onAdd: (draft: MemberDraft) => void, userHandle: string | null | undefined, onError: (message: string) => void): PasskeyAdder {
+  const [busy, setBusy] = useState(false);
+  const supported = passkeySupported();
+  return {
+    busy,
+    supported,
+    add: () => {
+      setBusy(true);
+      void createPasskey("Passkey on this device", userHandle ?? "olien")
+        .then((record) => onAdd(newPasskeyMember(record, "Passkey on this device")))
+        .catch((cause) => onError(friendlyPasskeyError(cause)))
+        .finally(() => setBusy(false));
+    },
+  };
 }
 
 export function permissionsOf(draft: MemberDraft): Permission[] {
@@ -67,19 +109,31 @@ export function MemberRows({
   onChange,
   onRemove,
   disabled,
+  passkey,
 }: {
   rows: MemberDraft[];
   onChange: (key: number, change: Partial<MemberDraft>) => void;
   onRemove: (key: number) => void;
   disabled?: boolean;
+  passkey?: PasskeyAdder;
 }) {
   return (
     <div className="olien-member-rows">
       {rows.map((row, index) => (
         <div className="olien-member-row" key={row.key}>
-          <Field label={`Address ${index + 1}`}>
-            <input className="olien-input olien-input--mono" value={row.address} placeholder="0x" spellCheck={false} disabled={disabled} onChange={(event) => onChange(row.key, { address: event.target.value.trim() })} />
-          </Field>
+          {row.kind === "webauthn" ? (
+            <div className="olien-field">
+              <span className="olien-field-label">Passkey {index + 1}</span>
+              <span className="olien-passkey-row">
+                <Tag tone="accent">Passkey</Tag>
+                <code title={row.signerId}>{row.signerId ? `${row.signerId.slice(0, 10)}…${row.signerId.slice(-4)}` : ""}</code>
+              </span>
+            </div>
+          ) : (
+            <Field label={`Address ${index + 1}`}>
+              <input className="olien-input olien-input--mono" value={row.address} placeholder="0x" spellCheck={false} disabled={disabled} onChange={(event) => onChange(row.key, { address: event.target.value.trim() })} />
+            </Field>
+          )}
           <Field label="Label">
             <input className="olien-input" value={row.label} placeholder={`Member ${index + 1}`} disabled={disabled} onChange={(event) => onChange(row.key, { label: event.target.value })} />
           </Field>
@@ -92,6 +146,18 @@ export function MemberRows({
           </button>
         </div>
       ))}
+      {passkey ? (
+        <div className="olien-member-add-passkey">
+          <Button size="sm" icon={<KeyRound size={13} />} busy={passkey.busy} disabled={disabled || !passkey.supported} onClick={passkey.add}>
+            Add a passkey from this device
+          </Button>
+          <span className="olien-field-hint">
+            {passkey.supported
+              ? "Touch ID or Face ID on this device will sign for it. A passkey approves; it cannot send a veto on its own."
+              : "This browser cannot create passkeys."}
+          </span>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -102,6 +168,14 @@ export function validateMembers(rows: MemberDraft[], taken: Set<string> = new Se
   if (rows.length === 0) return "Add at least one member.";
   const seen = new Set(taken);
   for (const [index, row] of rows.entries()) {
+    if (row.kind === "webauthn") {
+      const id = row.signerId?.toLowerCase() ?? "";
+      if (!id || !row.x || !row.y) return `Member ${index + 1} is a passkey without a key.`;
+      if (seen.has(id)) return `Member ${index + 1} repeats a passkey already in the list.`;
+      seen.add(id);
+      if (!row.approve && !row.veto && !row.recover) return `Member ${index + 1} needs at least one permission.`;
+      continue;
+    }
     if (!isValidAddress(row.address)) return `Member ${index + 1} needs a valid address.`;
     const lower = row.address.toLowerCase();
     if (seen.has(lower)) return `Member ${index + 1} repeats an address already in the list.`;
@@ -132,6 +206,7 @@ export function OlienNewAccount() {
   const [recoveryCoSignDelay, setRecoveryCoSignDelay] = useState(HOUR);
   const [error, setError] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
+  const passkey = usePasskeyMember((draft) => setMembers((current) => [...current, draft]), walletAddress, setError);
 
   const approvers = members.filter((row) => row.approve).length;
   const vetoers = members.filter((row) => row.veto).length;
@@ -169,12 +244,7 @@ export function OlienNewAccount() {
     if (recoverers > 0 && recoveryDelay < HOUR) return "With a recover member the recovery delay must be at least 1 hour.";
     return {
       name: name.trim(),
-      signers: members.map((row, index) => ({
-        kind: "ecdsa",
-        address: row.address.toLowerCase(),
-        label: row.label.trim() || `Member ${index + 1}`,
-        permissions: permissionsOf(row),
-      })),
+      signers: members.map((row, index) => signerInputOf(row, `Member ${index + 1}`)),
       threshold,
       vetoThreshold,
       configDelay,
@@ -242,7 +312,7 @@ export function OlienNewAccount() {
               }
             >
               <p className="olien-panel-lead">Approve signs transactions and counts toward the threshold. Veto stops a scheduled change during the time lock. Recover can replace a lost key after the recovery delay.</p>
-              <MemberRows rows={members} onChange={patch} onRemove={(key) => setMembers((current) => current.filter((row) => row.key !== key))} />
+              <MemberRows rows={members} onChange={patch} onRemove={(key) => setMembers((current) => current.filter((row) => row.key !== key))} passkey={passkey} disabled={creating} />
             </Panel>
             <Panel title="Threshold">
               <Field label="Approvals needed" hint={`${threshold} of ${approvers} ${approvers === 1 ? "member" : "members"} with approve must sign before a transaction runs.`}>

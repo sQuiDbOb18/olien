@@ -1,7 +1,7 @@
 "use client";
 
 import { useQueryClient } from "@tanstack/react-query";
-import { Ban, Check, Circle, Lock, Play, Trash2, X } from "lucide-react";
+import { Ban, Check, Circle, KeyRound, Lock, Play, Trash2, X } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -31,6 +31,7 @@ import {
 } from "@/lib/treasury";
 import { AddressChip, Button, CopyButton, Countdown, cx, Disclosure, InlineError, KeyValue, Loading, Note, Panel, personLabel, plural, Spinner, StatusPill, Tag, TxChip } from "./ui";
 import { accountError, applyProposal, olienKeys, useNow, useOlienAccount, useProposal, useVetoCall } from "./use-olien";
+import { friendlyPasskeyError, passkeySupported, signWithPasskey } from "@/lib/passkey";
 import { friendlyWalletError, useArcChain, useWalletSession, walletSigner } from "./wallet";
 
 const SIGNABLE = ["open", "ready", "blocked", "failed"];
@@ -196,7 +197,7 @@ function VetoControls({ address, view, account }: { address: string; view: Propo
   );
 }
 
-type Action = "approve" | "execute" | "executeScheduled" | "cancel" | "delete";
+type Action = "approve" | "passkey" | "execute" | "executeScheduled" | "cancel" | "delete";
 
 export function OlienTransaction({ address, txHash }: { address: string; txHash: string }) {
   const router = useRouter();
@@ -222,8 +223,12 @@ export function OlienTransaction({ address, txHash }: { address: string; txHash:
   const myId = mySigner?.signerId.toLowerCase() ?? null;
   const confirmedBy = new Map(view.confirmations.map((confirmation) => [confirmation.signerId.toLowerCase(), confirmation]));
   const approvers = acct.signers.filter((signer) => signer.permissions.includes("approve"));
+  // Any passkey approver that has not signed yet may answer the prompt; the assertion
+  // itself proves which one did, so this needs no wallet match.
+  const passkeyApprovers = approvers.filter((signer) => signer.kind === "webauthn" && !confirmedBy.has(signer.signerId.toLowerCase()));
   const signable = SIGNABLE.includes(view.status);
   const canApprove = signable && hashOk && wallet.matches && Boolean(mySigner?.permissions.includes("approve")) && myId !== null && !confirmedBy.has(myId);
+  const canPasskey = signable && hashOk && passkeyApprovers.length > 0 && passkeySupported();
   const alreadyApproved = myId !== null && confirmedBy.has(myId);
   const canExecute = view.status === "ready" || (view.status === "failed" && view.approvals >= view.required);
   const canCancel = signable && view.confirmations.length > 0;
@@ -239,7 +244,7 @@ export function OlienTransaction({ address, txHash }: { address: string; txHash:
     try {
       await job();
     } catch (cause) {
-      setError(action === "approve" ? friendlyWalletError(cause) : errorMessage(cause));
+      setError(action === "approve" ? friendlyWalletError(cause) : action === "passkey" ? friendlyPasskeyError(cause) : errorMessage(cause));
     } finally {
       setBusy(null);
     }
@@ -257,6 +262,18 @@ export function OlienTransaction({ address, txHash }: { address: string; txHash:
       const data = typedDataFor(view);
       const signature = await signTypedDataAsync({ domain: data.domain, types: data.types, primaryType: data.primaryType, message: data.message });
       applyProposal(queryClient, address, await confirmProposal(address, txHash, { signerId: signerIdFor(wallet.address), signature }));
+    });
+  }
+
+  function approveWithPasskey() {
+    return run("passkey", async () => {
+      const computed = proposalHash(view);
+      if (computed.toLowerCase() !== view.txHash.toLowerCase()) {
+        setError(`Hash mismatch, not signing. The typed data hashes to ${computed}; the proposal says ${view.txHash}.`);
+        return;
+      }
+      const signed = await signWithPasskey(view.txHash as `0x${string}`, passkeyApprovers.map((signer) => ({ signerId: signer.signerId, x: signer.x, y: signer.y })));
+      applyProposal(queryClient, address, await confirmProposal(address, txHash, signed));
     });
   }
 
@@ -381,11 +398,16 @@ export function OlienTransaction({ address, txHash }: { address: string; txHash:
               </div>
             ) : null}
 
-            {canApprove || alreadyApproved || canExecute || canCancel || canDelete ? (
+            {canApprove || canPasskey || alreadyApproved || canExecute || canCancel || canDelete ? (
               <div className="olien-action-row">
                 {canApprove ? (
                   <Button variant="primary" icon={<Check size={14} />} busy={busy === "approve"} disabled={busy !== null} onClick={() => void approve()}>
                     {busy === "approve" ? "Confirm in wallet" : "Approve"}
+                  </Button>
+                ) : null}
+                {canPasskey ? (
+                  <Button variant={canApprove ? "secondary" : "primary"} icon={<KeyRound size={14} />} busy={busy === "passkey"} disabled={busy !== null} onClick={() => void approveWithPasskey()}>
+                    {busy === "passkey" ? "Touch ID or Face ID" : "Approve with passkey"}
                   </Button>
                 ) : null}
                 {alreadyApproved && signable ? (

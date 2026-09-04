@@ -81,7 +81,9 @@ one machine; what is left is listed under each item.
   EURC, `UserOperationEvent`, discovery of accounts the service did not create.
 - Relayer: `createAccount`, `execute` and `executeScheduled` paid by us, one key
   shared with the Safe deployer (`RELAYER_PK` falls back to `ATTESTOR_PK`), the
-  pending nonce read at every send. Done. Not yet: `handleOps`, the balance alarm.
+  pending nonce read at every send. Done. The balance alarm: the indexer reads
+  the relayer's USDC every minute, warns under 5 USDC and reports it in
+  `/health`. Done. Not yet: `handleOps`.
 - Web: the console at `/olien`, rebuilt late on 2026-09-04 in the Squads app's
   layout and flow (the founder's call: Squads' UI, typography and UX, for Olien
   and Arc): sign in with a wallet, the account switcher, Home with balance and
@@ -89,9 +91,14 @@ one machine; what is left is listed under each item.
   calls and the hash beside the wallet's, approve, execute, cancel, delete, the
   scheduled countdown with veto from the member's own wallet, Members with add,
   remove and threshold changes, Settings with the time lock, the spending limits
-  editor, address book, sub-accounts and the ledger with CSV export. Done. Not
-  yet: passkey members (the service checks P-256 and WebAuthn signatures; the
-  console signs ECDSA only), a light theme, renaming an account.
+  editor, address book, sub-accounts and the ledger with CSV export. Done.
+  Passkey members: the console creates a passkey on the device (Touch ID or
+  Face ID), adds it as a member at creation or from Members, and approves with
+  it; the service takes `p256` and `webauthn` signers in every signer body and
+  accepts their signatures as proof of control without a linked address
+  (`11-service-api.md`). Done, late 2026-09-04. Renaming an account: done. Not
+  yet: a light theme; a passkey cannot veto from the console, since a veto is a
+  transaction and a passkey holds no gas (the user-operation path in Phase 3).
 - Sign-in: `POST /api/auth/wallet/challenge` and `POST /api/auth/wallet`
   (`11-service-api.md`); the address is the identity and is linked as a treasury
   address in the same transaction. Done. The email and Google sessions still
@@ -122,6 +129,16 @@ one machine; what is left is listed under each item.
   | Ada adds a member from Members, both approve, Grace executes | scheduled, `0x4fddd94d…bf1e8c`, "2 vetoes stop it" |
   | Ada vetoes from her wallet, then Grace from hers | 1 of 2, then vetoed |
   | Settings | the ledger shows the payment with its memo; CSV export offered |
+
+  Passkey run, 2026-09-05, account `0xc5049190697fc298db5a8bd72a08c1ae4697c63b`
+  (Ada's wallet, a passkey made in the wizard by a virtual platform authenticator,
+  Grace's wallet; 2 of 3): payment `0x61477642…d0c3f9` approved with the passkey
+  (the service verified the WebAuthn assertion; the console packs it as the
+  contract reads it), then with Grace's wallet, executed; the payee holds exactly
+  50,000 units; the account renamed from Settings. Two defects fell out of the
+  run and are fixed: the service decoded the assertion envelope as a wrapped
+  tuple rather than the contract's parameter list, and the console sent the
+  client data with its closing brace, which the verifier appends itself.
 
   Proof run, evening of 2026-09-04, account
   `0x2a5533614f50fa5ce1eaf5d26d431e48dfb43f8a` (2-of-3, rule delay 120 s):

@@ -451,8 +451,10 @@ pub fn verify_p256_raw(hash: B256, sig: &[u8], x: U256, y: U256) -> Result<()> {
 /// `abi.encode(authenticatorData, clientDataFields, r, s)` over the WebAuthn challenge
 /// `hash`, rebuilt around the challenge exactly as the contract does (spec §5.2).
 pub fn verify_webauthn(hash: B256, sig: &[u8], x: U256, y: U256, require_uv: bool) -> Result<()> {
+    // Encoded the way Solidity's abi.decode(signature, (bytes, string, uint256, uint256))
+    // reads it: a parameter list, with no outer offset word around the tuple.
     let (auth_data, client_data_fields, r, s) =
-        <(Bytes, String, U256, U256)>::abi_decode(sig).context("decoding the WebAuthn envelope")?;
+        <(Bytes, String, U256, U256)>::abi_decode_params(sig).context("decoding the WebAuthn envelope")?;
     if auth_data.len() < 37 {
         bail!("authenticator data shorter than 37 bytes");
     }
@@ -922,6 +924,40 @@ mod tests {
         let mut wrapped_bytes = wrapped.as_bytes();
         wrapped_bytes[64] += 4;
         verify_ecdsa(hash, &wrapped_bytes, signer.address()).unwrap();
+    }
+
+    #[test]
+    fn webauthn_envelope_round_trip() {
+        use p256::ecdsa::signature::hazmat::PrehashSigner;
+        let key = p256::ecdsa::SigningKey::random(&mut rand::rngs::OsRng);
+        let point = key.verifying_key().to_encoded_point(false);
+        let x = U256::from_be_slice(point.x().unwrap());
+        let y = U256::from_be_slice(point.y().unwrap());
+        let hash = keccak256(b"a transaction");
+        // authenticatorData: rpIdHash, flags with UP and UV set, a counter.
+        let mut auth_data = vec![0u8; 37];
+        auth_data[32] = 0x05;
+        let fields = "\"origin\":\"http://localhost:3099\",\"crossOrigin\":false".to_string();
+        let challenge = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(hash.as_slice());
+        let client_data = format!("{{\"type\":\"webauthn.get\",\"challenge\":\"{challenge}\",{fields}}}");
+        let mut message = auth_data.clone();
+        message.extend_from_slice(&Sha256::digest(client_data.as_bytes()));
+        let digest = Sha256::digest(&message);
+        let sig: p256::ecdsa::Signature = key.sign_prehash(&digest).unwrap();
+        let sig = sig.normalize_s().unwrap_or(sig);
+        let r = U256::from_be_slice(&sig.r().to_bytes());
+        let s = U256::from_be_slice(&sig.s().to_bytes());
+        // The envelope as viem's encodeAbiParameters and Solidity's abi.encode produce it.
+        let envelope = (Bytes::from(auth_data.clone()), fields.clone(), r, s).abi_encode_params();
+        verify_webauthn(hash, &envelope, x, y, true).unwrap();
+        // With UV required, an assertion without the flag is refused.
+        let mut without_uv = auth_data.clone();
+        without_uv[32] = 0x01;
+        let bad = (Bytes::from(without_uv), fields.clone(), r, s).abi_encode_params();
+        assert!(verify_webauthn(hash, &bad, x, y, true).is_err());
+        // A tuple wrapped in an outer offset word is not the contract's layout.
+        let wrapped = (Bytes::from(auth_data), fields, r, s).abi_encode();
+        assert!(verify_webauthn(hash, &wrapped, x, y, true).is_err());
     }
 
     #[test]

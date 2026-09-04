@@ -41,15 +41,21 @@ export interface LinkedAddress {
 
 export interface SignerInput {
   kind: SignerKind;
-  address: string;
+  address?: string;
   label: string;
   permissions: Permission[];
+  // P-256 and passkey signers: the public key's coordinates as 32-byte hex.
+  x?: string;
+  y?: string;
+  uvRequired?: boolean;
 }
 
 export interface SignerView {
   signerId: string;
   kind: SignerKind;
   address: string | null;
+  x: string | null;
+  y: string | null;
   label: string;
   permissions: Permission[];
   since: number;
@@ -649,3 +655,6 @@ export function ledgerCsv(entries: LedgerEntry[]): string {
   }
   return `${rows.map((row) => row.map(escape).join(",")).join("\n")}\n`;
 }
+
+export const renameAccount = (address: string, name: string) =>
+  request<AccountView>(`/accounts/${address}/name`, { ...post({ name }), method: "PUT" });

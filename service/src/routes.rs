@@ -49,6 +49,22 @@ pub struct LinkBody {
     pub signature: String,
 }
 
+#[derive(Deserialize)]
+pub struct RenameBody {
+    pub name: String,
+}
+
+pub async fn rename_account(
+    pool: web::Data<PgPool>,
+    service: web::Data<Treasury>,
+    req: HttpRequest,
+    path: web::Path<String>,
+    body: web::Json<RenameBody>,
+) -> HttpResponse {
+    let user = who!(pool, req);
+    reply(treasury::rename_account(pool.get_ref(), service.get_ref(), user, &path.into_inner(), &body.name).await)
+}
+
 pub async fn linked_addresses(pool: web::Data<PgPool>, req: HttpRequest) -> HttpResponse {
     let user = who!(pool, req);
     reply(treasury::linked_addresses(pool.get_ref(), user).await)
@@ -260,6 +276,7 @@ pub fn routes(scope: actix_web::Scope) -> actix_web::Scope {
         .route("/accounts", web::get().to(list_accounts))
         .route("/accounts", web::post().to(create_account))
         .route("/accounts/{address}", web::get().to(get_account))
+        .route("/accounts/{address}/name", web::put().to(rename_account))
         .route("/accounts/{address}/proposals", web::get().to(list_proposals))
         .route("/accounts/{address}/proposals", web::post().to(create_proposal))
         .route("/accounts/{address}/proposals/transfer", web::post().to(propose_transfer))

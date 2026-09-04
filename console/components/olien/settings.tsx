@@ -24,6 +24,7 @@ import {
   type AccountView,
   type ProposalView,
   type SpendingLimit,
+  renameAccount,
 } from "@/lib/treasury";
 import { AddressChip, Button, cx, DurationInput, EmptyState, Field, InlineError, KeyValue, Loading, Note, Panel, Pill, plural, Table, TxChip } from "./ui";
 import { accountError, applyProposal, olienKeys, useAddressBook, useLedger, useOlienAccount } from "./use-olien";
@@ -71,7 +72,7 @@ function AddressesSection({ account }: { account: AccountView }) {
           { label: "Created", value: account.createTx ? <TxChip hash={account.createTx} /> : formatTime(account.createdAt) },
         ]}
       />
-      <p className="olien-field-hint">Renaming is not available yet; the name lives in the service, not on chain.</p>
+      <RenameForm account={account} />
     </Panel>
   );
 }
@@ -561,6 +562,42 @@ export function OlienSettings({ address }: { address: string }) {
       <AddressBookSection address={address} />
       <SubAccountsSection account={view} />
       <LedgerSection address={address} />
+    </div>
+  );
+}
+
+// The name lives in the service, not on chain, so any member changes it at once.
+function RenameForm({ account }: { account: AccountView }) {
+  const queryClient = useQueryClient();
+  const [name, setName] = useState(account.name);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const changed = name.trim() !== account.name && name.trim().length > 0;
+
+  async function save() {
+    setError(null);
+    setBusy(true);
+    try {
+      await renameAccount(account.address, name.trim());
+      await queryClient.invalidateQueries({ queryKey: olienKeys.all });
+    } catch (cause) {
+      setError(errorMessage(cause));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="olien-subform">
+      <Field label="Rename" hint="The name lives in the service, not on chain; every member sees the change at once.">
+        <span className="olien-inline">
+          <input className="olien-input" value={name} maxLength={80} disabled={busy} onChange={(event) => setName(event.target.value)} onKeyDown={(event) => event.key === "Enter" && changed && void save()} />
+          <Button size="sm" variant="primary" busy={busy} disabled={!changed} onClick={() => void save()}>
+            Save
+          </Button>
+        </span>
+      </Field>
+      <InlineError message={error} />
     </div>
   );
 }

@@ -5,7 +5,7 @@
 // mirrored here; the indexer (jobs/olien_indexer.rs) overwrites it from events.
 
 use alloy::primitives::{Address, Bytes, B256, U256};
-use alloy::sol_types::SolCall;
+use alloy::sol_types::{SolCall, SolValue};
 use anyhow::{anyhow, Context};
 use chrono::{DateTime, Utc};
 use rand::RngCore;
@@ -13,10 +13,11 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use sqlx::PgPool;
 use std::collections::{BTreeSet, HashMap, HashSet};
+use std::sync::{Arc, Mutex};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::services::olien::{
-    self, address_of_signer_id, calldata, signer_id_of_address, Call, IOlien, Init, OlienClient, SignerInput,
+    self, address_of_signer_id, calldata, signer_id_of_address, signer_id_of_key, Call, IOlien, Init, OlienClient, SignerInput,
     SpendingLimitInput, Transaction, FLAG_UV_REQUIRED, KIND_CONTRACT, KIND_ECDSA, KIND_P256, KIND_WEBAUTHN,
     MAX_VALIDITY, PERM_APPROVE, PERM_RECOVER, PERM_VETO, SCHEDULE_WINDOW,
 };
@@ -27,6 +28,18 @@ pub const DEFAULT_VALIDITY: u64 = 7 * 86_400;
 pub struct Treasury {
     pub client: Option<OlienClient>,
     pub chain_id: u64,
+    // The indexer keeps this current; /health reports it, so an emptying relayer key is
+    // seen by whoever watches the service rather than by the first failed execute.
+    pub relayer: Arc<Mutex<Option<RelayerStatus>>>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RelayerStatus {
+    pub address: String,
+    pub usdc_balance: String,
+    pub low: bool,
+    pub checked_at: i64,
 }
 
 #[derive(Debug)]
@@ -255,6 +268,10 @@ pub struct SignerJson {
     pub signer_id: String,
     pub kind: String,
     pub address: Option<String>,
+    // P-256 and passkey signers: the coordinates as decimal strings, so a client can
+    // tell which of several passkeys answered an assertion.
+    pub x: Option<String>,
+    pub y: Option<String>,
     pub label: String,
     pub permissions: Vec<&'static str>,
     pub since: i64,
@@ -467,9 +484,14 @@ pub struct VetoCall {
 #[serde(rename_all = "camelCase")]
 pub struct SignerBody {
     pub kind: Option<String>,
-    pub address: String,
+    pub address: Option<String>,
     pub label: Option<String>,
     pub permissions: Option<Vec<String>>,
+    // P-256 and passkey signers: the public key's coordinates, 32-byte hex each.
+    pub x: Option<String>,
+    pub y: Option<String>,
+    // Passkeys only; defaults to true, which is what the console creates.
+    pub uv_required: Option<bool>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -747,7 +769,8 @@ fn kind_code(name: Option<&str>) -> Res<u8> {
     match name.unwrap_or("ecdsa") {
         "ecdsa" => Ok(KIND_ECDSA),
         "contract" => Ok(KIND_CONTRACT),
-        "p256" | "webauthn" => Err(bad("P-256 and passkey signers are added from the app, not here")),
+        "p256" => Ok(KIND_P256),
+        "webauthn" => Ok(KIND_WEBAUTHN),
         other => Err(bad(format!("unknown signer kind {other}"))),
     }
 }
@@ -762,14 +785,48 @@ fn kind_name(code: u8) -> &'static str {
     }
 }
 
-/// An ECDSA or CONTRACT signer as the contract takes it: a 20-byte key.
-fn signer_input(body: &SignerBody) -> Res<(SignerInput, Address)> {
+/// How the service refers to a signer once the contract has it: by id always, by
+/// address for the 20-byte kinds, by coordinates for the P-256 kinds.
+pub struct SignerKey {
+    pub id: B256,
+    pub address: Option<Address>,
+    pub x: Option<U256>,
+    pub y: Option<U256>,
+}
+
+impl SignerKey {
+    /// The string labels and intents are keyed by: the address where there is one, the id otherwise.
+    fn handle(&self) -> String {
+        self.address.map(addr).unwrap_or_else(|| hex(self.id.as_slice()))
+    }
+}
+
+fn parse_coordinate(value: Option<&str>, name: &str) -> Res<U256> {
+    let raw = value.ok_or_else(|| bad(format!("a P-256 signer needs {name}")))?;
+    let bytes = parse_hex_bytes(raw)?;
+    if bytes.len() != 32 {
+        return Err(bad(format!("{name} must be 32 bytes")));
+    }
+    Ok(U256::from_be_slice(&bytes))
+}
+
+/// A signer as the contract takes it: a 20-byte address for ECDSA and CONTRACT, the
+/// 64-byte point for P-256 and passkeys (spec §4, key encoding and signer ids).
+fn signer_input(body: &SignerBody) -> Res<(SignerInput, SignerKey)> {
     let kind = kind_code(body.kind.as_deref())?;
-    let address = parse_address(&body.address)?;
     let permissions = permission_bits(body.permissions.as_deref())?;
+    if kind == KIND_P256 || kind == KIND_WEBAUTHN {
+        let x = parse_coordinate(body.x.as_deref(), "x")?;
+        let y = parse_coordinate(body.y.as_deref(), "y")?;
+        let flags = if kind == KIND_WEBAUTHN && body.uv_required.unwrap_or(true) { FLAG_UV_REQUIRED } else { 0 };
+        let key = SignerKey { id: signer_id_of_key(x, y), address: None, x: Some(x), y: Some(y) };
+        return Ok((SignerInput { kind, permissions, flags, key: Bytes::from((x, y).abi_encode()) }, key));
+    }
+    let raw = body.address.as_deref().ok_or_else(|| bad("this signer kind needs an address"))?;
+    let address = parse_address(raw)?;
     Ok((
         SignerInput { kind, permissions, flags: 0, key: Bytes::copy_from_slice(address.as_slice()) },
-        address,
+        SignerKey { id: signer_id_of_address(address), address: Some(address), x: None, y: None },
     ))
 }
 
@@ -783,15 +840,17 @@ pub async fn create_account(pool: &PgPool, treasury: &Treasury, user: i64, body:
         return Err(bad("1 to 32 signers"));
     }
     let mut inputs = Vec::with_capacity(body.signers.len());
+    let mut keys = Vec::with_capacity(body.signers.len());
     let mut labels = HashMap::new();
     let mut seen = HashSet::new();
     for signer in &body.signers {
-        let (input, address) = signer_input(signer)?;
-        if !seen.insert(address) {
-            return Err(bad(format!("{} is listed twice", addr(address))));
+        let (input, key) = signer_input(signer)?;
+        if !seen.insert(key.id) {
+            return Err(bad(format!("{} is listed twice", key.handle())));
         }
-        labels.insert(addr(address), signer.label.clone().unwrap_or_default());
+        labels.insert(key.handle(), signer.label.clone().unwrap_or_default());
         inputs.push(input);
+        keys.push(key);
     }
     let approvers = inputs.iter().filter(|s| s.permissions & PERM_APPROVE != 0).count();
     if body.threshold == 0 || body.threshold as usize > approvers {
@@ -813,7 +872,9 @@ pub async fn create_account(pool: &PgPool, treasury: &Treasury, user: i64, body:
     let init_json = json!({
         "signers": body.signers.iter().map(|s| json!({
             "kind": s.kind.clone().unwrap_or_else(|| "ecdsa".into()),
-            "address": s.address.to_lowercase(),
+            "address": s.address.as_deref().unwrap_or("").to_lowercase(),
+            "x": s.x,
+            "y": s.y,
             "label": s.label.clone().unwrap_or_default(),
             "permissions": s.permissions.clone().unwrap_or_else(|| vec!["approve".into(), "veto".into()]),
         })).collect::<Vec<_>>(),
@@ -841,19 +902,20 @@ pub async fn create_account(pool: &PgPool, treasury: &Treasury, user: i64, body:
     .bind(hex(salt.as_slice()))
     .fetch_one(pool)
     .await?;
-    for signer in &init.signers {
-        let address = Address::from_slice(&signer.key);
+    for (signer, key) in init.signers.iter().zip(&keys) {
         sqlx::query(
-            "INSERT INTO olien_signers (olien_id, signer_id, kind, permissions, flags, address, label)
-             VALUES ($1, $2, $3, $4, $5, $6, $7) ON CONFLICT DO NOTHING",
+            "INSERT INTO olien_signers (olien_id, signer_id, kind, permissions, flags, address, x, y, label)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) ON CONFLICT DO NOTHING",
         )
         .bind(id)
-        .bind(hex(signer_id_of_address(address).as_slice()))
+        .bind(hex(key.id.as_slice()))
         .bind(kind_name(signer.kind))
         .bind(signer.permissions as i32)
         .bind(signer.flags as i32)
-        .bind(addr(address))
-        .bind(labels.get(&addr(address)).cloned().unwrap_or_default())
+        .bind(key.address.map(addr))
+        .bind(key.x.map(|v| v.to_string()))
+        .bind(key.y.map(|v| v.to_string()))
+        .bind(labels.get(&key.handle()).cloned().unwrap_or_default())
         .execute(pool)
         .await?;
     }
@@ -972,6 +1034,29 @@ pub async fn refresh_account_from_chain(pool: &PgPool, client: &OlienClient, row
                 .await?;
         }
     }
+    // A signer that arrived through a proposal takes the label its proposer gave it,
+    // once the chain shows it; the intent keeps labels by address or by signer id.
+    let intents: Vec<(serde_json::Value,)> =
+        sqlx::query_as("SELECT intent FROM olien_proposals WHERE olien_id = $1 AND kind = 'signer_change'")
+            .bind(row.id)
+            .fetch_all(pool)
+            .await?;
+    for (intent,) in intents {
+        for entry in intent.get("labels").and_then(|v| v.as_array()).into_iter().flatten() {
+            let (Some(handle), Some(label)) = (entry.get("address").and_then(|v| v.as_str()), entry.get("label").and_then(|v| v.as_str())) else {
+                continue;
+            };
+            if label.is_empty() {
+                continue;
+            }
+            sqlx::query("UPDATE olien_signers SET label = $3 WHERE olien_id = $1 AND label = '' AND (address = $2 OR signer_id = $2)")
+                .bind(row.id)
+                .bind(handle)
+                .bind(label)
+                .execute(pool)
+                .await?;
+        }
+    }
 
     let balance = client.usdc_balance(account).await.context("reading the USDC balance")?;
     let deposit = client.entry_point_deposit(account).await.context("reading the EntryPoint deposit")?;
@@ -1054,6 +1139,8 @@ pub async fn account_view(pool: &PgPool, treasury: &Treasury, user: i64, address
                 signer_id: s.signer_id.clone(),
                 kind: s.kind.clone(),
                 address: s.address.clone(),
+                x: s.x.clone(),
+                y: s.y.clone(),
                 label: s.label.clone(),
                 permissions: permission_names(s.permissions),
                 since: s.since,
@@ -1424,16 +1511,16 @@ pub async fn propose_signers(pool: &PgPool, treasury: &Treasury, user: i64, addr
     let mut calls = Vec::new();
     let mut labels: Vec<(String, String)> = Vec::new();
     for s in &body.add {
-        let (input, address) = signer_input(s)?;
-        labels.push((addr(address), s.label.clone().unwrap_or_default()));
+        let (input, key) = signer_input(s)?;
+        labels.push((key.handle(), s.label.clone().unwrap_or_default()));
         calls.push(Call { to: account, value: U256::ZERO, data: calldata::add_signer(input) });
     }
     for id in &body.remove {
         calls.push(Call { to: account, value: U256::ZERO, data: calldata::remove_signer(parse_hash(id)?) });
     }
     for r in &body.replace {
-        let (input, address) = signer_input(&r.with)?;
-        labels.push((addr(address), r.with.label.clone().unwrap_or_default()));
+        let (input, key) = signer_input(&r.with)?;
+        labels.push((key.handle(), r.with.label.clone().unwrap_or_default()));
         calls.push(Call { to: account, value: U256::ZERO, data: calldata::replace_signer(parse_hash(&r.signer_id)?, input) });
     }
     if let Some(t) = body.threshold {
@@ -1806,7 +1893,10 @@ pub async fn confirm(pool: &PgPool, treasury: &Treasury, user: i64, address: &st
     } else {
         // Off-chain signatures are accepted only from a signer the caller controls; an
         // on-chain approval is public and needs no such link.
-        if !ctx.membership.signer_ids.contains(&signer_id) {
+        // A P-256 or passkey signature over this very hash is its own proof of control,
+        // so those need no linked address behind them.
+        let key_based = matches!(signer.kind.as_str(), "p256" | "webauthn");
+        if !key_based && !ctx.membership.signer_ids.contains(&signer_id) {
             return Err(TreasuryError::Forbidden);
         }
         let check = match signer.kind.as_str() {
@@ -1851,6 +1941,17 @@ pub async fn confirm(pool: &PgPool, treasury: &Treasury, user: i64, address: &st
 
 fn key_part(value: Option<&str>) -> Res<U256> {
     U256::from_str_radix(value.unwrap_or(""), 10).map_err(|_| TreasuryError::Internal(anyhow!("a P-256 signer without key coordinates")))
+}
+
+// The name lives in the service, not on chain, so any member may change it at once.
+pub async fn rename_account(pool: &PgPool, treasury: &Treasury, user: i64, address: &str, name: &str) -> Res<AccountView> {
+    let ctx = context_for(pool, user, address).await?;
+    let name = name.trim();
+    if name.is_empty() || name.chars().count() > 80 {
+        return Err(bad("name must be 1 to 80 characters"));
+    }
+    sqlx::query("UPDATE olien_accounts SET name = $2 WHERE id = $1").bind(ctx.row.id).bind(name).execute(pool).await?;
+    account_view(pool, treasury, user, address).await
 }
 
 pub async fn execute(pool: &PgPool, treasury: &Treasury, user: i64, address: &str, tx_hash: &str) -> Res<ProposalView> {
@@ -2099,4 +2200,42 @@ pub async fn add_address(pool: &PgPool, user: i64, address: &str, body: AddressB
     .execute(pool)
     .await?;
     Ok(AddressBookEntry { address: addr(entry), label, category, created_at: now() as i64 })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn passkey_signer_input_matches_the_contract() {
+        let x = "0xf299ff78aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+        let y = "0x029e61bcbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+        let body = SignerBody {
+            kind: Some("webauthn".into()),
+            address: None,
+            label: Some("Laptop".into()),
+            permissions: Some(vec!["approve".into()]),
+            x: Some(x.into()),
+            y: Some(y.into()),
+            uv_required: None,
+        };
+        let (input, key) = signer_input(&body).unwrap();
+        assert_eq!(input.kind, KIND_WEBAUTHN);
+        assert_eq!(input.flags, FLAG_UV_REQUIRED);
+        assert_eq!(input.key.len(), 64);
+        assert_eq!(key.id, signer_id_of_key(key.x.unwrap(), key.y.unwrap()));
+        assert!(key.address.is_none());
+        assert_eq!(key.handle(), hex(key.id.as_slice()));
+
+        let plain = SignerBody { kind: Some("p256".into()), uv_required: Some(true), ..body };
+        let (input, _) = signer_input(&plain).unwrap();
+        assert_eq!(input.flags, 0, "only passkeys carry the user-verification flag");
+
+        let missing = SignerBody { kind: Some("webauthn".into()), address: None, label: None, permissions: None, x: None, y: None, uv_required: None };
+        assert!(signer_input(&missing).is_err());
+        let ecdsa = SignerBody { kind: None, address: Some("0x12808a601475b87ce7b343A18f11062cc74Eae81".into()), label: None, permissions: None, x: None, y: None, uv_required: None };
+        let (input, key) = signer_input(&ecdsa).unwrap();
+        assert_eq!(input.key.len(), 20);
+        assert_eq!(key.handle(), "0x12808a601475b87ce7b343a18f11062cc74eae81");
+    }
 }
