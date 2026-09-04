@@ -69,11 +69,11 @@ UX criticisms: asynchronous execution breaks dapp interfaces, rent must be recla
 by hand, sub-accounts and permissions are paywalled, the fee relayer depends on
 Turnkey.
 
-**Taken into this design.** Roles beyond owner; sub-accounts as child Safes; a stale
-index (`owners_snapshot`); approvals that expire; time lock on rule changes by
-default; the subscription paid through a spending allowance; a public verifiable
-client for outages; and the choice to keep the account canonical and unforkable while
-the rules evolve in modules and the service.
+**Taken into this design.** Roles beyond owner; sub-accounts; a stale index (the
+epoch); approvals that expire; time lock on rule changes by default; the
+subscription paid through a spending limit; a public verifiable client for outages;
+and, since 2026-09-04, policies inside one account contract rather than in separate
+modules (`05-onchain-design.md`).
 
 ## Safe (Ethereum and every EVM)
 
@@ -90,11 +90,11 @@ Also live on Arc, found by reading code: SafeL2 1.5.0, the Allowance module v0.1
 Safe's SocialRecoveryModule v0.1.0 (14 days), the shared WebAuthn signer with its
 Solidity P-256 verifier, and the ERC-2470 factory the Zodiac modules deploy through.
 
-Safe's shape that this design keeps: owners and threshold on the account; `SafeTx`
-EIP-712 hashing with a two-field domain; signatures packed in owner order with
-contract owners verified through the legacy `isValidSignature(bytes,bytes)`; modules
-that execute through `execTransactionFromModule`; guards that run before and after
-every execution; native gas refunds to a relayer.
+Safe's shape that this design keeps: signers and threshold on the account; EIP-712
+hashing of the transaction; signatures packed in signer order; on-chain approval for
+signers that cannot sign off-chain. Not kept since 2026-09-04: guards,
+`execTransactionFromModule`, the legacy `isValidSignature(bytes,bytes)` as the nested
+path, and native gas refunds to a relayer (`05-onchain-design.md`).
 
 **The transaction service** (`safe-transaction-service`, v6.10.1 in August 2026) is
 Django and Postgres with Redis, RabbitMQ and Celery workers. It stores

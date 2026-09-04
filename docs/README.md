@@ -1,29 +1,52 @@
 # Treasury on Arc: research and engineering design
 
-The team multisig product Arc does not have. Ethereum has Safe, Solana has Squads;
-Arc has Safe's contracts and nobody running anything on them. This folder is the
-research behind building that product, and the design of it.
+The team multisig product Arc does not have, and the account protocol under it.
+Ethereum has Safe, Solana has Squads; Arc has Safe's contracts and nobody running
+anything on them. This folder is the research behind building that product, and
+the design of it: since 2026-09-04, an own account contract with the service and
+the clients on top, rather than a product on Safe.
 
-Working name in these documents: **Treasury**. Not a brand; a placeholder.
+Working names in these documents: **Treasury** for the product, **Concord** for the
+account. Not brands; placeholders. Concord is in the EIP-712 domain of every
+signature, so it must be final before mainnet (`09-open-questions.md`).
 
 Started 2026-09-03, the day the consumer app moved to a 2-of-3 Safe
 (`../keys-and-recovery.md`). That work is the seed: a backend that deploys Safes and
 relays owner changes, Swift that hashes and packs Safe signatures, a Secure Enclave
-owner contract, and a bundler path with USDC as gas.
+owner contract, and a bundler path with USDC as gas. What survives of it is listed
+in `05-onchain-design.md`.
 
 ## Reading order
 
 | File | What it settles |
 | --- | --- |
 | `01-landscape.md` | What Squads, Safe and the treasury products on top of them actually do, with sources |
-| `02-arc-facts.md` | Everything verified on Arc itself: contracts, precompiles, gas, bundlers, what is missing |
+| `02-arc-facts.md` | Everything verified on Arc itself: contracts, precompiles, gas, bundlers, what is missing; the Safe baseline Concord is measured against |
 | `03-product.md` | Who it is for, what it does, what it deliberately does not do |
 | `04-architecture.md` | The system: services, data model, APIs, how signatures travel between devices |
-| `05-onchain-design.md` | Contracts and modules: what exists, what to deploy, what to write, how nested accounts sign |
-| `06-algorithms.md` | The exact procedures: hashing, packing, the nonce queue, policy evaluation, gas on Arc, indexing |
-| `07-security-model.md` | Threats, invariants, what a compromise of each part yields |
+| `05-onchain-design.md` | The decision to build an own account: why, what it costs, what is borrowed, what survives from the Safe build, migration |
+| `06-algorithms.md` | The exact procedures: hashing, packing, the queue, policy evaluation, gas on Arc, indexing |
+| `07-security-model.md` | Threats, invariants, what a compromise of each part yields, contract risk |
 | `08-roadmap-and-grants.md` | Phases, effort, and the programs that fund this category |
 | `09-open-questions.md` | What is undecided and what would change the design |
+| `10-account-spec.md` | The contract, normatively: paths, signers, hashes, signatures, scheduling, limits, recovery, ERC-4337, events, invariants, gas targets |
+
+## Status (2026-09-04)
+
+Decision: the product is built on its own account protocol rather than on Safe
+(`05-onchain-design.md`). The specification (`10-account-spec.md`) was drafted in
+the morning, reviewed adversarially (26 findings, spec §19), and the contracts
+were written against the fixed version, reviewed, tested and deployed to Arc
+testnet the same day: `ConcordVerifier`, the `SubAccount` implementation, the
+`Concord` v1 implementation and `ConcordFactory`, through the Arachnid CREATE2
+proxy at fixed salts (addresses and transactions in the proofs table of
+`02-arc-facts.md`; `08-roadmap-and-grants.md` Phase 1). 61 Concord tests plus 58
+other tests pass (119). Proofs by transaction landed the same evening (an account
+created, a P-256 execution, a spend under a limit, a guardian's recovery vetoed by
+the device through a user operation, a threshold user operation paid in USDC, a
+nested signature): spec §16 has the measured gas and §18 the transactions.
+Nothing is on mainnet. The consumer
+app runs on Safe until the review in `08-roadmap-and-grants.md` Phase 4 lands.
 
 ## Status (2026-09-03)
 

@@ -12,7 +12,7 @@ accounts.
 | A founder with two co-founders | company money on Arc, nobody wants to be the one holding the key | a 2-of-3, deposits in, pay a contractor, see the ledger |
 | A finance lead at a payment company piloting Arc | needs approvals by amount, an audit trail, exports the accountant can use | roles, approval tiers, labels, CSV, hardware wallet support |
 | A contractor or employee paid by such a team | wants to get paid without a wallet lesson | a Recourse account that receives, and an invoice that gets approved |
-| A DAO or a fund moving to Arc for USDC and EURC | many signers on many devices, slow decisions, large amounts | proposals that wait, notifications, time locks, nested Safes for sub-treasuries |
+| A DAO or a fund moving to Arc for USDC and EURC | many signers on many devices, slow decisions, large amounts | proposals that wait, notifications, time locks, nested accounts for sub-treasuries |
 
 ## What it does
 
@@ -26,17 +26,19 @@ change. The others see it wherever they are, read it in plain terms, see a simul
 and approve. When enough have, anyone executes and the treasury pays its own gas in
 USDC. The queue shows what is waiting on whom.
 
-**Rules.** Two kinds, labelled honestly: on-chain rules the chain enforces (spending
-allowances with one signature, a 24 hour delay on changing members or rules, an
-allowlist of destinations for teams that want one), and treasury policies the
-service applies (more approvals above an amount, known destinations only, working
-hours, notes). See `07-security-model.md`.
+**Rules.** Two kinds, labelled honestly: on-chain rules the account itself enforces
+(spending limits with one signature and a destination list, a 24 hour delay on
+changing members or rules, which members holding a veto can stop during the wait),
+and treasury policies the service applies (more approvals above an amount, known
+destinations only, working hours, notes). Taking a power away never waits: a limit
+is removed at once, and a pending payment the team no longer wants is cancelled at
+once by the same approvals that would have paid it. See `07-security-model.md`.
 
 **Payroll and payouts.** A run is a list of people and amounts on a schedule. One
 approval round pays everyone in one transaction. Or the treasury writes cheques,
 which recipients cash when they like and the team can void while uncashed; or it
 approves invoices that contractors issued. Both are USDC's own signed-authorization
-feature, which the chain verifies for a Safe.
+feature, which the chain verifies for a smart account through EIP-1271.
 
 **Ledger and reports.** Every movement labelled, categorised, tied to the proposal
 that caused it and the invoice or payroll run it belonged to. Exports for the
@@ -58,8 +60,9 @@ brings them back without the treasury changing anything.
 - Offer a one-signature treasury.
 - Bank rails, cards, off-ramp: not in the first version. They are a later layer, and
   the reason to keep the ledger clean now.
-- Custom account contracts. It is canonical Safe, so a team can leave with their
-  keys and use any Safe tooling that supports the chain.
+- Lock a team into the service. The account is our own open-source contract
+  (`10-account-spec.md`); it needs no service to work, so a team can leave with
+  their keys and execute against the contract directly with any client.
 
 ## The screens
 
@@ -68,22 +71,26 @@ brings them back without the treasury changing anything.
    3 approved, waiting for Ade"), recent ledger.
 3. **New payment**: recipient (address book, @handle, address), amount, token, memo,
    invoice; shows the policy it will meet and who must approve.
-4. **Proposal**: decoded intent, raw calldata on demand, simulation, `safeTxHash`
-   shown for hardware comparison, approvals, execute button when ready, cancel.
+4. **Proposal**: decoded intent, raw calldata on demand, simulation, the
+   transaction hash shown for hardware comparison, approvals, execute button when
+   ready, cancel; for a rule change, the countdown and the veto.
 5. **Payroll**: runs, schedule, recipients, next run, history.
-6. **Rules**: members and threshold (through the delay), allowances, allowlist,
-   approval tiers, working hours; each labelled on-chain or policy.
+6. **Rules**: members and threshold (through the delay, with pending changes and
+   their veto count), spending limits with their signers and destinations, approval tiers,
+   working hours; each labelled on-chain or policy.
 7. **Ledger**: filters, labels, categories, export.
 8. **Settings**: name, notifications, API keys, integrations.
 
 The iOS app shows 2 and 4 for treasuries the signed-in account belongs to, with
-approve and execute, and pushes on new proposals.
+approve, execute and veto, and pushes on new proposals and on scheduled changes.
 
 ## What makes it Arc's
 
 - Gas is the money. A treasury never holds a second asset to pay fees.
 - Signed authorizations (cheques, invoices) are native to USDC and verified for
-  Safes on this chain; payroll can be pull-based.
+  smart accounts on this chain (`02-arc-facts.md`); payroll can be pull-based.
+- Members can be P-256 keys, a phone's Secure Enclave or a laptop passkey, checked
+  by the chain's own precompile; this is why the account is ours.
 - StableFX for USDC and EURC treasuries in one place.
 - The consumer app is the on-ramp for members: a contractor with a Recourse
   account is already a valid signer and payee.
@@ -105,5 +112,6 @@ payroll runs, approval policies, exports and API access, priced per treasury per
 month. Benchmarks: Squads charges 49 USD a month for Pro (sub-accounts, fee relayer,
 permissions) and lets the treasury pay it through a monthly spending limit drawn from
 its own vault; its developer product starts at 499 USD a month. The same trick works
-here: the subscription is an Allowance the treasury grants to the service, visible
-and revocable like any other rule. FX spread on conversions. No AUM fee.
+here: the subscription is a spending limit the treasury grants to a key of the
+service, visible like any other rule and revocable at once. FX spread on conversions. No
+AUM fee.
