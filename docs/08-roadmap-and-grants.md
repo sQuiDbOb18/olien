@@ -65,25 +65,55 @@ Foundry, against the real EntryPoint v0.7 bytecode.
 ## Phase 2: the service and console (about 3 weeks)
 
 The transaction service and the web console on Olien, with ECDSA and WebAuthn
-members.
+members. Status, evening of 2026-09-04: built and run end to end on testnet from
+one machine; what is left is listed under each item.
 
-- Migration: `accounts`, `signers`, `proposals`, `confirmations`, `spending_limits`,
-  `sub_accounts`, `ledger_entries`, `address_book` (`04-architecture.md`).
-- Routes: create account, propose, confirm, execute, veto, scheduled changes,
-  limits, sub-accounts, ledger.
-- Indexer: the spec §14 events, USDC and EURC transfers, `UserOperationEvent`, lane
-  reconciliation, replaced and stale proposals.
-- Relayer: `execute` paid by us, `handleOps` repaid from the deposit; balance alarm.
-- Web: accounts list, account home, new payment, proposal with decoded calls,
-  simulation and `txHash`, scheduled changes with veto, rules screen (signers,
-  threshold, delays, limits, all through the delay), ledger with labels and CSV.
+- Migration: `olien_accounts`, `olien_signers`, `olien_proposals`,
+  `olien_confirmations`, `olien_vetoes`, `olien_spending_limits`,
+  `olien_sub_accounts`, `olien_ledger`, `olien_address_book`, `olien_lanes`,
+  `treasury_linked_addresses` (`backend/migrations/0013_treasury.sql`). Done.
+- Routes (`11-service-api.md`): link an address, create account, propose (raw calls
+  and the transfer, signers, limit and remove-limit builders), confirm, execute,
+  cancel, delete, scheduled changes with the veto calldata and `executeScheduled`,
+  ledger, address book. Done. Not yet: sub-account creation, API keys.
+- Indexer: the spec §14 events, USDC transfers, lanes from `getNonce`, replaced and
+  stale proposals, limits and sub-accounts mirrored from events. Done. Not yet:
+  EURC, `UserOperationEvent`, discovery of accounts the service did not create.
+- Relayer: `createAccount`, `execute` and `executeScheduled` paid by us, one key
+  shared with the Safe deployer (`RELAYER_PK` falls back to `ATTESTOR_PK`), the
+  pending nonce read at every send. Done. Not yet: `handleOps`, the balance alarm.
+- Web: accounts list, new account, account home, new payment, proposal with
+  decoded calls, the hash beside the wallet's, confirm with the browser key or
+  MetaMask, execute, cancel, scheduled changes with countdown and veto from the
+  member's own wallet, rules editor (signers, threshold, delays), ledger and
+  address book. Done. Not yet: the limits editor, CSV export, passkey members
+  (the service checks P-256 and WebAuthn signatures; the console signs ECDSA only).
+- Simulation: `eth_call` per call from the account at proposal time; the
+  `eth_simulateV1` path with balance deltas is not wired yet.
 - The first customer is a team on Arc testnet (decided 2026-09-04,
   `09-open-questions.md` item 2): one pilot team from the cohort in
   `03-product.md`, on the console before mainnet money exists, with us watching
   what they do.
 - Exit: that team runs a 2-of-3 on testnet end to end from three laptops; a
   hardware wallet confirms the hash it shows equals the one on screen; a signer
-  change waits 24 hours and is vetoed from another device.
+  change waits 24 hours and is vetoed from another device. Not yet: the run below
+  is the same flow driven by a script from one machine with three keys and two
+  user sessions, against the service on a local Postgres and Arc testnet.
+
+  Proof run, evening of 2026-09-04, account
+  `0x2a5533614f50fa5ce1eaf5d26d431e48dfb43f8a` (2-of-3, rule delay 120 s):
+
+  | Step | Transaction | Checked against |
+  | --- | --- | --- |
+  | Created by the relayer through `POST /accounts` | `0x2ed9b0291d4fa60959af18b85159ec8fd854ad5a7c9969e32aabf1ed469f5393` | `getConfig` on chain, epoch 1; the second user sees it through her linked key |
+  | Payment of 0.05 USDC proposed, two signatures, executed by the relayer at the other user's request | `0x212a737a055a5ba5e07a81f203a636412eb25530cb174f4ab502b81d3e81c9d7` | the service's hash equals `getTransactionHash`; the payee's balance rises by exactly 50,000; a signature from the wrong key is refused |
+  | Signer change (add a fourth key) executed into the time lock | `0xcaf7fc1a413812e02f433425398cf4bd82eb8c29092a977fe462279d41ba02f7` | status `scheduled`, rule text "2 vetoes stop it" (automatic threshold for a 2-of-3) |
+  | Two vetoes from two members' own wallets | `0x561938b66c29c88c1e422a6dbd26de94edf3a9d6c2fe4c50e703106a9b622aa7`, `0x2143b030dfad46a5fc5380bdd8b71f48386c51536a5c9a01574ae12281e4b39c` | one veto leaves it scheduled and the veto call no longer offers that key; after the second the indexer shows `vetoed` and `isDead` is true |
+  | The same change proposed again and executed after its delay by the relayer | `0xb94a168ecab85f053329068f216b5130f281c830dcbb63b6fcff86ff38c43075` | an early `executeScheduled` is refused; epoch 2 and four signers on chain and in the service; the ledger shows the two transfers with the memo |
+
+  The console's signing guard was checked without a browser: viem's
+  `hashTypedData` over the service's typed data equals the service's hash for
+  all three proposals.
 
 ## Phase 3: members that are people (about 2 weeks)
 

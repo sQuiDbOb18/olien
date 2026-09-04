@@ -31,6 +31,7 @@ in `05-onchain-design.md`.
 | `08-roadmap-and-grants.md` | Phases, effort, and the programs that fund this category |
 | `09-open-questions.md` | What is undecided and what would change the design |
 | `10-account-spec.md` | The contract, normatively: paths, signers, hashes, signatures, scheduling, limits, recovery, ERC-4337, events, invariants, gas targets |
+| `11-service-api.md` | The transaction service's routes and shapes: the contract between the backend and the console and the app |
 
 ## Status (2026-09-04)
 
@@ -49,8 +50,12 @@ nested signature): spec §16 has the measured gas and §18 the transactions. Tha
 evening the name became Olien, the four contracts were deployed again under it
 (the name is in every hash) and the proofs repeated on the new addresses; the
 product questions in `09-open-questions.md` items 1 to 5 were answered and the
-engineering ones decided. Nothing is on mainnet. The consumer app runs on Safe
-until the review in `08-roadmap-and-grants.md` Phase 4 lands.
+engineering ones decided. Later that evening Phase 2 was built: the transaction
+service in the backend (`11-service-api.md`) and the treasury console in the web
+app, and the exit flow ran end to end on testnet from one machine
+(`08-roadmap-and-grants.md` Phase 2, proof run). Nothing is deployed and nothing
+is on mainnet. The consumer app runs on Safe until the review in
+`08-roadmap-and-grants.md` Phase 4 lands.
 
 ## Status (2026-09-03)
 
