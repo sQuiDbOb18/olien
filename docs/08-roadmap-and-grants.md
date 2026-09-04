@@ -164,6 +164,18 @@ one machine; what is left is listed under each item.
   ECDSA, server RECOVER); the recovery flow as `replaceSigner` through the recovery
   path; migration of existing testnet Safes by sweep (`05-onchain-design.md`,
   Migration); @handle invites.
+  Status, 2026-09-05: the first half is done the other way round, with the
+  consumer account staying on its Safe (Phase 4 gates the move): a Recourse
+  account is an Olien member through its Safe as a contract signer, with
+  nothing to link, and a treasury adds a member by @handle (`11-service-api.md`).
+  Proof run, account `0x7eae62ec8145c85203d3c167efdece93ff64263c` (Ada's wallet
+  and the threshold-1 test Safe, 2 of 2): the person whose Recourse account owns
+  the Safe sees the Olien and is marked as its signer; the Safe's EIP-1271
+  signature over the transaction hash confirmed a payment and a stranger's
+  signature was refused; the relayer executed it and the Olien checked the
+  Safe's signature on chain (`0x10fcaa17…ecec3c`); a member proposed by @handle
+  arrived as a contract signer labelled by the handle. Not yet: consumer
+  accounts as Oliens, recovery through the Olien, migration by sweep.
 - Exit: a testnet treasury with two Recourse accounts and one hardware wallet pays a
   contractor's invoice; a consumer account recovers a lost phone with the cloud key
   and the email code after the one-hour co-signed delay, and a lost cloud key
