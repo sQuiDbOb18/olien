@@ -82,12 +82,20 @@ one machine; what is left is listed under each item.
 - Relayer: `createAccount`, `execute` and `executeScheduled` paid by us, one key
   shared with the Safe deployer (`RELAYER_PK` falls back to `ATTESTOR_PK`), the
   pending nonce read at every send. Done. Not yet: `handleOps`, the balance alarm.
-- Web: accounts list, new account, account home, new payment, proposal with
-  decoded calls, the hash beside the wallet's, confirm with the browser key or
-  MetaMask, execute, cancel, scheduled changes with countdown and veto from the
-  member's own wallet, rules editor (signers, threshold, delays), ledger and
-  address book. Done. Not yet: the limits editor, CSV export, passkey members
-  (the service checks P-256 and WebAuthn signatures; the console signs ECDSA only).
+- Web: the console at `/olien`, rebuilt late on 2026-09-04 in the Squads app's
+  layout and flow (the founder's call: Squads' UI, typography and UX, for Olien
+  and Arc): sign in with a wallet, the account switcher, Home with balance and
+  assets, Transactions with status filters, the transaction page with decoded
+  calls and the hash beside the wallet's, approve, execute, cancel, delete, the
+  scheduled countdown with veto from the member's own wallet, Members with add,
+  remove and threshold changes, Settings with the time lock, the spending limits
+  editor, address book, sub-accounts and the ledger with CSV export. Done. Not
+  yet: passkey members (the service checks P-256 and WebAuthn signatures; the
+  console signs ECDSA only), a light theme, renaming an account.
+- Sign-in: `POST /api/auth/wallet/challenge` and `POST /api/auth/wallet`
+  (`11-service-api.md`); the address is the identity and is linked as a treasury
+  address in the same transaction. Done. The email and Google sessions still
+  exist for the iOS app and tests; the web no longer offers them.
 - Simulation: `eth_call` per call from the account at proposal time; the
   `eth_simulateV1` path with balance deltas is not wired yet.
 - The first customer is a team on Arc testnet (decided 2026-09-04,
@@ -96,9 +104,24 @@ one machine; what is left is listed under each item.
   what they do.
 - Exit: that team runs a 2-of-3 on testnet end to end from three laptops; a
   hardware wallet confirms the hash it shows equals the one on screen; a signer
-  change waits 24 hours and is vetoed from another device. Not yet: the run below
-  is the same flow driven by a script from one machine with three keys and two
-  user sessions, against the service on a local Postgres and Arc testnet.
+  change waits 24 hours and is vetoed from another device. Not yet: the two runs
+  below are the same flow from one machine, first driven by a script against the
+  service, then driven through the console itself in two headless browsers with
+  injected wallets (Playwright; the wallet is a throwaway key answering
+  `personal_sign`, `eth_signTypedData_v4` and `eth_sendTransaction`), against the
+  service on a local Postgres and Arc testnet.
+
+  Browser run, late 2026-09-04, account
+  `0x9726fe9b82a0181d2c98988918a70da0049aa7c8` (2-of-3, rule delay 122 s):
+
+  | Step in the console | Outcome |
+  | --- | --- |
+  | Ada connects, signs the challenge, creates the account in the wizard | created; the wizard pre-filled her wallet as member one |
+  | Send 0.05 USDC to a payee, Ada approves | proposal `0x1c9155f2…74b4ec`, one signature |
+  | Grace signs in, approves, executes | executed; the payee holds exactly 50,000 units on chain |
+  | Ada adds a member from Members, both approve, Grace executes | scheduled, `0x4fddd94d…bf1e8c`, "2 vetoes stop it" |
+  | Ada vetoes from her wallet, then Grace from hers | 1 of 2, then vetoed |
+  | Settings | the ledger shows the payment with its memo; CSV export offered |
 
   Proof run, evening of 2026-09-04, account
   `0x2a5533614f50fa5ce1eaf5d26d431e48dfb43f8a` (2-of-3, rule delay 120 s):

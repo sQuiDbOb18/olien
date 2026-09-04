@@ -330,9 +330,14 @@ One Railway service (the existing backend) hosts all of it since the evening of
 mounted at `/api/treasury`), the queue, the hash, the per-kind signature checks and
 the relayer (`services/treasury.rs`, `services/olien.rs`), the event indexer
 (`jobs/olien_indexer.rs`) and the tables (`migrations/0013_treasury.sql`, all
-prefixed `olien_`, because `accounts` already names the users). The web app has the
-`/treasury` section (`web/lib/treasury.ts`, `web/components/treasury/`). The iOS
-app gains a team queue and a veto screen in Phase 3. No new infrastructure until
+prefixed `olien_`, because `accounts` already names the users). The web app is
+two things since 2026-09-04: a marketing site for the iOS app at `/` (there is no
+web version of the consumer product) and the Olien console at `/olien`
+(`web/lib/treasury.ts`, `web/components/olien/`), which follows the Squads app in
+layout and flow and opens on a connected wallet: `POST /api/auth/wallet` turns a
+signature over a server-issued challenge into a session whose identity is the
+address (`11-service-api.md`). The iOS app gains a team queue and a veto screen
+in Phase 3. No new infrastructure until
 the queue is busy enough to need it. The contracts live in `contracts/src/olien/` beside the
 Safe-era `P256Owner`, and deploy through the same CREATE2 proxy at the same
 addresses on every chain (spec §18); the five of them have been on Arc testnet

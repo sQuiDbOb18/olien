@@ -87,6 +87,12 @@ brings them back without the treasury changing anything.
 7. **Ledger**: filters, labels, categories, export.
 8. **Settings**: name, notifications, API keys, integrations.
 
+The console groups these the way the Squads app does (decided 2026-09-04): a
+sidebar with the account switcher and Home, Transactions, Members and Settings;
+the list of treasuries is the door after the wallet signs in; new payment is
+Send; rules split between Members (who and how many) and Settings (time lock,
+spending limits, address book, sub-accounts, ledger and export).
+
 The iOS app shows 2 and 4 for treasuries the signed-in account belongs to, with
 approve, execute and veto, and pushes on new proposals and on scheduled changes.
 
