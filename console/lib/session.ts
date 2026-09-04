@@ -1,7 +1,7 @@
-// Real account sessions against the backend (Sign in with Google today; Apple is the
-// iOS-native path). Opaque access/refresh tokens live in localStorage: the access token
-// lasts 15 min, and authFetch silently refreshes it via the 30-day refresh token. The
-// account identity is who you are; Arc wallet signatures still authorize payment writes.
+// Account sessions against the backend. On the web the only sign-in is a wallet
+// signature (the Olien console); Apple, Google and passkeys are the iOS paths. Opaque
+// access/refresh tokens live in localStorage: the access token lasts 15 min, and
+// authFetch silently refreshes it via the 30-day refresh token.
 
 import { API_BASE } from "./api";
 
@@ -27,7 +27,6 @@ const REFRESH = "recourse.session.refresh";
 const ACCESS_EXP = "recourse.session.accessExp";
 const ACCOUNT = "recourse.session.account";
 
-export const GOOGLE_CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ?? "";
 export const SESSION_EVENT = "recourse-session-change";
 
 function store(): Storage | null {
@@ -121,15 +120,37 @@ export async function fetchMe(): Promise<Account | null> {
   return account;
 }
 
-export async function signInWithGoogle(idToken: string): Promise<Account> {
-  const res = await fetch(`${API_BASE}/api/auth/google`, {
+export interface WalletChallenge {
+  message: string;
+  nonce: string;
+  expiresAt: number;
+}
+
+// Wallet sign-in, the console's only door: the backend hands out the exact text to sign,
+// the wallet signs it (EIP-191 personal_sign), and the backend answers with a session
+// whose identity is the address. The address is linked as a treasury address on the way.
+export async function walletChallenge(address: string): Promise<WalletChallenge> {
+  const res = await fetch(`${API_BASE}/api/auth/wallet/challenge`, {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ idToken }),
+    body: JSON.stringify({ address }),
   });
   if (!res.ok) {
     const body = (await res.json().catch(() => ({}))) as { error?: string };
-    throw new Error(body.error ?? `Google sign-in failed (${res.status})`);
+    throw new Error(body.error ?? `Could not start wallet sign-in (${res.status})`);
+  }
+  return (await res.json()) as WalletChallenge;
+}
+
+export async function signInWithWallet(address: string, nonce: string, signature: string): Promise<Account> {
+  const res = await fetch(`${API_BASE}/api/auth/wallet`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ address, nonce, signature }),
+  });
+  if (!res.ok) {
+    const body = (await res.json().catch(() => ({}))) as { error?: string };
+    throw new Error(body.error ?? `Wallet sign-in failed (${res.status})`);
   }
   const grant = (await res.json()) as SessionGrant;
   saveSession(grant);

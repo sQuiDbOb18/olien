@@ -595,3 +595,57 @@ export function proposalSummary(proposal: ProposalView): string {
   if (proposal.decoded.length > 1) return `${proposal.decoded.length} calls: ${proposal.decoded.map((call) => call.summary).join("; ")}`;
   return `${proposal.calls.length} ${proposal.calls.length === 1 ? "call" : "calls"}`;
 }
+
+// Spending limits: the console sends the target limit and the service encodes the
+// setSpendingLimit, allowLimitSigner and allowLimitDestination batch. Creating or
+// replacing one is a configuration change (scheduled); removing one runs at once.
+export interface LimitProposalBody {
+  id?: number | null;
+  token?: string;
+  amount: string;
+  period: number;
+  anyDestination: boolean;
+  signers: string[];
+  destinations: string[];
+  subAccount?: number | null;
+}
+
+export const proposeLimit = (address: string, body: LimitProposalBody) =>
+  request<ProposalView>(`/accounts/${address}/proposals/limit`, post(body));
+export const proposeRemoveLimit = (address: string, body: { id: number }) =>
+  request<ProposalView>(`/accounts/${address}/proposals/remove-limit`, post(body));
+
+// A USDC amount as a plain decimal with six places, for spreadsheets.
+export function usdcDecimal(raw: string | bigint): string {
+  const n = typeof raw === "bigint" ? raw : BigInt(raw || "0");
+  const negative = n < 0n;
+  const abs = negative ? -n : n;
+  return `${negative ? "-" : ""}${abs / 1_000_000n}.${(abs % 1_000_000n).toString().padStart(6, "0")}`;
+}
+
+export function ledgerCsv(entries: LedgerEntry[]): string {
+  const escape = (value: string | number | null | undefined) => {
+    const text = value == null ? "" : String(value);
+    return /[",\r\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+  };
+  const rows: (string | number | null)[][] = [
+    ["time", "direction", "counterparty", "counterparty_label", "amount_usdc", "symbol", "memo", "proposal", "limit_id", "sub_account", "tx", "block"],
+  ];
+  for (const entry of entries) {
+    rows.push([
+      new Date(entry.blockTime * 1000).toISOString(),
+      entry.direction,
+      entry.counterparty,
+      entry.counterpartyLabel,
+      `${entry.direction === "out" ? "-" : ""}${usdcDecimal(entry.amount)}`,
+      entry.symbol,
+      entry.memo,
+      entry.proposalTxHash,
+      entry.limitId,
+      entry.subAccount,
+      entry.tx,
+      entry.blockNumber,
+    ]);
+  }
+  return `${rows.map((row) => row.map(escape).join(",")).join("\n")}\n`;
+}

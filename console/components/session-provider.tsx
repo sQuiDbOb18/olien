@@ -7,14 +7,12 @@ import {
   fetchMe,
   hasSession,
   SESSION_EVENT,
-  signInWithGoogle as apiSignInWithGoogle,
   signOut as apiSignOut,
 } from "@/lib/session";
 
 interface SessionContextValue {
   account: Account | null;
   loading: boolean;
-  signInWithGoogle: (idToken: string) => Promise<Account>;
   signOut: () => Promise<void>;
   refreshAccount: () => Promise<void>;
 }
@@ -48,12 +46,6 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     };
   }, [hydrate]);
 
-  const signInWithGoogle = useCallback(async (idToken: string) => {
-    const next = await apiSignInWithGoogle(idToken);
-    setAccount(next);
-    return next;
-  }, []);
-
   const signOut = useCallback(async () => {
     await apiSignOut();
     setAccount(null);
@@ -64,7 +56,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   return (
-    <SessionContext.Provider value={{ account, loading, signInWithGoogle, signOut, refreshAccount }}>
+    <SessionContext.Provider value={{ account, loading, signOut, refreshAccount }}>
       {children}
     </SessionContext.Provider>
   );
