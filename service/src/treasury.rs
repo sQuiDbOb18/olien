@@ -16,6 +16,7 @@ use std::collections::{BTreeSet, HashMap, HashSet};
 use std::sync::{Arc, Mutex};
 use std::time::{SystemTime, UNIX_EPOCH};
 
+use crate::services::handles;
 use crate::services::olien::{
     self, address_of_signer_id, calldata, signer_id_of_address, signer_id_of_key, Call, IOlien, Init, OlienClient, SignerInput,
     SpendingLimitInput, Transaction, FLAG_UV_REQUIRED, KIND_CONTRACT, KIND_ECDSA, KIND_P256, KIND_WEBAUTHN,
@@ -492,6 +493,8 @@ pub struct SignerBody {
     pub y: Option<String>,
     // Passkeys only; defaults to true, which is what the console creates.
     pub uv_required: Option<bool>,
+    // A Recourse account by name; resolved to its address and kind before anything else.
+    pub handle: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -643,7 +646,43 @@ pub async fn linked_addresses(pool: &PgPool, account_id: i64) -> Res<Vec<LinkedA
 }
 
 async fn linked_set(pool: &PgPool, account_id: i64) -> Res<HashSet<String>> {
-    Ok(linked_addresses(pool, account_id).await?.into_iter().map(|l| l.address).collect())
+    let mut set: HashSet<String> = linked_addresses(pool, account_id).await?.into_iter().map(|l| l.address).collect();
+    // A Recourse account's own Safe stands for the person: an Olien that names it as a
+    // contract signer has them as a member, with nothing to link.
+    let safe: Option<(String,)> =
+        sqlx::query_as("SELECT safe_address FROM smart_accounts WHERE account_id = $1 AND status = 'live'")
+            .bind(account_id)
+            .fetch_optional(pool)
+            .await?;
+    if let Some((safe,)) = safe {
+        set.insert(safe.to_lowercase());
+    }
+    Ok(set)
+}
+
+// A member named by @handle. The handle's address is the person's account on Arc: a
+// Safe once the app has provisioned one (a contract signer), a plain key before that.
+async fn resolve_handles(pool: &PgPool, signers: &mut [SignerBody]) -> Res<()> {
+    for signer in signers.iter_mut() {
+        let Some(handle) = signer.handle.as_deref().map(str::trim).filter(|h| !h.is_empty()) else {
+            continue;
+        };
+        let resolved = handles::resolve(pool, handle)
+            .await
+            .map_err(|e| bad(format!("@{}: {}", handle.trim_start_matches('@'), e.parts().1)))?;
+        let address = resolved.address.to_lowercase();
+        let safe: Option<(String,)> =
+            sqlx::query_as("SELECT safe_address FROM smart_accounts WHERE lower(safe_address) = $1 AND status = 'live'")
+                .bind(&address)
+                .fetch_optional(pool)
+                .await?;
+        signer.kind = Some(if safe.is_some() { "contract" } else { "ecdsa" }.into());
+        signer.address = Some(address);
+        if signer.label.as_deref().map(str::trim).unwrap_or("").is_empty() {
+            signer.label = Some(format!("@{}", resolved.handle));
+        }
+    }
+    Ok(())
 }
 
 pub async fn load_account(pool: &PgPool, address: &str) -> Res<AccountRow> {
@@ -698,7 +737,8 @@ pub async fn list_accounts(pool: &PgPool, user: i64) -> Res<Vec<AccountSummary>>
         "SELECT DISTINCT a.* FROM olien_accounts a
          LEFT JOIN olien_signers s ON s.olien_id = a.id AND s.status = 'active'
          LEFT JOIN treasury_linked_addresses l ON l.address = s.address AND l.account_id = $1
-         WHERE a.created_by = $1 OR l.account_id IS NOT NULL
+         LEFT JOIN smart_accounts sa ON sa.account_id = $1 AND sa.status = 'live' AND lower(sa.safe_address) = s.address
+         WHERE a.created_by = $1 OR l.account_id IS NOT NULL OR sa.account_id IS NOT NULL
          ORDER BY a.created_at DESC",
     )
     .bind(user)
@@ -831,6 +871,8 @@ fn signer_input(body: &SignerBody) -> Res<(SignerInput, SignerKey)> {
 }
 
 pub async fn create_account(pool: &PgPool, treasury: &Treasury, user: i64, body: CreateAccountBody) -> Res<AccountView> {
+    let mut body = body;
+    resolve_handles(pool, &mut body.signers).await?;
     let client = treasury.client.as_ref().ok_or(TreasuryError::Off)?;
     let name = body.name.trim().to_string();
     if name.is_empty() || name.len() > 80 {
@@ -1504,6 +1546,11 @@ pub async fn propose_transfer(pool: &PgPool, treasury: &Treasury, user: i64, add
 }
 
 pub async fn propose_signers(pool: &PgPool, treasury: &Treasury, user: i64, address: &str, body: SignersProposalBody) -> Res<ProposalView> {
+    let mut body = body;
+    resolve_handles(pool, &mut body.add).await?;
+    for replacement in body.replace.iter_mut() {
+        resolve_handles(pool, std::slice::from_mut(&mut replacement.with)).await?;
+    }
     let client = treasury.client.as_ref().ok_or(TreasuryError::Off)?;
     let ctx = context_for(pool, user, address).await?;
     require_live(&ctx.row)?;
@@ -2218,6 +2265,7 @@ mod tests {
             x: Some(x.into()),
             y: Some(y.into()),
             uv_required: None,
+            handle: None,
         };
         let (input, key) = signer_input(&body).unwrap();
         assert_eq!(input.kind, KIND_WEBAUTHN);
@@ -2231,9 +2279,9 @@ mod tests {
         let (input, _) = signer_input(&plain).unwrap();
         assert_eq!(input.flags, 0, "only passkeys carry the user-verification flag");
 
-        let missing = SignerBody { kind: Some("webauthn".into()), address: None, label: None, permissions: None, x: None, y: None, uv_required: None };
+        let missing = SignerBody { kind: Some("webauthn".into()), address: None, label: None, permissions: None, x: None, y: None, uv_required: None, handle: None };
         assert!(signer_input(&missing).is_err());
-        let ecdsa = SignerBody { kind: None, address: Some("0x12808a601475b87ce7b343A18f11062cc74Eae81".into()), label: None, permissions: None, x: None, y: None, uv_required: None };
+        let ecdsa = SignerBody { kind: None, address: Some("0x12808a601475b87ce7b343A18f11062cc74Eae81".into()), label: None, permissions: None, x: None, y: None, uv_required: None, handle: None };
         let (input, key) = signer_input(&ecdsa).unwrap();
         assert_eq!(input.key.len(), 20);
         assert_eq!(key.handle(), "0x12808a601475b87ce7b343a18f11062cc74eae81");

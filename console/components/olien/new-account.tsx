@@ -5,7 +5,7 @@ import { Check, KeyRound, Plus, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { createPasskey, friendlyPasskeyError, passkeySupported, type PasskeyRecord } from "@/lib/passkey";
-import { createAccount, durationLabel, errorMessage, isValidAddress, shortAddress, type CreateAccountBody, type Permission, type SignerInput } from "@/lib/treasury";
+import { createAccount, durationLabel, errorMessage, isHandle, isValidAddress, shortAddress, type CreateAccountBody, type Permission, type SignerInput } from "@/lib/treasury";
 import { AddressChip, Button, cx, Disclosure, DurationInput, Field, InlineError, Note, Panel, PermissionTags, Spinner, Table, Tag } from "./ui";
 import { olienKeys, rememberAccount } from "./use-olien";
 import { useWalletSession } from "./wallet";
@@ -50,6 +50,9 @@ export function newPasskeyMember(record: PasskeyRecord, label: string): MemberDr
 export function signerInputOf(row: MemberDraft, fallbackLabel: string): SignerInput {
   const label = row.label.trim() || fallbackLabel;
   if (row.kind === "webauthn") return { kind: "webauthn", label, permissions: permissionsOf(row), x: row.x, y: row.y, uvRequired: true };
+  // A Recourse account by @handle: the service resolves it and decides whether it is
+  // a Safe (a contract signer) or a plain key, and labels it by the handle unless told.
+  if (!isValidAddress(row.address)) return { kind: "ecdsa", handle: row.address.trim().replace(/^@/, ""), label: row.label.trim() || row.address.trim(), permissions: permissionsOf(row) };
   return { kind: "ecdsa", address: row.address.toLowerCase(), label, permissions: permissionsOf(row) };
 }
 
@@ -130,8 +133,8 @@ export function MemberRows({
               </span>
             </div>
           ) : (
-            <Field label={`Address ${index + 1}`}>
-              <input className="olien-input olien-input--mono" value={row.address} placeholder="0x" spellCheck={false} disabled={disabled} onChange={(event) => onChange(row.key, { address: event.target.value.trim() })} />
+            <Field label={`Address or @handle ${index + 1}`}>
+              <input className="olien-input olien-input--mono" value={row.address} placeholder="0x… or @name" spellCheck={false} disabled={disabled} onChange={(event) => onChange(row.key, { address: event.target.value.trim() })} />
             </Field>
           )}
           <Field label="Label">
@@ -176,8 +179,8 @@ export function validateMembers(rows: MemberDraft[], taken: Set<string> = new Se
       if (!row.approve && !row.veto && !row.recover) return `Member ${index + 1} needs at least one permission.`;
       continue;
     }
-    if (!isValidAddress(row.address)) return `Member ${index + 1} needs a valid address.`;
-    const lower = row.address.toLowerCase();
+    if (!isValidAddress(row.address) && !isHandle(row.address)) return `Member ${index + 1} needs an address or an @handle.`;
+    const lower = row.address.trim().toLowerCase().replace(/^@/, "");
     if (seen.has(lower)) return `Member ${index + 1} repeats an address already in the list.`;
     seen.add(lower);
     if (!row.approve && !row.veto && !row.recover) return `Member ${index + 1} needs at least one permission.`;

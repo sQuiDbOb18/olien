@@ -47,11 +47,13 @@ from the first sign-in.
 
 ## Who may see an account
 
-A user sees an account when they created it or when one of the account's ECDSA
-signers is an address the user has linked. Wallet sign-in links its own address;
-these routes link further addresses to the same session, which the iOS app and
-tests use. Linking proves control of the address once; every account that names
-it as a signer becomes visible.
+A user sees an account when they created it, when one of the account's ECDSA
+signers is an address the user has linked, or when a contract signer is the
+user's own Safe (the smart account the iOS app provisioned), which needs no
+link at all: a Recourse account is a member the moment a treasury names it.
+Wallet sign-in links its own address; these routes link further addresses to
+the same session, which the iOS app and tests use. Linking proves control of
+the address once; every account that names it as a signer becomes visible.
 
 ```
 GET  /api/treasury/linked-addresses            -> [{ address, linkedAt }]
@@ -85,8 +87,13 @@ waiting state rather than retrying. A signer is `{ kind, address, label,
 permissions }` for `ecdsa` (the default) and `contract`, and `{ kind, x, y,
 label, permissions, uvRequired }` for `p256` and `webauthn`, where `x` and `y`
 are the public key's coordinates as 32-byte hex and `uvRequired` (passkeys only,
-default true) asks the account to insist on Touch ID or Face ID. The same shape
-is used by the signers builder below. Body:
+default true) asks the account to insist on Touch ID or Face ID. A signer may
+instead be `{ handle, label?, permissions }`: the service resolves the @handle to
+the person's account address and picks the kind itself, `contract` when that
+address is a Safe the app provisioned (the Olien then checks the person's
+signatures through the Safe's EIP-1271), `ecdsa` before that; the label
+defaults to the handle. The same shapes are used by the signers builder below.
+Body:
 
 ```json
 {

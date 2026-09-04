@@ -48,6 +48,14 @@ export interface SignerInput {
   x?: string;
   y?: string;
   uvRequired?: boolean;
+  // A Recourse account by name; the service resolves it and picks the kind.
+  handle?: string;
+}
+
+const HANDLE = /^@?[a-z0-9][a-z0-9_.-]{1,31}$/i;
+
+export function isHandle(value: string): boolean {
+  return HANDLE.test(value.trim());
 }
 
 export interface SignerView {
