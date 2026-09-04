@@ -14,6 +14,12 @@ accounts.
 | A contractor or employee paid by such a team | wants to get paid without a wallet lesson | a Recourse account that receives, and an invoice that gets approved |
 | A DAO or a fund moving to Arc for USDC and EURC | many signers on many devices, slow decisions, large amounts | proposals that wait, notifications, time locks, nested accounts for sub-treasuries |
 
+The first customer is a team on Arc testnet (decided 2026-09-04,
+`09-open-questions.md` item 2): one of the first two rows, on the console before
+mainnet money exists. Teams formed by the consumer app's own users come after,
+once consumer accounts are Oliens (`08-roadmap-and-grants.md` Phase 3). The order
+of what ships is approvals, then payroll, then invoices (item 3).
+
 ## What it does
 
 **Open a treasury.** Name it, add members (an address, a hardware wallet, a passkey,

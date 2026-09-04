@@ -1,13 +1,14 @@
-# Concord account: specification
+# Olien account: specification
 
 The account contract this product is built on. Written to be handed to a reviewer:
 every rule the contract enforces is here, every hash is defined, and the invariants
 at the end are the ones the test suite and an audit check. The reasons behind the
 design are in `05-onchain-design.md`; this document is the what, not the why.
 
-**Concord** is a working name. It appears in the EIP-712 domain, so it must be final
-before any deployment whose signatures have to survive; renaming later changes every
-hash. Version `1`. Code: `contracts/src/concord/`; tests: `contracts/test/concord/`.
+**Olien** is the name, chosen on 2026-09-04 in place of the placeholder the first
+draft carried. It is the string `Olien` in the EIP-712 domain, so every hash depends
+on it and a rename would be a new protocol. Version `1`. Code: `contracts/src/olien/`;
+tests: `contracts/test/olien/`.
 
 The first draft (2026-09-04, morning) was reviewed adversarially before any code was
 written; the 26 findings and what was done about each are summarised in §19. The
@@ -39,12 +40,12 @@ ERC-4337.
 
 | Contract | Role | Bytes (runtime) |
 | --- | --- | --- |
-| `Concord` | the implementation: all logic; compiled through the IR pipeline | 24,545 |
-| `ConcordProxy` | OpenZeppelin `ERC1967Proxy`, one per account; the implementation pointer is changeable only by the account's own configuration path, and can be frozen forever | 130 |
-| `ConcordFactory` | CREATE2 deployment of proxies; ERC-4337 `initCode` target | 1,967 |
-| `ConcordVerifier` | stateless P-256 and passkey checks, kept outside the account for code size | 4,126 |
+| `Olien` | the implementation: all logic; compiled through the IR pipeline | 24,545 |
+| `OlienProxy` | OpenZeppelin `ERC1967Proxy`, one per account; the implementation pointer is changeable only by the account's own configuration path, and can be frozen forever | 130 |
+| `OlienFactory` | CREATE2 deployment of proxies; ERC-4337 `initCode` target | 1,967 |
+| `OlienVerifier` | stateless P-256 and passkey checks, kept outside the account for code size | 4,126 |
 | `SubAccount` | a money-holding address operated only by its parent; one implementation, EIP-1167 clones per account and index | 1,456 |
-| `ConcordHash` (library) | the EIP-712 hashes | inlined |
+| `OlienHash` (library) | the EIP-712 hashes | inlined |
 | `WebAuthn` (library) | the passkey envelope | inlined in the verifier |
 
 The account fits the EIP-170 limit with about 30 bytes to spare. Anything added to
@@ -53,7 +54,7 @@ version 1 has to take something out.
 ## 3. Storage
 
 Namespaced (ERC-7201) at `STORAGE_LOCATION =
-keccak256(abi.encode(uint256(keccak256("concord.account.v1")) - 1)) & ~0xff`, so a
+keccak256(abi.encode(uint256(keccak256("olien.account.v1")) - 1)) & ~0xff`, so a
 later implementation can add fields without touching what is below, and must answer
 `STORAGE_LOCATION()` with the same value to be accepted (§7.7).
 
@@ -138,7 +139,7 @@ not on the curve, permission bits above 7, flag bits above 1.
 ## 4. Hashing
 
 EIP-712. Domain `EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)`
-with `name = "Concord"`, `version = "1"`, `verifyingContract` = the account.
+with `name = "Olien"`, `version = "1"`, `verifyingContract` = the account.
 
 ```
 Call(address to,uint256 value,bytes data)
@@ -191,7 +192,7 @@ simply invalid.
 | kind | signature | check |
 | --- | --- | --- |
 | ECDSA | 65 bytes `r ‖ s ‖ v` | `s` in the low half of the curve order. `v ∈ {0, 1}` is lifted to `{27, 28}`; `v ∈ {31, 32}` means the wallet signed `"\x19Ethereum Signed Message:\n32" ‖ hash` and is lowered by 4. `ecrecover` must return the id's address |
-| P256 | 64 bytes `r ‖ s` | `s` in the low half of the curve order (authenticators do not normalise; the client does, `s' = n - s` is the same signature). Then `ConcordVerifier.verifyP256` (§5.4) |
+| P256 | 64 bytes `r ‖ s` | `s` in the low half of the curve order (authenticators do not normalise; the client does, `s' = n - s` is the same signature). Then `OlienVerifier.verifyP256` (§5.4) |
 | WEBAUTHN | `abi.encode(bytes authenticatorData, bytes clientDataFields, uint256 r, uint256 s)` | `authenticatorData.length >= 37`; flag bit 0 (user present) set; flag bit 2 (user verified) set when the signer's `UV_REQUIRED` flag is set. The client data JSON is rebuilt as `{"type":"webauthn.get","challenge":"` ‖ base64url(hash), no padding ‖ `",` ‖ `clientDataFields` ‖ `}`, which is the serialisation every browser produces, so the type and the challenge the authenticator signed are exactly the ones checked. Then `verifyP256(sha256(authenticatorData ‖ sha256(clientDataJSON)), r, s, x, y)`. Origin, rpIdHash and the counter are left unchecked on purpose: the relying party bound the key to its origin at registration and the platform enforces it at every assertion; a public verifier cannot know which origin is right. Coinbase Smart Wallet and Safe's passkey signer make the same choice |
 | CONTRACT | any bytes | `IERC1271(id).isValidSignature(hash, signature)` by staticcall must return `0x1626ba7e`; a revert or another answer is invalid |
 
@@ -207,7 +208,7 @@ whole set invalid; the contract never counts "some of them".
 
 ### 5.4 P-256 verification
 
-`ConcordVerifier.verifyP256(hash, r, s, x, y)`: rejects `s = 0` or `s` above half
+`OlienVerifier.verifyP256(hash, r, s, x, y)`: rejects `s = 0` or `s` above half
 the order; calls the RIP-7212 precompile at `0x100` with `hash ‖ r ‖ s ‖ x ‖ y`; a
 32-byte answer decides. An empty answer is the precompile's word for "wrong", and
 also what a chain without the precompile returns, so the precompile is then asked
@@ -434,9 +435,9 @@ isValidSignature(bytes data, bytes signature) returns (bytes4)     // 0x20c13b0b
 
 Valid when `wrapped = hashMessage(hash)` is not dead and the set verifies with
 `approvers >= threshold` over `wrapped`. The legacy overload is what Safe 1.4.1 asks
-contract owners with the transaction pre-image, so a Concord can own a Safe.
+contract owners with the transaction pre-image, so an Olien can own a Safe.
 
-**Nested accounts.** A Concord that is a CONTRACT signer of another Concord signs
+**Nested accounts.** An Olien that is a CONTRACT signer of another Olien signs
 `Message(outerHash)` in its own domain with its own threshold; the outer account
 calls `isValidSignature(outerHash, innerPacked)`. Two levels cost one extra external
 call and the inner checks. Nested signers inside a user operation touch storage the
@@ -511,7 +512,7 @@ The signer is whoever is calling: an ECDSA or CONTRACT signer from its own addre
 (`signerId = msg.sender`), or, when the account calls itself inside a validated
 single-signer operation, the signer the validation named. P256 and WEBAUTHN signers
 therefore act through user operations; a CONTRACT signer records an on-chain
-approval by calling `approve` from its own address, which for a nested Concord is
+approval by calling `approve` from its own address, which for a nested Olien is
 a threshold transaction with one call.
 
 `spend` additionally requires `signers[signerId].since <= limit.epoch` (a key
@@ -652,9 +653,9 @@ about 320k more than the real thing; the Arc column is what the chain charged.
 | `executeScheduled`, the same batch | | 176k |
 | `spend` under a limit, ECDSA signer calling | 33k (mock token) | 75k (USDC) |
 | `execute`, a guardian's recovery, scheduled | | 115k |
-| Nested: outer 2-of-2 where one signer is a 2-of-2 Concord with a P256 key | 88k | 153k |
+| Nested: outer 2-of-2 where one signer is a 2-of-2 Olien with a P256 key | 88k | 153k |
 | User operation, P256 + ECDSA, one USDC transfer | 553k with the stand-in (whole bundle) | 171k charged to the account; 169k for the bundle |
-| User operation, one P256 signer vetoing | | 250k charged; 238k for the bundle |
+| User operation, one P256 signer vetoing | | 251k charged; 238k for the bundle |
 
 The Arc figures include the USDC transfer itself, which runs in the chain's token
 implementation and costs about 40k more than a plain ERC-20. For comparison on Arc
@@ -680,49 +681,57 @@ actions (user operations cover the case; the relayer can call `handleOps` itself
 
 The four contracts deploy through the Arachnid CREATE2 proxy
 (`0x4e59b44847b379578588920ca78fbf26c0b4956c`) with fixed salts
-(`concord.v1.verifier`, `concord.v1.sub-account`, `concord.v1.implementation`,
-`concord.v1.factory`), so their addresses are the same on Arc testnet, Arc mainnet
+(`olien.v1.verifier`, `olien.v1.sub-account`, `olien.v1.implementation`,
+`olien.v1.factory`), so their addresses are the same on Arc testnet, Arc mainnet
 and any chain with that deployer and EntryPoint v0.7
 (`0x0000000071727De22E5E9d8BAf0edAc6f37da032`). Script:
-`contracts/script/DeployConcord.s.sol`; addresses are written to
-`deployments/<chain>.json` under `concord`.
+`contracts/script/DeployOlien.s.sol`; addresses are written to
+`deployments/<chain>.json` under `olien`.
 
 | Contract | Address (Arc testnet, 2026-09-04) | Deployment | Arc mainnet |
 | --- | --- | --- | --- |
-| `ConcordVerifier` | `0x8ec5622fBc72FB7685F035b7416db06Af6E67dF9` | `0xcbaaab6a5db0d062ae9d4fa1dd1acec3f1de655d1542250289d181cf9e3be568`, 947,463 gas | pending |
-| `SubAccount` implementation | `0x392b9502eFDb7FdC12b4219d691E28888F8e6f2b` | `0x6945ca7c8bbde998e8e46ac123cf811b9a531ef3fa68c0d49b676f5871eedd1d`, 391,315 gas | pending |
-| `Concord` v1 implementation | `0xD1919C6c1BFfc8A9dc095c55412bC7BB3b9f5590` | `0x04ce7c59b588b388b5db05d4d144a715650bbdeeec1e2a0d887c676cc41bd418`, 5,397,471 gas | pending |
-| `ConcordFactory` | `0x18aD0C7bc3Be283DB5101e6cD27cD68D95bd1587` | `0x82f58afb714a6564f806a7194b22d82b601851d7103970b459c49427fe41c876`, 481,363 gas | pending |
+| `OlienVerifier` | `0xE196558Ce080229B256dDE6e62CDA2B051B882fC` | `0xf609fe5cb614739258d7be4121aa801729a316cc11385276e2e5fc182b0b2d91`, 947,463 gas | pending |
+| `SubAccount` implementation | `0xDfc576536187eF72689c514f8c7ea6487960a637` | `0x0f06a22dd855dc73c1e66aa38e35ef5cd48afbbf5aa62b5bcf9a184f1b7c0fc1`, 391,315 gas | pending |
+| `Olien` v1 implementation | `0x8BFf8CCe4edbE882a21197D3942978CCd06fA427` | `0x439487259851a12d0780efd093f19963b0750eef99213d602d0c7f148391be0b`, 5,397,471 gas | pending |
+| `OlienFactory` | `0xaF8c108D09E6A159D4dcE0919Ca6A81d6019f131` | `0x25476c642f95450f14b927f16fa8ccad48d09a393a4f0a4bbb222e3113abf968`, 481,351 gas | pending |
 
-An earlier implementation (`0xEcE0d813…`, factory `0x9C21E35f…`) was deployed the
-same day and superseded within the hour: it did not record the validation decision
-when a placeholder signature failed, which broke bundler gas estimation. The
-addresses above are the ones the proofs ran against.
+Two deployments preceded these the same day and are superseded. The first
+(implementation `0xEcE0d813…`, factory `0x9C21E35f…`) did not record the validation
+decision when a placeholder signature failed, which broke bundler gas estimation.
+The second (verifier `0x8ec5622f…`, sub-account `0x392b9502…`, implementation
+`0xD1919C6c…`, factory `0x18aD0C7b…`) carried the placeholder name in its EIP-712
+domain and salts; the name became final that evening, and since the name is in
+every hash the contracts were deployed again under it. The code is otherwise the
+same, 24,545 bytes. The addresses above are the ones the proofs below ran against;
+the placeholder deployment's proofs are in the git history of this file.
 
 ### Proofs by transaction
 
-All on Arc testnet, 2026-09-04, from the attestor key `0xD6c5…983A`. The consumer
-account `0x8Fff8b18b13175BAf144c022B230D497A4c74334` has three signers: a P-256
-device key (APPROVE, VETO), the attestor EOA (APPROVE, VETO), and a guardian EOA
+All on Arc testnet on the evening of 2026-09-04, against the deployment above,
+from the attestor key `0xD6c5…983A`. The consumer account
+`0x12808a601475b87ce7b343A18f11062cc74Eae81` has three signers: a P-256 device
+key (APPROVE, VETO), the attestor EOA (APPROVE, VETO), and a guardian EOA
 `0xb05A…236b` (RECOVER); threshold 2, `configDelay` 300 s, `recoveryDelay` 3600 s,
-`recoveryCoSignDelay` 0. The team account
-`0xa88cabc60Ab892271cd448825E6AbD9DDe641871` has the attestor and the consumer
-account (CONTRACT) as signers, threshold 2, no delays.
+`recoveryCoSignDelay` 0 (the proof exercises the guardian-alone path; the product
+default for consumers is an hour, `09-open-questions.md` item 24). The team
+account `0x038B127a98ECD06640DFAEd105E2eF4deB492890` has the attestor and the
+consumer account (CONTRACT) as signers, threshold 2, no delays. Every step
+succeeded on its first submission.
 
 | What | Transaction | Gas |
 | --- | --- | --- |
-| Create the consumer account through the factory | `0x5f27bea4aee370cc754f14aa88e75a690e8c3e5a8e6e271288f63488599d4ca1` | 407,068 |
-| `execute`: USDC transfer signed by the device (P-256, verified by the precompile) and the attestor | `0x8886919bb687385e49b5482db8ca642e30c6a1c541db761d6209eb1fac7563c0` | 127,113 |
-| `execute`: a spending-limit batch (`setSpendingLimit` + `allowLimitSigner`), scheduled 300 s out | `0x41643b5a0883164f0ebed38ad693c8c3e39ee69206ffecf6294470117a4e1df3` | 136,792 |
-| `execute`: the guardian alone schedules `replaceSigner(device, newDevice)` 3600 s out | `0x046e499ea147932630996a4f7134cd70ab6cc4fa5b18b9815da9ab2790ed34d1` | 114,853 |
-| **The device vetoes the recovery through a user operation** sent to Pimlico, signed by the P-256 key alone, gas paid by the account (0.0064 USDC); `isDead` is true afterwards | `0x9711b8539057c13b82460cc16db5b21aa9d6b4fd7ce1251b31b2fd2ab04a2711` | 250,481 charged; bundle 238,144 |
-| **Threshold user operation**: device + attestor pay 0.005 USDC through Pimlico (0.0044 USDC gas) | `0x40cbbfa4b9394b6334e5949ffbb1a15bf2f470b10aebf9cf52226296c0c54563` | 171,038 charged; bundle 169,065 |
-| `executeScheduled`: the limit batch, after the delay, submitted by the attestor | `0xed84faaa2784da3d9b5cd66fdda10b89c5f571073927841556c0da40510811d9` | 176,438 |
-| `spend` under the limit by the attestor calling from its own address; budget 50,000 to 30,000 | `0x917e88654a94e348caea7dc6838d21e699ce8ede93a31003055cc201f865c5de` | 75,283 |
-| Create the team account | `0xfa248483aebcad77ae2910e66d76056edbc1ca027c73bdda3885a0cf71c7d2c4` | 309,943 |
-| **Nested**: the team account executes with the attestor's signature and the consumer account's contract signature (inner: device P-256 + attestor over `Message(outerHash)`) | `0x90a26d44e9feab02a7d7c129b07775b6ae94bab2cdaa3fbd53e764dd62924219` | 153,497 |
+| Create the consumer account through the factory | `0xb27af3e86d42b508dc65d221444f48b4cb00bedca544619770a373ef5eb2cddf` | 407,068 |
+| `execute`: USDC transfer signed by the device (P-256, verified by the precompile) and the attestor | `0xf6a1b2b47809812b4095e4d5098af3d723ead21b5135bf1142d138231be91819` | 127,113 |
+| `execute`: a spending-limit batch (`setSpendingLimit` + `allowLimitSigner`), scheduled 300 s out | `0xcdba8e4f8089d55ccd880658243762c09bebc596f530f2fc16d88d9d97e5c38d` | 136,792 |
+| `execute`: the guardian alone schedules `replaceSigner(device, newDevice)` 3600 s out | `0x9c599421fc0f77e72ac90130247c588231d325e860853c869a8b08f03e3a7686` | 114,825 |
+| **The device vetoes the recovery through a user operation** sent to Pimlico, signed by the P-256 key alone, gas paid by the account (0.0064 USDC); `isDead` is true afterwards | `0x50fbaff32c52cb94e352fd6de0994f9abdb618e9bb7edf690d34f9d72a8fd986` | 250,507 charged; bundle 238,168 |
+| **Threshold user operation**: device + attestor pay 0.005 USDC through Pimlico (0.0044 USDC gas) | `0xf4f0bd13e13652153c3faab92f9d8bd530c4f687f6b9affa870f74da95738ba2` | 171,038 charged; bundle 169,065 |
+| `executeScheduled`: the limit batch, after the delay, submitted by the attestor | `0x3595524249cb72a4b961315457bdafe4d56446b6d6fbe3bf9f09afb92aff9cee` | 176,438 |
+| `spend` under the limit by the attestor calling from its own address; budget 50,000 to 30,000 | `0x423b9480b35365a306cf11bf8b956e81ee0bfd50085a4fbaec7e82bf619c819b` | 75,305 |
+| Create the team account | `0x089ed725fc1ac780f0cdd059ba58b94b1526aa93c1c45de093c53a847d459856` | 309,943 |
+| **Nested**: the team account executes with the attestor's signature and the consumer account's contract signature (inner: device P-256 + attestor over `Message(outerHash)`) | `0x9fbc2eb3bcb59c6c6aa842eb0a0db82efd5030c783a4bd0d90d9c560b9177481` | 153,497 |
 
-Script: the scratch `concord_proofs*.sh` files of the session (cast, openssl and
+Script: the scratch `olien_proofs*.sh` files of the session (cast, openssl and
 curl; not part of the repository). The nested and user-operation rows are the two
 that matter most: a consumer account is a first-class member of a team with no
 extra contract, and a phone key acts alone on the chain with nothing but the

@@ -1,6 +1,6 @@
 # Architecture
 
-The product is a Concord account on Arc (`10-account-spec.md`, "spec" below), a
+The product is an Olien account on Arc (`10-account-spec.md`, "spec" below), a
 service that lets its signers see and sign the same pending transaction from
 different devices, and clients that make the whole thing feel like a bank account
 for a team. This document is the system design. The contract is the spec; the
@@ -8,9 +8,9 @@ reasons for it are in `05-onchain-design.md`; the procedures are in `06-algorith
 
 ## The shape in one paragraph
 
-Every team has a **Concord account** (its money and its rules), a set of **signers**
+Every team has a **Olien account** (its money and its rules), a set of **signers**
 (each an EOA, a hardware wallet, a passkey, or a Recourse consumer account, which is
-itself a Concord account), and a **queue** of proposed transactions moving through a
+itself an Olien account), and a **queue** of proposed transactions moving through a
 state machine until the threshold is met and one of them is executed. The
 **transaction service** is the source of truth for the queue and the off-chain
 signatures; the **indexer** is the source of truth for what the chain did; the
@@ -36,7 +36,7 @@ any client.
           |                   |        |                 |
        Relayer           Notifier   Indexer          Price/FX
      (execute, paid       (push,    (logs, receipts,  (StableFX quotes,
-      by us; or handleOps, email,    Concord events,   USDC/EURC)
+      by us; or handleOps, email,    Olien events,   USDC/EURC)
       repaid from the     Slack)     token transfers)
       account's deposit)               |
           |                            |
@@ -59,7 +59,7 @@ one signer id, or the record of an on-chain `approve`.
 
 Responsibilities:
 
-- Register an account: predict its address with `ConcordFactory.getAddress(init,
+- Register an account: predict its address with `OlienFactory.getAddress(init,
   salt)` or deploy it, record its signers, threshold, delays and epoch, watch it.
 - Accept a **proposal**: `nonceKey, calls[], validAfter, validUntil` plus a human
   intent (`kind`: transfer, payroll batch, rule change, signer change, contract
@@ -89,14 +89,14 @@ Responsibilities:
 ### Indexer
 
 Already exists for the escrow (`backend/src/jobs/indexer.rs`); grows to cover
-Concord accounts. Reads logs and receipts through the RPC (Arc has no `trace_*` API
+Olien accounts. Reads logs and receipts through the RPC (Arc has no `trace_*` API
 in the public RPC as far as tested, so this is the events-based indexer shape).
 Sources:
 
 - `AccountCreated(account, salt)` on the known factory, and `Initialized(threshold,
   vetoThreshold, configDelay, recoveryDelay, recoveryCoSignDelay)` filtered by
   topic alone, for accounts the service did not create itself; each hit is checked
-  to be a `ConcordProxy` pointing at a known implementation before it is watched.
+  to be a `OlienProxy` pointing at a known implementation before it is watched.
 - The account's events, exactly spec §14: `SignerAdded`, `SignerRemoved`,
   `ThresholdChanged`, `VetoThresholdChanged`, `DelaysChanged`, `EpochAdvanced`,
   `Executed(hash, nonce, path)` (path 1 threshold, 2 recovery, 3 single; a user
@@ -121,7 +121,7 @@ There is no refund in the contract. `execute` is callable by anyone and the call
 pays (spec §6.1); the account pays only through the EntryPoint (spec §10). Two ways
 to submit, one on-chain result:
 
-- **`execute`**: the relayer calls `Concord.execute(tx, signatures)` from its own key
+- **`execute`**: the relayer calls `Olien.execute(tx, signatures)` from its own key
   and pays the gas itself, in USDC. Spec §16 measures 88k gas in forge (median of
   the suite) for a one-transfer, two-ECDSA `execute`, which at the 25 gwei of
   `02-arc-facts.md` is about 0.002 USDC; Arc's own number is pending. The cost is
@@ -163,7 +163,7 @@ rule is a hard one. The UI labels them.
 - **iOS app** (`mobile/`): a Recourse account can be a signer. Its confirmation is
   a nested signature: the app signs `Message(outerHash)` in its own account's domain
   with device key and cloud key, and the packed result is the CONTRACT entry (spec
-  §9). A `ConcordSigner` beside `SafeAccountSigner` produces it
+  §9). A `OlienSigner` beside `SafeAccountSigner` produces it
   (`05-onchain-design.md`). The app shows the team queue and lets the member
   approve with Face ID, and shows `Scheduled` changes with a veto button; a veto
   applies to a scheduled change only, and the app's keys cast it through a user
@@ -273,7 +273,7 @@ POST   /accounts/{address}/payroll/runs   { schedule, recipients[] }        -> c
 ```
 
 `typedData` in the proposal response is the EIP-712 `Transaction` payload in the
-account's domain (`name = "Concord"`, `version = "1"`, spec §4) so a wallet can sign
+account's domain (`name = "Olien"`, `version = "1"`, spec §4) so a wallet can sign
 with `eth_signTypedData_v4`, and the service can check the signer before storing
 anything. For P256 and WEBAUTHN signers the client signs the same digest with the
 key and the service checks it as that kind.
@@ -288,7 +288,7 @@ key and the service checks it as that kind.
    service checks it as the signer's kind (`06-algorithms.md` §4) and rejects
    anything that does not check out. A signer that cannot sign off-chain calls
    `approve(hash)` on the account instead: from its own address if it is ECDSA or
-   CONTRACT (a nested Concord does so with a one-call threshold transaction), or
+   CONTRACT (a nested Olien does so with a one-call threshold transaction), or
    through a user operation validated for it if it is P256 or WEBAUTHN (spec §11);
    the indexer turns the `Approved` event into a confirmation with an empty
    signature.
@@ -325,10 +325,10 @@ account; the chain does the same at execution (spec §9).
 
 ## What runs where, at the start
 
-One Railway service (the existing backend) gains the account routes, the Concord
+One Railway service (the existing backend) gains the account routes, the Olien
 indexer and the relayer loop. The web app gains a `/treasury` section. The iOS app
 gains a team queue and a veto screen. No new infrastructure until the queue is busy
-enough to need it. The contracts live in `contracts/src/concord/` beside the
+enough to need it. The contracts live in `contracts/src/olien/` beside the
 Safe-era `P256Owner`, and deploy through the same CREATE2 proxy at the same
 addresses on every chain (spec §18); the five of them have been on Arc testnet
 since 2026-09-04 (`02-arc-facts.md`, proofs table).

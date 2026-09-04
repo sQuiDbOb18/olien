@@ -16,25 +16,28 @@ first now, because everything else is built on it (`05-onchain-design.md`).
   file).
 - **2026-09-04: decision to build the own account; spec written, reviewed
   adversarially (26 findings, spec §19), contracts built and on testnet**
-  (`10-account-spec.md`, `05-onchain-design.md`, Phase 1 below).
+  (`10-account-spec.md`, `05-onchain-design.md`, Phase 1 below). That evening:
+  named Olien, deployed again under the name, proofs repeated; the product
+  questions answered (`09-open-questions.md` items 1 to 5).
 
 ## Phase 1: the account (about 2 to 3 weeks; contracts done on day one)
 
 Status, 2026-09-04: contracts written, reviewed, tested and deployed to testnet;
-proofs by transaction landed the same evening: see `10-account-spec.md` §18.
+proofs by transaction landed the same evening, then again on the deployment under
+the final name: see `10-account-spec.md` §18.
 
-`Concord`, `ConcordProxy`, `ConcordFactory`, `ConcordVerifier`, `SubAccount`, in
+`Olien`, `OlienProxy`, `OlienFactory`, `OlienVerifier`, `SubAccount`, in
 Foundry, against the real EntryPoint v0.7 bytecode.
 
-- Contracts: the spec, section by section, in `contracts/src/concord/`; the draft
+- Contracts: the spec, section by section, in `contracts/src/olien/`; the draft
   spec was reviewed adversarially before any code and the review's fixes are the
   contract (spec §19). OpenZeppelin 5.1.0, pinned by commit, for the proxy,
   CREATE2, clones and the Solidity P-256 fallback; the WebAuthn envelope and the
   EIP-712 hashing are our own libraries. The account is 24,545 bytes through the
   IR pipeline, about 30 bytes under the limit, which is why the P-256 and
   passkey checks live in a separate verifier. Done.
-- Tests: 61 Concord tests in three files (`ConcordAccount.t.sol`,
-  `ConcordPolicies.t.sol`, `Concord4337.t.sol`) plus 58 other tests pass (119),
+- Tests: 61 Olien tests in three files (`OlienAccount.t.sol`,
+  `OlienPolicies.t.sol`, `Olien4337.t.sol`) plus 58 other tests pass (119),
   against the real EntryPoint; where a P-256 signature is involved the suite has
   Daimo's Solidity verifier standing in for the precompile. Gas as measured in
   forge is in spec §16 (`execute` with one transfer and two ECDSA entries 88k at
@@ -42,10 +45,11 @@ Foundry, against the real EntryPoint v0.7 bytecode.
   cost). Done.
 - Testnet deployment through the Arachnid CREATE2 proxy with fixed salts, on
   2026-09-04 (transactions and gas in `02-arc-facts.md`, proofs table):
-  `ConcordVerifier` `0x8ec5622fBc72FB7685F035b7416db06Af6E67dF9`, `SubAccount`
-  implementation `0x392b9502eFDb7FdC12b4219d691E28888F8e6f2b`, `Concord` v1
-  implementation `0xD1919C6c1BFfc8A9dc095c55412bC7BB3b9f5590`, `ConcordFactory`
-  `0x18aD0C7bc3Be283DB5101e6cD27cD68D95bd1587`. Done; spec §18 has the table.
+  `OlienVerifier` `0xE196558Ce080229B256dDE6e62CDA2B051B882fC`, `SubAccount`
+  implementation `0xDfc576536187eF72689c514f8c7ea6487960a637`, `Olien` v1
+  implementation `0x8BFf8CCe4edbE882a21197D3942978CCd06fA427`, `OlienFactory`
+  `0xaF8c108D09E6A159D4dcE0919Ca6A81d6019f131`, deployed again that evening under the final
+  name (the name is in every hash). Done; spec §18 has the table.
 - A proof transaction set on testnet, recorded in spec §18 the way `02-arc-facts.md`
   records the Safe ones: create an account; execute a 2-of-2 with one P-256 signer;
   spend under a limit with a key that has no permission bits; a scheduled change
@@ -60,7 +64,7 @@ Foundry, against the real EntryPoint v0.7 bytecode.
 
 ## Phase 2: the service and console (about 3 weeks)
 
-The transaction service and the web console on Concord, with ECDSA and WebAuthn
+The transaction service and the web console on Olien, with ECDSA and WebAuthn
 members.
 
 - Migration: `accounts`, `signers`, `proposals`, `confirmations`, `spending_limits`,
@@ -73,22 +77,27 @@ members.
 - Web: accounts list, account home, new payment, proposal with decoded calls,
   simulation and `txHash`, scheduled changes with veto, rules screen (signers,
   threshold, delays, limits, all through the delay), ledger with labels and CSV.
-- Exit: three people on three laptops run a 2-of-3 on testnet end to end; a
+- The first customer is a team on Arc testnet (decided 2026-09-04,
+  `09-open-questions.md` item 2): one pilot team from the cohort in
+  `03-product.md`, on the console before mainnet money exists, with us watching
+  what they do.
+- Exit: that team runs a 2-of-3 on testnet end to end from three laptops; a
   hardware wallet confirms the hash it shows equals the one on screen; a signer
   change waits 24 hours and is vetoed from another device.
 
 ## Phase 3: members that are people (about 2 weeks)
 
-- iOS: `ConcordSigner` and `ConcordSubmitter` beside the Safe ones; team queue;
+- iOS: `OlienSigner` and `OlienSubmitter` beside the Safe ones; team queue;
   approve with Face ID as a nested `Message(hash)` signature; push on new proposals
   and on `Scheduled`, with a veto button.
-- Backend: consumer accounts created as Concords on testnet (device P256, cloud
+- Backend: consumer accounts created as Oliens on testnet (device P256, cloud
   ECDSA, server RECOVER); the recovery flow as `replaceSigner` through the recovery
   path; migration of existing testnet Safes by sweep (`05-onchain-design.md`,
   Migration); @handle invites.
 - Exit: a testnet treasury with two Recourse accounts and one hardware wallet pays a
   contractor's invoice; a consumer account recovers a lost phone with the cloud key
-  and the email code, and a lost cloud key through the 24-hour path.
+  and the email code after the one-hour co-signed delay, and a lost cloud key
+  through the 24-hour path.
 
 ## Phase 4: review (3 to 6 weeks of calendar, mostly waiting)
 
@@ -103,11 +112,12 @@ members.
 
 - Deploy the implementation and the factory at the same addresses on 5042 through
   the CREATE2 proxy; confirm the code hashes match testnet.
-- Migrate consumer accounts (opt-in or automatic is open, `09-open-questions.md`);
-  the sweep is one Safe transaction per account.
+- Migrate consumer accounts automatically (decided 2026-09-04,
+  `09-open-questions.md` item 4): the app presents the move once and one tap with
+  the two keys sweeps the Safe; the sweep is one Safe transaction per account.
 - First treasuries with a cent, then real ones.
-- Exit: a treasury on mainnet pays a contractor from a Concord; a consumer account
-  on mainnet is a Concord.
+- Exit: a treasury on mainnet pays a contractor from an Olien; a consumer account
+  on mainnet is an Olien.
 
 ## Phase 6: payroll and payables (about 3 weeks)
 
@@ -145,7 +155,7 @@ Verified 2026-09-03 with sources; amounts as published.
 | **ARC ecosystem allocation** | later | the ARC whitepaper (May 2026) reserves 60 percent of a 10B supply for ecosystem, explicitly including developer grants; schedule not announced |
 | **Arc hackathons and accelerator** | timing | HackMoney 2026 had an Arc track titled "Build Global Payouts and Treasury Systems with USDC on Arc" (10k USDC, 155 teams; winner ArcFlow, a payroll treasury); Encode "Programmable Money" ran July 13 to August 22 with an 8-week accelerator for up to 8 teams; lablab Agentic Commerce (January) 50k USDC. arc.io blog, community.arc.io events |
 | **Circle Alliance Program** | after launch | partner directory; requires a live product on Circle's platform |
-| **Safe Ecosystem Foundation grants** | weaker since 2026-09-04: the account is no longer Safe, though a Concord can be a Safe owner | rolling email proposals, milestone-paid; wave 1 about 500k EUR across 21 teams; no explicit chain-expansion category found. safefoundation.org/grants |
+| **Safe Ecosystem Foundation grants** | weaker since 2026-09-04: the account is no longer Safe, though an Olien can be a Safe owner | rolling email proposals, milestone-paid; wave 1 about 500k EUR across 21 teams; no explicit chain-expansion category found. safefoundation.org/grants |
 | **Arc House / Architects** | community | points-based tiers, not applications |
 
 Not found: grant programs at Pimlico, ZeroDev or Rhinestone; any Solana Foundation

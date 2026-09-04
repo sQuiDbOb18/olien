@@ -14,7 +14,7 @@ DOMAIN_TYPEHASH = keccak("EIP712Domain(string name,string version,uint256 chainI
 CALL_TYPEHASH   = keccak("Call(address to,uint256 value,bytes data)")
 TX_TYPEHASH     = keccak("Transaction(uint256 nonce,uint64 epoch,Call[] calls,uint48 validAfter,uint48 validUntil)")
 
-domain(account) = keccak(DOMAIN_TYPEHASH ‖ keccak("Concord") ‖ keccak("1") ‖ pad32(chainId) ‖ pad32(account))
+domain(account) = keccak(DOMAIN_TYPEHASH ‖ keccak("Olien") ‖ keccak("1") ‖ pad32(chainId) ‖ pad32(account))
 callHash(c)     = keccak(CALL_TYPEHASH ‖ pad32(c.to) ‖ pad32(c.value) ‖ keccak(c.data))
 callsHash       = keccak(callHash(calls[0]) ‖ callHash(calls[1]) ‖ ...)     # per EIP-712; empty array hashes the empty string
 nonce           = (nonceKey << 64) | sequence                               # sequence = nonces[nonceKey] at execution
@@ -27,11 +27,11 @@ puts the same values in the typed data it asks a wallet to sign. If either moves
 before execution, the signature matches nothing (spec §4, §7.1). That is how
 "stale" and "replaced" are chain rules rather than service rules.
 
-The name `"Concord"` is a placeholder and is part of every hash; it must be final
-before any deployment whose signatures have to survive (`09-open-questions.md`).
+The name `"Olien"` is part of every hash and is final since 2026-09-04
+(`09-open-questions.md` item 1); clients hard-code that exact string.
 
 Exists: `SafeHashing.transactionHash` (Swift, `mobile/.../SafeSigning.swift`) is the
-Safe shape; the Concord version is the same layout with the fields above and is
+Safe shape; the Olien version is the same layout with the fields above and is
 pending. Rule: the service computes locally and, once per account, compares against
 the contract's own answer for a fixed sample (`getTransactionHash`,
 `getMessageHash`; the operation hash has no view and is pinned by the tests
@@ -50,17 +50,17 @@ One shape, two uses:
   invoice): `h` is the token's digest. USDC calls `isValidSignature(bytes32, bytes)`
   on the account, which checks `threshold` approvers over `messageHash(account, h)`
   (spec §9). Verified for a Safe on Arc through the same `bytes` overload
-  (`02-arc-facts.md`); the Concord proof is pending.
+  (`02-arc-facts.md`); the Olien proof is pending.
 - **An account signs another account's transaction** (a member account approving a
   team transaction): `h` is the outer `txHash` from §1. The outer account calls
   `isValidSignature(h, innerPacked)` on the inner one. There is no pre-image to
   carry (spec §9); this replaces the legacy `isValidSignature(bytes,bytes)` detour
   Safe 1.4.1 needed.
 
-The legacy overload (`0x20c13b0b`) still exists on a Concord, over `keccak256(data)`,
-for the case where a Concord is an owner of a Safe 1.4.1.
+The legacy overload (`0x20c13b0b`) still exists on an Olien, over `keccak256(data)`,
+for the case where an Olien is an owner of a Safe 1.4.1.
 
-Exists: `SafeHashing.messageHash` (32-byte form) is the Safe shape; the Concord form
+Exists: `SafeHashing.messageHash` (32-byte form) is the Safe shape; the Olien form
 is the same function with the typehash above and the four-field domain.
 
 ## 3. Signature packing
@@ -93,17 +93,17 @@ than 65,535 bytes cannot be expressed; nothing needs one.
 Nested: the inner account's packed bytes are simply the `sig` of a `CONTRACT` entry
 in the outer pack, and the inner entries were made over `Message(outerHash)` (§2).
 Exists: `SafeSignatures.pack` (Swift) and Rust `pack_signatures` produce the Safe
-layout; the Concord packer replaces the 65-byte static parts and the dynamic tail
+layout; the Olien packer replaces the 65-byte static parts and the dynamic tail
 with the loop above. `DeviceKey.swift` already produces the 64-byte P-256 signature
 with `s` normalised (`05-onchain-design.md`).
 
-Cost: a P256 entry is one call to `ConcordVerifier`, which calls the precompile at
+Cost: a P256 entry is one call to `OlienVerifier`, which calls the precompile at
 `0x100` (about 6,900 gas, measured, `02-arc-facts.md`); a CONTRACT entry is one
 external call plus the inner account's own checks. Spec §16, measured in forge:
 `execute` with one ERC-20 transfer and two ECDSA entries 88k (median of the
 suite); the same with one P256 entry in place of one ECDSA, 406k with the Solidity
 stand-in the tests use for the precompile, about 95k expected on Arc; an outer
-2-of-2 where one signer is a 2-of-2 Concord, 88k. Arc's own numbers are pending.
+2-of-2 where one signer is a 2-of-2 Olien, 88k. Arc's own numbers are pending.
 The Safe baseline was 44k more per P-256 owner through `P256Owner` and 155,851 gas
 for one nested 2-of-3 signature.
 
@@ -263,7 +263,7 @@ The relayer's balance goes down by the gas used; alarm when it falls below a day
 expected executions. Measured in forge (spec §16): 88k for a one-transfer,
 two-ECDSA `execute` (median of the suite); 406k with one P256 entry in place of one
 ECDSA, using the Solidity stand-in the tests have for the precompile, about 95k
-expected on Arc; 88k for a nested 2-of-2 whose one signer is a 2-of-2 Concord; 33k
+expected on Arc; 88k for a nested 2-of-2 whose one signer is a 2-of-2 Olien; 33k
 for `spend`; 34k for `veto` (median). Arc's numbers are pending.
 
 **User operation** (the consumer path, also fine for a team, and the only path for a
@@ -299,7 +299,7 @@ is payable by anyone, and a threshold batch calls `depositTo`, `withdrawTo` or
 stays as the account's deposit and the indexer shows it. An operation with a
 nested signer touches storage the bundler rules do not associate with the sender,
 so it goes through our `handleOps` call, not the public mempool (spec §9). Exists:
-`SafeSubmitter` (Swift) has the shape; `ConcordSubmitter` is the same steps with
+`SafeSubmitter` (Swift) has the shape; `OlienSubmitter` is the same steps with
 the hash above, pending.
 
 ## 8. Indexing an account from events
@@ -341,7 +341,7 @@ watch(account, fromBlock):
 `eth_getLogs` on drpc is capped at 10k results per call (known from the consumer
 history work); page by block range. Accounts the service did not create are found
 by the factory's `AccountCreated`, or by `Initialized` (five fields, spec §14)
-filtered on topic alone, then checked to be a `ConcordProxy` pointing at a known
+filtered on topic alone, then checked to be a `OlienProxy` pointing at a known
 implementation (`eth_getCode` and the ERC-1967 slot). Lanes reconcile from
 `getNonce(key)`.
 
@@ -414,7 +414,7 @@ through a transfer; for cheques, the reference is the invoice id the recipient
 already holds. The ledger stores the reference on the entry either way.
 
 A recipient with no wallet gets a Recourse account: the invite is an @handle claim,
-the account is a Concord account, and the first payout lands there. Recipients that
+the account is an Olien account, and the first payout lands there. Recipients that
 must be screened go through Circle's Compliance Engine before the run is proposed,
 and a REVIEW or DENIED decision removes the row and says so. Tax documents are not
 in the first version; the ledger keeps what a Toku or Rise integration would need
@@ -429,7 +429,7 @@ Two USDC-native options a payroll product elsewhere cannot offer:
   with its packed signatures. The treasury voids an uncashed cheque on the token
   with `cancelAuthorization`, or on the account with `cancel` over the wrapped
   message hash (spec §8.4). Verified on Arc for a Safe (USDC accepts the `bytes`
-  overload, `02-arc-facts.md`); the Concord proof is pending. Recipients cash when they want, the treasury sees committed
+  overload, `02-arc-facts.md`); the Olien proof is pending. Recipients cash when they want, the treasury sees committed
   versus cashed, and an uncashed cheque can be voided. This is the consumer app's
   cheque feature with a treasury as the writer.
 - **Invoices.** A contractor's invoice (`backend/src/services/invoices.rs`) fixes the
@@ -473,7 +473,7 @@ Known selectors first: the token's (`transfer`, `transferWithAuthorization`,
 `setImplementation`, `freezeImplementation`), the EntryPoint's (`depositTo`,
 `withdrawTo`, `addStake`, `unlockStake`, `withdrawStake`), then any ABI the
 treasury has registered for a contract it interacts with, then raw. A
-`setImplementation` is shown with the target's `CONCORD_VERSION()` and whether it
+`setImplementation` is shown with the target's `OLIEN_VERSION()` and whether it
 is a deployment listed in spec §18. A call to the account itself with a selector
 outside spec §6.2's lists reverts on-chain (`SelfCallRefused`) and is refused by
 the client first. A proposal whose calldata

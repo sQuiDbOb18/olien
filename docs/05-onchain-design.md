@@ -41,20 +41,22 @@ design below replaces it.
   the grant or by revenue, mainnet after. The consumer app keeps running on Safe
   for real money until the review lands, then migrates (§ Migration).
 - **Upgradeability is a decision, not a default.** Safe accounts are proxies whose
-  owners can change the implementation instantly. Squads is frozen. Concord lets each
+  owners can change the implementation instantly. Squads is frozen. Olien lets each
   account choose: an implementation change is a config call behind the time lock and
   the veto, and an account can freeze itself forever. The product's default for
   treasuries is "changeable behind a 24 hour lock"; for consumer accounts,
-  "changeable behind the lock, with the veto in the user's hand".
-- **Safe compatibility is gone except at the edges.** A Concord can be an owner of a
+  "changeable behind the lock, with the veto in the user's hand". Decided
+  2026-09-04 (`09-open-questions.md` item 5): consumer accounts are created
+  changeable and the app never freezes one on its own; freezing is a setting.
+- **Safe compatibility is gone except at the edges.** An Olien can be an owner of a
   Safe (it answers the legacy 1271 overload), and a Safe can be a CONTRACT signer of
-  a Concord. Nothing else is shared: no Safe SDK, no Safe{Wallet}, no Safe
+  an Olien. Nothing else is shared: no Safe SDK, no Safe{Wallet}, no Safe
   transaction-service API shape. The service design in `04-architecture.md` drops
   the Safe-shaped routes and keeps the rest.
 
 ## What is borrowed, and from where
 
-| Idea | From | In Concord |
+| Idea | From | In Olien |
 | --- | --- | --- |
 | Members with permission bits, proposals, reject, time lock, stale index, spending limits with destinations, sub-accounts ("vaults") | Squads v4 / Smart Account Program | signers with APPROVE, VETO, RECOVER; veto; delays; epoch; limits; sub-accounts |
 | Policies as consensus: a policy is an authorization path, not a separate program | Squads Smart Account Program | the five paths in spec §1, resolved inside the contract |
@@ -64,7 +66,7 @@ design below replaces it.
 | Guardian recovery with a delay and an owner's veto; co-signing shortens the delay | Argent, Safe SocialRecoveryModule, Candide | RECOVER signer, `recoveryDelay`, `recoveryCoSignDelay`, veto |
 | Scheduled changes lapse if not executed within a window | Zodiac Delay (`txExpiration`) | `SCHEDULE_WINDOW` |
 | P-256 and WebAuthn signers as first-class keys | Coinbase Smart Wallet, Safe passkey signer, Daimo | kinds P256 and WEBAUTHN, precompile first |
-| Namespaced storage, minimal proxy, factory as 4337 `initCode` | Kernel v3, Coinbase Smart Wallet | ERC-7201, ERC-1967, `ConcordFactory` |
+| Namespaced storage, minimal proxy, factory as 4337 `initCode` | Kernel v3, Coinbase Smart Wallet | ERC-7201, ERC-1967, `OlienFactory` |
 | Never delegatecall; batches native to the account | the Bybit incident, Coinbase Smart Wallet | no delegatecall in the implementation; `Call[]` |
 
 What is not borrowed: Safe's gas refund in the account (the EntryPoint does that
@@ -75,29 +77,29 @@ count here), weighted signers, hooks and guards (none in v1).
 ## The contract set
 
 ```
-ConcordFactory ── CREATE2 ──> ConcordProxy (per account, ERC-1967) ── delegatecall ──> Concord v1 (implementation)
+OlienFactory ── CREATE2 ──> OlienProxy (per account, ERC-1967) ── delegatecall ──> Olien v1 (implementation)
                                      │                                        │
-                                     │                                        └── staticcall ──> ConcordVerifier (P-256, WebAuthn)
+                                     │                                        └── staticcall ──> OlienVerifier (P-256, WebAuthn)
                                      └── CREATE2 ──> SubAccount clone (per index, EIP-1167, parent = the proxy)
 ```
 
 Five contracts (spec §2), on Arc testnet since 2026-09-04 at fixed CREATE2
 addresses (`02-arc-facts.md`, proofs table; spec §18):
 
-- `Concord`: the implementation. Signers, threshold, epoch, 2D nonces, `execute`,
+- `Olien`: the implementation. Signers, threshold, epoch, 2D nonces, `execute`,
   `validateUserOp` and `executeUserOp`, `approve`, `veto`, `spend`,
   `executeScheduled`, the configuration functions plus the immediate `cancel` and
   `removeSpendingLimit`, EIP-1271, sub-account creation. No modules, no
   `signMessage`, no deposit helpers (spec §17; deposits and stake at the EntryPoint
   are plain calls from a threshold batch). About a thousand lines plus the
-  `ConcordHash` library; 24,545 bytes of runtime code through the IR pipeline,
+  `OlienHash` library; 24,545 bytes of runtime code through the IR pipeline,
   about 30 bytes under the EIP-170 limit, so anything added to v1 takes something
   out.
-- `ConcordProxy`: OpenZeppelin's `ERC1967Proxy`; the implementation slot is written
+- `OlienProxy`: OpenZeppelin's `ERC1967Proxy`; the implementation slot is written
   by the account's own `setImplementation` and nothing else.
-- `ConcordFactory`: deterministic creation, `AccountCreated(account, salt)`; the
+- `OlienFactory`: deterministic creation, `AccountCreated(account, salt)`; the
   same address on every chain the same implementation is on.
-- `ConcordVerifier`: stateless P-256 and passkey checks, outside the account for
+- `OlienVerifier`: stateless P-256 and passkey checks, outside the account for
   code size. The RIP-7212 precompile is asked first; an empty answer is checked
   against the specification vector before OpenZeppelin's Solidity verifier is
   allowed to decide (spec §5.4). The WebAuthn envelope is
@@ -111,15 +113,15 @@ Everything already built for the Safe design that survives:
 
 | Built (2026-09-03) | Fate |
 | --- | --- |
-| `P256Owner`, `P256OwnerFactory` (contracts, on testnet) | kept for the Safe accounts that exist; not used by Concord, whose P256 signers need no contract |
-| `SafeSigning.swift`, `SafeSubmitter.swift`, `SafeAccountSigner.swift` | kept while consumer accounts are Safes; a `ConcordSigner` and `ConcordSubmitter` sit beside them with the same protocols (`BuyerSigner`, `ArcSubmitter`) |
+| `P256Owner`, `P256OwnerFactory` (contracts, on testnet) | kept for the Safe accounts that exist; not used by Olien, whose P256 signers need no contract |
+| `SafeSigning.swift`, `SafeSubmitter.swift`, `SafeAccountSigner.swift` | kept while consumer accounts are Safes; a `OlienSigner` and `OlienSubmitter` sit beside them with the same protocols (`BuyerSigner`, `ArcSubmitter`) |
 | `DeviceKey.swift` (Secure Enclave P-256) | unchanged; it produces exactly the 64-byte signature a P256 signer needs, with `s` normalised low |
 | `BundlerClient.swift`, Pimlico path | unchanged |
-| backend `safe.rs`, `smart_accounts.rs`, `recovery.rs` | the sealed Recovery Key becomes the RECOVER signer of consumer Concords; the swap logic becomes `replaceSigner` through the recovery path; the Safe deploy code stays for existing accounts |
-| the treasury service design (`04`), algorithms (`06`), security model (`07`) | re-cut for Concord's hashes and paths; the queue, indexer, policy tiers and playbooks are the same shape |
+| backend `safe.rs`, `smart_accounts.rs`, `recovery.rs` | the sealed Recovery Key becomes the RECOVER signer of consumer Oliens; the swap logic becomes `replaceSigner` through the recovery path; the Safe deploy code stays for existing accounts |
+| the treasury service design (`04`), algorithms (`06`), security model (`07`) | re-cut for Olien's hashes and paths; the queue, indexer, policy tiers and playbooks are the same shape |
 | every Arc fact and market fact (`01`, `02`) | unchanged |
 
-## Consumer account on Concord
+## Consumer account on Olien
 
 Two signers and a guardian:
 
@@ -130,25 +132,28 @@ Two signers and a guardian:
 | Recovery Key | ECDSA | RECOVER | sealed on the server, releases only after an emailed code |
 
 `threshold = 2`, `vetoThreshold = 0` (automatic: 1), `configDelay = 24h`,
-`recoveryDelay = 24h`, `recoveryCoSignDelay = 0`.
+`recoveryDelay = 24h`, `recoveryCoSignDelay = 1h` (decided 2026-09-04,
+`09-open-questions.md` item 24).
 
 - Pay: device + cloud, one user operation, gas from the account's own USDC.
 - New phone, cloud key present: cloud signs, the server's RECOVER key co-signs after
-  the email code, `replaceSigner(oldDevice, newDevice)` runs at once (today's flow).
+  the email code, and `replaceSigner(oldDevice, newDevice)` is scheduled one hour
+  out. The app shows the countdown and the balance meanwhile; the hour is the
+  price of the stolen-key case two bullets down. Today's Safe flow runs at once.
 - New phone, cloud key lost: the RECOVER key alone schedules the replacement; it
   runs 24 hours later unless the old device vetoes. Today this case has no answer.
-- Stolen cloud key plus stolen mailbox: with `recoveryCoSignDelay = 0` the
-  co-signed replacement runs at once, the same trust as today's 2-of-3 Safe. An
-  account that sets that delay to an hour turns this into a scheduled change the
-  phone sees (the app watches `Scheduled`) and vetoes with Face ID; the product
-  will offer that setting, and the default is a decision for `09-open-questions.md`.
+- Stolen cloud key plus stolen mailbox: the co-signed replacement is a scheduled
+  change that waits an hour; the phone sees it (the app watches `Scheduled`) and
+  vetoes with Face ID. With the delay at 0 it would run at once, the same trust
+  as today's 2-of-3 Safe; an account can set it to 0 through the config path,
+  behind the 24-hour lock, and the app will not offer that on its own.
 - The server can never spend: RECOVER is not APPROVE, and `replaceSigner` cannot
   escalate permissions.
 
-## Team treasury on Concord
+## Team treasury on Olien
 
 Members are ECDSA (hardware wallets, browser wallets), WEBAUTHN (a laptop passkey
-with `UV_REQUIRED`), or CONTRACT (a consumer Concord, another treasury, a Safe).
+with `UV_REQUIRED`), or CONTRACT (a consumer Olien, another treasury, a Safe).
 `threshold` as chosen, `configDelay = 24h` by default, no RECOVER signer unless the
 team names one, `vetoThreshold` automatic. Spending limits name the payroll key or
 a member and a destination list; a payroll sub-account holds the month's budget.
@@ -156,25 +161,28 @@ a member and a destination list; a payroll sub-account holds the month's budget.
 ## Migration from the Safe accounts
 
 Consumer accounts that exist today are Safes with owners [Cloud Key, `P256Owner`,
-Recovery EOA]. When Concord is reviewed and on mainnet:
+Recovery EOA]. When Olien is reviewed and on mainnet the move is automatic
+(decided 2026-09-04, `09-open-questions.md` item 4): the app presents it once, in
+the words legal review approves, and one tap with the device and the cloud key
+does the following:
 
-1. The app creates the Concord counterfactually (same device key, same cloud key,
+1. The app creates the Olien counterfactually (same device key, same cloud key,
    the server's RECOVER key), shows the new address.
-2. One Safe transaction (device + cloud) sweeps USDC and EURC to the Concord; the
+2. One Safe transaction (device + cloud) sweeps USDC and EURC to the Olien; the
    `@handle` repoints (`handles::repoint` exists).
 3. Cheques written by the Safe stay valid until cashed; the Safe stays deployed and
    empty; nothing is destroyed.
 4. Protected-checkout evidence signing and any other place that assumed a Safe
-   address moves to the Concord signer.
+   address moves to the Olien signer.
 
-Treasuries created before Concord do not exist, so there is nothing to migrate.
+Treasuries created before Olien do not exist, so there is nothing to migrate.
 
 ## Audits and pinning
 
-- `Concord`, `ConcordProxy`, `ConcordFactory`, `ConcordVerifier`, `SubAccount`:
+- `Olien`, `OlienProxy`, `OlienFactory`, `OlienVerifier`, `SubAccount`:
   ours. The draft specification was reviewed adversarially before any code was
-  written (26 findings, spec §19). Tests in Foundry (`contracts/test/concord/`)
-  against the real EntryPoint v0.7 bytecode: 61 Concord tests plus 58 other tests
+  written (26 findings, spec §19). Tests in Foundry (`contracts/test/olien/`)
+  against the real EntryPoint v0.7 bytecode: 61 Olien tests plus 58 other tests
   pass (119). Where a P-256 signature is involved the suite has Daimo's Solidity
   verifier standing in for the precompile (spec §16), so those tests cost more gas
   than the chain will. A third-party review before mainnet money is the line item
@@ -183,9 +191,9 @@ Treasuries created before Concord do not exist, so there is nothing to migrate.
   `Create2`, `Clones`, `ERC1967Proxy`, `ERC1967Utils`, and the `IERC20`,
   `IERC1271`, `IERC721Receiver` interfaces), audited; pinned by commit in
   `contracts/lib`. The WebAuthn envelope and the EIP-712 hashing are our own
-  libraries (`WebAuthn`, `ConcordHash`), inside the review above.
+  libraries (`WebAuthn`, `OlienHash`), inside the review above.
 - EntryPoint v0.7: audited by OpenZeppelin; the address is an immutable.
-- The precompile at `0x100`: part of the chain. `ConcordVerifier` runs the
+- The precompile at `0x100`: part of the chain. `OlienVerifier` runs the
   Solidity verifier only when the precompile answers empty to both the signature
   and the RIP-7212 specification vector, so on Arc the Solidity code never decides
   a signature (spec §5.4).

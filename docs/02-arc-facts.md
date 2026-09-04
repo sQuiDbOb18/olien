@@ -1,9 +1,9 @@
 # Arc facts
 
-The Safe proofs below were the baseline the Concord design (`05-onchain-design.md`,
+The Safe proofs below were the baseline the Olien design (`05-onchain-design.md`,
 `10-account-spec.md`) is measured against, and every chain fact in them still
-holds. Concord's own proofs will be listed in `10-account-spec.md` §18 once they
-exist.
+holds. Olien's own proofs are in `10-account-spec.md` §18; the deployment rows at
+the end of this file are the same four transactions.
 
 Everything here was checked against Arc testnet (chain id 5042002) on 2026-09-03,
 either by reading code at an address, by a transaction that landed, or by a document
@@ -132,10 +132,10 @@ All on Arc testnet, from the attestor key.
 | User operation from a 1-of-1 Safe, gas from its own USDC | `0xebf4f0c6def43226a18ee97ce5af1fed3dfc8a0bf25d3b6fe39aadcc6229aa33` | 183,809 | 0.0047 USDC |
 | User operation from the 2-of-3 Safe, signed by EOA + P-256 | `0x2daf3d0b75cc9d00c35624e399243473769a2afb7503fafbec77d15aaaa74456` | 202,729 | 0.0052 USDC |
 | `swapOwner` on the 2-of-3 Safe, relayed, signed by EOA + recovery EOA | `0x37928263fdd79f2afd6cf9dd23a6aafe88b85ced9b615f225b8699cfb302a976` | about 75k | 0.002 USDC |
-| Deploy `ConcordVerifier` (2026-09-04, Arachnid CREATE2 proxy, salt `concord.v1.verifier`) | `0x8ec5622fBc72FB7685F035b7416db06Af6E67dF9`, tx `0xcbaaab6a5db0d062ae9d4fa1dd1acec3f1de655d1542250289d181cf9e3be568` | 947,463 | 0.0237 USDC |
-| Deploy the `SubAccount` implementation (2026-09-04, salt `concord.v1.sub-account`) | `0x392b9502eFDb7FdC12b4219d691E28888F8e6f2b`, tx `0x6945ca7c8bbde998e8e46ac123cf811b9a531ef3fa68c0d49b676f5871eedd1d` | 391,315 | 0.0098 USDC |
-| Deploy the `Concord` v1 implementation (2026-09-04, salt `concord.v1.implementation`) | `0xD1919C6c1BFfc8A9dc095c55412bC7BB3b9f5590`, tx `0x04ce7c59b588b388b5db05d4d144a715650bbdeeec1e2a0d887c676cc41bd418` | 5,397,471 | 0.1340 USDC |
-| Deploy `ConcordFactory` (2026-09-04, salt `concord.v1.factory`) | `0x18aD0C7bc3Be283DB5101e6cD27cD68D95bd1587`, tx `0x82f58afb714a6564f806a7194b22d82b601851d7103970b459c49427fe41c876` | 481,363 | 0.0120 USDC |
+| Deploy `OlienVerifier` (2026-09-04, Arachnid CREATE2 proxy, salt `olien.v1.verifier`) | `0xE196558Ce080229B256dDE6e62CDA2B051B882fC`, tx `0xf609fe5cb614739258d7be4121aa801729a316cc11385276e2e5fc182b0b2d91` | 947,463 | 0.0240 USDC |
+| Deploy the `SubAccount` implementation (2026-09-04, salt `olien.v1.sub-account`) | `0xDfc576536187eF72689c514f8c7ea6487960a637`, tx `0x0f06a22dd855dc73c1e66aa38e35ef5cd48afbbf5aa62b5bcf9a184f1b7c0fc1` | 391,315 | 0.0099 USDC |
+| Deploy the `Olien` v1 implementation (2026-09-04, salt `olien.v1.implementation`) | `0x8BFf8CCe4edbE882a21197D3942978CCd06fA427`, tx `0x439487259851a12d0780efd093f19963b0750eef99213d602d0c7f148391be0b` | 5,397,471 | 0.1369 USDC |
+| Deploy `OlienFactory` (2026-09-04, salt `olien.v1.factory`) | `0xaF8c108D09E6A159D4dcE0919Ca6A81d6019f131`, tx `0x25476c642f95450f14b927f16fa8ccad48d09a393a4f0a4bbb222e3113abf968` | 481,351 | 0.0122 USDC |
 | **Team Safe whose owner is the 2-of-3 Safe**: `execTransaction` with one EOA signature and one nested contract signature (inner: EOA + P-256) | `0x242880bba98c628f8bfe1dcf18bd7ab63bc66a66d8d51c5a29f34a1d43044fce` on team Safe `0xABE4dA9A4113114AbD6C821910947DD92c3BBA30` | 155,851 | 0.0039 USDC |
 
 The last row is the one that makes a consumer account a first-class member of a

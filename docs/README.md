@@ -6,9 +6,10 @@ anything on them. This folder is the research behind building that product, and
 the design of it: since 2026-09-04, an own account contract with the service and
 the clients on top, rather than a product on Safe.
 
-Working names in these documents: **Treasury** for the product, **Concord** for the
-account. Not brands; placeholders. Concord is in the EIP-712 domain of every
-signature, so it must be final before mainnet (`09-open-questions.md`).
+Names in these documents: **Olien** is the account protocol, chosen on 2026-09-04
+and final; it is the string `Olien` in the EIP-712 domain of every signature, so it
+cannot change without a new deployment. **Treasury** is still a working name for
+the product on top.
 
 Started 2026-09-03, the day the consumer app moved to a 2-of-3 Safe
 (`../keys-and-recovery.md`). That work is the seed: a backend that deploys Safes and
@@ -21,7 +22,7 @@ in `05-onchain-design.md`.
 | File | What it settles |
 | --- | --- |
 | `01-landscape.md` | What Squads, Safe and the treasury products on top of them actually do, with sources |
-| `02-arc-facts.md` | Everything verified on Arc itself: contracts, precompiles, gas, bundlers, what is missing; the Safe baseline Concord is measured against |
+| `02-arc-facts.md` | Everything verified on Arc itself: contracts, precompiles, gas, bundlers, what is missing; the Safe baseline Olien is measured against |
 | `03-product.md` | Who it is for, what it does, what it deliberately does not do |
 | `04-architecture.md` | The system: services, data model, APIs, how signatures travel between devices |
 | `05-onchain-design.md` | The decision to build an own account: why, what it costs, what is borrowed, what survives from the Safe build, migration |
@@ -37,16 +38,19 @@ Decision: the product is built on its own account protocol rather than on Safe
 (`05-onchain-design.md`). The specification (`10-account-spec.md`) was drafted in
 the morning, reviewed adversarially (26 findings, spec §19), and the contracts
 were written against the fixed version, reviewed, tested and deployed to Arc
-testnet the same day: `ConcordVerifier`, the `SubAccount` implementation, the
-`Concord` v1 implementation and `ConcordFactory`, through the Arachnid CREATE2
+testnet the same day: `OlienVerifier`, the `SubAccount` implementation, the
+`Olien` v1 implementation and `OlienFactory`, through the Arachnid CREATE2
 proxy at fixed salts (addresses and transactions in the proofs table of
-`02-arc-facts.md`; `08-roadmap-and-grants.md` Phase 1). 61 Concord tests plus 58
+`02-arc-facts.md`; `08-roadmap-and-grants.md` Phase 1). 61 Olien tests plus 58
 other tests pass (119). Proofs by transaction landed the same evening (an account
 created, a P-256 execution, a spend under a limit, a guardian's recovery vetoed by
 the device through a user operation, a threshold user operation paid in USDC, a
-nested signature): spec §16 has the measured gas and §18 the transactions.
-Nothing is on mainnet. The consumer
-app runs on Safe until the review in `08-roadmap-and-grants.md` Phase 4 lands.
+nested signature): spec §16 has the measured gas and §18 the transactions. That
+evening the name became Olien, the four contracts were deployed again under it
+(the name is in every hash) and the proofs repeated on the new addresses; the
+product questions in `09-open-questions.md` items 1 to 5 were answered and the
+engineering ones decided. Nothing is on mainnet. The consumer app runs on Safe
+until the review in `08-roadmap-and-grants.md` Phase 4 lands.
 
 ## Status (2026-09-03)
 

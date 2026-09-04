@@ -120,7 +120,7 @@ under a limit and nothing more.
   tier.
 - **P256, raw key:** a P-256 key with no WebAuthn envelope, for a Secure Enclave or
   an HSM the client drives directly; the client normalises `s` low.
-- **CONTRACT, other:** another Concord, a Safe, or any EIP-1271 contract; its own
+- **CONTRACT, other:** another Olien, a Safe, or any EIP-1271 contract; its own
   rules apply and the treasury cannot see inside them.
 
 ## Hard versus soft, in the interface
@@ -138,7 +138,7 @@ spending limits with destination lists and, for a brake, VETO signers.
 | --- | --- | --- | --- |
 | `configDelay` | add, remove or replace a signer through the threshold; threshold and veto threshold; delays; a spending limit and its signer and destination lists; implementation | 24 hours, treasury and consumer (`05-onchain-design.md`) | VETO signers up to the effective veto threshold; automatic value `max(1, approverVetoerCount - threshold + 1)` over signers holding both APPROVE and VETO; the signer the change removes is excluded (spec §7.4, §8.3) |
 | `recoveryDelay` | `replaceSigner` proposed by a RECOVER signer alone | 24 hours; never under 1 hour (`MIN_RECOVERY_DELAY`) | same, and the signer being replaced may veto |
-| `recoveryCoSignDelay` | `replaceSigner` by a RECOVER signer plus one APPROVE signer holding no RECOVER | 0 (consumer); treasuries have no RECOVER signer unless they name one | same, when non-zero |
+| `recoveryCoSignDelay` | `replaceSigner` by a RECOVER signer plus one APPROVE signer holding no RECOVER | 1 hour (consumer, decided 2026-09-04, `09-open-questions.md` item 24); treasuries have no RECOVER signer unless they name one | same, when non-zero; for a consumer account that is the phone, which the change replaces and which may veto on the recovery path |
 | `validUntil` | every pending transaction and user operation | 7 days in the service; the contract requires a value and caps it at 30 days (`MAX_VALIDITY`) | the threshold, with `cancel`, at once |
 | `cancel`, `removeSpendingLimit` | none: immediate self calls under the threshold | not applicable | not applicable |
 | Transfers | none | not applicable | not applicable |
@@ -203,10 +203,11 @@ clients add.
   compared, and time locks are the backstop.
 - **Chains where the program is frozen cannot fix bugs.** Squads v4 is frozen and
   answered Drift with a separate nonce guard; Safe 1.4.1 is not upgradeable either.
-  Concord makes it the account's choice: `setImplementation` behind the delay and
+  Olien makes it the account's choice: `setImplementation` behind the delay and
   the veto, or `freezeImplementation` forever (spec §7.7, §15.12). The product's
-  default is changeable behind the lock (`05-onchain-design.md`); the consumer
-  default is open (`09-open-questions.md`).
+  default is changeable behind the lock for treasuries and for consumer accounts
+  alike (decided 2026-09-04, `09-open-questions.md` item 5); freezing is a
+  setting, never something the app does on its own.
 
 ## Incident playbook, minimum
 
@@ -235,12 +236,12 @@ clients add.
 ## Contract risk
 
 An own contract carries a risk Safe's does not. Safe 1.4.1 has years of audits and
-the volume `01-landscape.md` reports behind its bytecode; Concord has neither until
+the volume `01-landscape.md` reports behind its bytecode; Olien has neither until
 it earns them. That is the price of P-256 signers, policies inside the account, and
 one contract for people and teams (`05-onchain-design.md`). Mitigations, all in
 `08-roadmap-and-grants.md`: an adversarial review of the specification before any
 code, whose 26 findings changed the design (spec §19); tests against the real
-EntryPoint v0.7 bytecode, 61 for Concord plus 58 others, all passing (Phase 1,
+EntryPoint v0.7 bytecode, 61 for Olien plus 58 others, all passing (Phase 1,
 done 2026-09-04; the P-256 tests have Daimo's Solidity verifier standing in for
 the precompile); a third-party review or contest before any mainnet account holds
 money (Phase 4); the consumer app stays on Safe on mainnet until that review

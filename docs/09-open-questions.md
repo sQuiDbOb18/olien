@@ -2,42 +2,46 @@
 
 What is not decided, and what would change the design if the answer goes the other
 way. Each has an owner (you, unless it says research) and a way to settle it. Items
-the 2026-09-04 decision, the review of the draft spec (spec §19) and the contract
-settled are marked so and kept short; the Safe-only items of the first draft
+the 2026-09-04 decision, the review of the draft spec (spec §19), the contract, the
+product answers given that evening (items 1 to 5) and engineering's calls on the
+rest are marked so and kept short; the Safe-only items of the first draft
 (Safe{Wallet} hosting, the Delay and 4337 modules together) are gone with it.
 
 ## Product
 
-1. **The name.** Concord is a placeholder, and it is in the EIP-712 domain (spec
-   §4), so every hash changes with it. It must be final before any deployment whose
-   signatures have to survive: before mainnet without question, and before the
-   Phase 1 testnet deployment if its proofs are to stay valid. Settle before Phase 1
-   ends; a trademark search is part of it. The 2026-09-04 testnet deployment
-   carries the placeholder; a rename changes the implementation's bytecode and so
-   its CREATE2 address, which means a new deployment and repeated proofs.
-2. **Who is the first customer?** A team on Arc testnet today, or the consumer app's
-   own users forming teams? Settle by three conversations with Arc pilot teams once
-   the market research names them.
-3. **Payroll first or approvals first?** Payroll is the revenue story; approvals are
-   the safety story every customer needs before payroll. The order in
-   `08-roadmap-and-grants.md` is approvals, then payroll, then invoices.
-4. **Consumer migration on mainnet: opt-in or automatic?** Automatic means the app
-   sweeps every Safe to its Concord after Phase 4 with the user's two keys in one
-   tap; opt-in means two account kinds in the app for a while. Automatic is simpler
-   to support and harder to explain. Settle before Phase 5 with the words legal
-   review approves (item 19).
+1. **The name.** Settled 2026-09-04: **Olien**. It is the string `Olien` in the
+   EIP-712 domain (spec §4), so every hash depends on it; the testnet contracts
+   were deployed again under it the same evening and the proofs repeated (spec
+   §18), and the placeholder deployment is superseded. Still to do before mainnet:
+   a trademark search, and whether the product on top carries the same name.
+2. **Who is the first customer?** Settled 2026-09-04: a team on Arc testnet, on
+   the console before mainnet money exists (`08-roadmap-and-grants.md` Phase 2).
+   Teams formed by the consumer app's own users come after Phase 3. Open inside
+   it: which team; three conversations with Arc pilot teams once the market
+   research names them.
+3. **Payroll first or approvals first?** Settled 2026-09-04: approvals, then
+   payroll, then invoices, the order `08-roadmap-and-grants.md` already had.
+   Payroll is the revenue story; approvals are the safety story every customer
+   needs before payroll.
+4. **Consumer migration on mainnet: opt-in or automatic?** Settled 2026-09-04:
+   automatic. The app presents the move once and one tap with the user's two keys
+   sweeps the Safe to the Olien (`05-onchain-design.md`, Migration); no second
+   account kind in the app. The words come from legal review (item 19).
 
 ## Engineering
 
-5. **Upgradeable by default or frozen by default for consumer accounts?**
-   `05-onchain-design.md` says changeable behind the lock, with the veto in the
-   user's hand. The trade: a frozen account cannot take a fix and must sweep; a
-   changeable one trusts that two keys, 24 hours and a veto are enough of a lock.
-   Treasuries choose in settings. The factory's `Init` has no freeze flag, so
-   freezing is a first-epoch config call the app would send. Settle before Phase 3
-   creates real consumer Concords.
+5. **Upgradeable by default or frozen by default for consumer accounts?** Settled
+   2026-09-04: upgradeable. Consumer accounts are created changeable behind the
+   24-hour lock with the veto in the user's hand, the same as treasuries, and the
+   app never freezes one on its own. The trade accepted: a changeable account
+   trusts that two keys, 24 hours and a veto are enough of a lock; a frozen one
+   cannot take a fix and must sweep (`07-security-model.md`, Contract bug).
+   Freezing stays a setting; the factory's `Init` has no freeze flag, so it is a
+   first-epoch config call the app sends only when asked.
 6. **Should `vetoThreshold` have an explicit override at all?** Settled by the
-   review (spec §7.4, §7.5, §8.3): kept, but bounded. An explicit value must not
+   review and confirmed as engineering's call on 2026-09-04 (spec §7.4, §7.5,
+   §8.3): kept, but bounded. Consumer accounts leave it automatic; the console
+   shows it under advanced settings with the explanation below. An explicit value must not
    exceed the number of VETO signers; the automatic value is `max(1,
    approverVetoerCount - threshold + 1)` over signers holding both APPROVE and
    VETO. The footgun the first draft feared is gone: on the threshold path the
@@ -60,13 +64,16 @@ settled are marked so and kept short; the Safe-only items of the first draft
    interface would be enabled through the config path in a later implementation.
    Decide after the first treasuries say what they need; it cannot go into v1
    without removing something (item 23).
-9. **Relay or user operations for team executions?** `execute` from the relayer is
-   simpler for a queue with many signers and needs no bundler; user operations need
-   no relayer key of ours and let the account pay. Draft: `execute` for treasuries,
-   user operations for consumer accounts, both indexed the same way. Settle by
-   measuring failure modes on testnet under load. What the review settled: neither
-   way depends on a bundler, since any EOA can call `handleOps`; and no signed
-   meta-transaction shape is needed for single-signer actions (item 22).
+9. **Relay or user operations for team executions?** Settled 2026-09-04
+   (engineering's call): `execute` from the relayer for treasuries, user
+   operations for consumer accounts, both indexed the same way. Treasuries have
+   many signers and no reason to hold gas, and the relayer is a cost we bill;
+   consumer accounts pay their own gas from USDC and need no key of ours. What the
+   review settled: neither way depends on a bundler, since any EOA can call
+   `handleOps`; and no signed meta-transaction shape is needed for single-signer
+   actions (item 22). Phase 2 still measures failure modes under load; the result
+   that would matter is the relayer falling behind a queue, and the answer to that
+   is more relayer keys, not user operations.
 10. **Simulation.** Settled 2026-09-03. Neither public RPC offers `debug_traceCall`
     (drpc: paid plan only; official: unsupported). drpc does answer `eth_simulateV1`
     and both accept `eth_call` state overrides, so simulation is `eth_simulateV1`
@@ -76,11 +83,11 @@ settled are marked so and kept short; the Safe-only items of the first draft
     more per nested Recourse signature through `P256Owner`, is gone: a P256 signer
     is one precompile call (about 6,900 gas measured, `02-arc-facts.md`). Nested
     accounts still cost one external call; spec §16 measures 88k in forge for an
-    outer 2-of-2 whose one signer is a 2-of-2 Concord, the same as the suite's
+    outer 2-of-2 whose one signer is a 2-of-2 Olien, the same as the suite's
     median for a plain 2-of-2; Arc's number is pending.
-12. **Address book verification.** Who vouches that an address is a supplier? Draft:
-    two members confirm a new address, and the first payment to it is capped by
-    policy.
+12. **Address book verification.** Who vouches that an address is a supplier?
+    Settled 2026-09-04 (engineering's call): two members confirm a new address,
+    and the first payment to it is capped by policy.
 13. **On-chain expiry for approvals.** Settled by the spec and tightened by the
     review: `validUntil` is in the hash, the contract refuses the transaction
     after it, requires it to be set, and caps it at 30 days (`MAX_VALIDITY`, spec
@@ -93,7 +100,7 @@ settled are marked so and kept short; the Safe-only items of the first draft
     deploy nothing that holds money; the consumer app stays on Safe, whose canonical
     addresses are registered for 5042. Open: whether Pimlico's bundler and drpc
     cover mainnet at launch; `execute` and a direct `handleOps` need neither. The
-    five Concord contracts sit at fixed CREATE2 addresses on testnet since
+    five Olien contracts sit at fixed CREATE2 addresses on testnet since
     2026-09-04 (`02-arc-facts.md`), so the mainnet deployment is the same script
     and the same addresses (spec §18).
 15. **Blocklist behaviour.** USDC transfers to a blocklisted address revert at
@@ -107,12 +114,16 @@ settled are marked so and kept short; the Safe-only items of the first draft
 
 17. **Audit vendor and budget.** Which firm or contest, at what price, funded how.
     Squads used Trail of Bits, Neodyme, OtterSec and Certora (`01-landscape.md`);
-    the five contracts here are `Concord` at about a thousand lines plus the
+    the five contracts here are `Olien` at about a thousand lines plus the
     verifier, factory, proxy and sub-account, and two libraries
     (`05-onchain-design.md`); the adversarial review of the draft spec (spec §19)
     is not an audit of the code. Research: three quotes, and whether the Circle grant's
     milestone shape can carry it (`08-roadmap-and-grants.md`). Settle before Phase 3
-    ends so Phase 4 starts without waiting.
+    ends so Phase 4 starts without waiting. Engineering's recommendation
+    (2026-09-04): a fixed-scope review by one firm of `Olien` and `OlienVerifier`
+    first, the two contracts that hold the logic, about 1,200 lines together, then
+    a public contest over the whole set if the grant carries it; the firm's report
+    is the milestone. The vendor and the price stay open until quotes exist.
 18. **Grant timing.** Which program is open when the testnet proofs exist; see
     `08-roadmap-and-grants.md`.
 19. **Custody language.** "Non-custodial" is true for treasuries and mostly true for
@@ -138,3 +149,12 @@ settled are marked so and kept short; the Safe-only items of the first draft
     24,545 bytes through the IR pipeline, about 30 bytes under the EIP-170 limit
     (spec §2). Any v1 addition must remove something; the verifier already lives
     outside the account for this reason. Weigh this before promising a feature.
+24. **Consumer recovery delays.** Engineering's call, 2026-09-04: consumer accounts
+    are created with `recoveryCoSignDelay` of one hour (`recoveryDelay` stays 24
+    hours). The co-signed path is the one a stolen cloud key plus a stolen mailbox
+    would take, and an hour is enough for the phone to see the `Scheduled` event
+    and veto with Face ID, while a real lost-phone restore waits an hour with the
+    balance on screen. Zero would keep today's instant restore at the price of
+    that attack. An account can still set zero through the config path, behind the
+    24-hour lock; the app does not offer it (`05-onchain-design.md`, Consumer
+    account; `07-security-model.md`, Delay windows).
