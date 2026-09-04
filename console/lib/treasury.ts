@@ -1,0 +1,597 @@
+// Client for the treasury transaction service (docs/treasury/11-service-api.md).
+// Types mirror the contract field for field; every request goes through authFetch so
+// the bearer session is attached and refreshed. Amounts are decimal strings in the
+// token's smallest unit (USDC has 6 decimals), times are unix seconds, addresses are
+// lowercase hex, hashes and signer ids are 0x plus 64 hex digits.
+
+import { formatUnits, hashTypedData, isAddress } from "viem";
+import { authFetch } from "./session";
+
+export type Hex = `0x${string}`;
+
+export type Permission = "approve" | "veto" | "recover";
+export type SignerKind = "ecdsa" | "p256" | "webauthn" | "contract";
+export type AccountStatus = "deploying" | "live" | "disabled";
+export type ProposalKind =
+  | "transfer"
+  | "batch"
+  | "signer_change"
+  | "rule_change"
+  | "limit_change"
+  | "cancel"
+  | "contract_call";
+export type ProposalStatus =
+  | "open"
+  | "ready"
+  | "blocked"
+  | "executing"
+  | "executed"
+  | "scheduled"
+  | "vetoed"
+  | "cancelled"
+  | "replaced"
+  | "stale"
+  | "expired"
+  | "failed";
+
+export interface LinkedAddress {
+  address: string;
+  linkedAt: number;
+}
+
+export interface SignerInput {
+  kind: SignerKind;
+  address: string;
+  label: string;
+  permissions: Permission[];
+}
+
+export interface SignerView {
+  signerId: string;
+  kind: SignerKind;
+  address: string | null;
+  label: string;
+  permissions: Permission[];
+  since: number;
+  mine: boolean;
+}
+
+export interface AccountSummary {
+  address: string;
+  name: string;
+  status: AccountStatus;
+  threshold: number;
+  signerCount: number;
+  usdcBalance: string;
+  openProposals: number;
+  scheduledChanges: number;
+  createdAt: number;
+}
+
+export interface Lane {
+  nonceKey: string;
+  chainSequence: number;
+}
+
+export interface SpendingLimit {
+  id: number;
+  generation: number;
+  token: string;
+  from: string;
+  amount: string;
+  remaining: string;
+  period: number;
+  resetAt: number;
+  anyDestination: boolean;
+  signers: string[];
+  destinations: string[];
+}
+
+export interface SubAccount {
+  index: number;
+  address: string;
+  label: string | null;
+}
+
+export interface Membership {
+  creator: boolean;
+  signerIds: string[];
+}
+
+export interface AccountView {
+  address: string;
+  name: string;
+  status: AccountStatus;
+  chainId: number;
+  implementation: string;
+  implementationFrozen: boolean;
+  epoch: number;
+  threshold: number;
+  vetoThreshold: number;
+  effectiveVetoThreshold: number;
+  configDelay: number;
+  recoveryDelay: number;
+  recoveryCoSignDelay: number;
+  signers: SignerView[];
+  usdcBalance: string;
+  entryPointDeposit: string;
+  lanes: Lane[];
+  limits: SpendingLimit[];
+  subAccounts: SubAccount[];
+  createTx: string | null;
+  createdAt: number;
+  membership: Membership;
+}
+
+export interface CreateAccountBody {
+  name: string;
+  signers: SignerInput[];
+  threshold: number;
+  vetoThreshold: number;
+  configDelay: number;
+  recoveryDelay: number;
+  recoveryCoSignDelay: number;
+}
+
+export interface Call {
+  to: string;
+  value: string;
+  data: string;
+}
+
+export interface DecodedCall {
+  to: string;
+  label: string;
+  summary: string;
+  selector: string;
+  readable: boolean;
+}
+
+export interface ConfirmationView {
+  signerId: string;
+  address: string | null;
+  label: string;
+  kind: "offchain" | "onchain";
+  signedAt: number;
+}
+
+export interface MissingSigner {
+  signerId: string;
+  label: string;
+  mine: boolean;
+}
+
+export interface HardRule {
+  rule: string;
+  seconds: number | null;
+  text: string;
+}
+
+export interface SimulationView {
+  ok: boolean;
+  error: string | null;
+  checkedAt: number;
+}
+
+export interface VetoView {
+  signerId: string;
+  label: string;
+  tx: string;
+  at: number;
+}
+
+export interface RecipientInput {
+  to: string;
+  amount: string;
+  label?: string;
+  memo?: string;
+}
+
+export interface TypedDataField {
+  name: string;
+  type: string;
+}
+
+export interface TypedDataView {
+  domain: { name: string; version: string; chainId: number; verifyingContract: string };
+  types: Record<string, TypedDataField[]>;
+  primaryType: string;
+  message: {
+    nonce: string;
+    epoch: number;
+    calls: Call[];
+    validAfter: number;
+    validUntil: number;
+  };
+}
+
+export interface ProposalView {
+  txHash: string;
+  account: string;
+  nonceKey: string;
+  sequence: number;
+  nonce: string;
+  epoch: number;
+  kind: ProposalKind;
+  intent: Record<string, unknown> | null;
+  calls: Call[];
+  decoded: DecodedCall[];
+  validAfter: number;
+  validUntil: number;
+  path: string;
+  status: ProposalStatus;
+  confirmations: ConfirmationView[];
+  required: number;
+  approvals: number;
+  missing: MissingSigner[];
+  blockedBy: string | null;
+  hardRules: HardRule[];
+  simulation: SimulationView | null;
+  scheduledReadyAt: number | null;
+  scheduledWindowEndsAt: number | null;
+  scheduledExcluded: string | null;
+  vetoes: VetoView[];
+  effectiveVetoThreshold: number;
+  executedTx: string | null;
+  executedAt: number | null;
+  proposer: { accountId: number; name: string } | null;
+  createdAt: number;
+  typedData: TypedDataView;
+}
+
+export interface VetoCall {
+  to: string;
+  data: string;
+  signerIds: string[];
+}
+
+export interface LedgerEntry {
+  id: number;
+  tx: string;
+  logIndex: number;
+  token: string;
+  symbol: string;
+  direction: "in" | "out";
+  counterparty: string;
+  counterpartyLabel: string | null;
+  amount: string;
+  blockNumber: number;
+  blockTime: number;
+  proposalTxHash: string | null;
+  limitId: number | null;
+  subAccount: string | null;
+  memo: string | null;
+}
+
+export interface AddressBookEntry {
+  address: string;
+  label: string;
+  category: string | null;
+  createdAt?: number;
+}
+
+export interface TransferProposalBody {
+  recipients: RecipientInput[];
+  token?: string;
+  nonceKey?: string;
+  validUntil?: number;
+}
+
+export interface SignersProposalBody {
+  add: SignerInput[];
+  remove: string[];
+  replace: { signerId: string; with: SignerInput }[];
+  threshold?: number;
+  vetoThreshold?: number;
+  delays?: { configDelay: number; recoveryDelay: number; recoveryCoSignDelay: number };
+}
+
+export class TreasuryError extends Error {
+  status: number;
+  constructor(message: string, status: number) {
+    super(message);
+    this.name = "TreasuryError";
+    this.status = status;
+  }
+}
+
+const BASE = "/api/treasury";
+
+async function send(path: string, init: RequestInit = {}): Promise<unknown> {
+  const res = await authFetch(`${BASE}${path}`, {
+    ...init,
+    headers: { "content-type": "application/json", ...(init.headers ?? {}) },
+  });
+  const text = await res.text();
+  let body: unknown = null;
+  if (text) {
+    try {
+      body = JSON.parse(text);
+    } catch {
+      body = null;
+    }
+  }
+  if (!res.ok) {
+    const message =
+      body && typeof body === "object" && "error" in body && typeof (body as { error: unknown }).error === "string"
+        ? (body as { error: string }).error
+        : `The treasury service answered ${res.status}`;
+    throw new TreasuryError(message, res.status);
+  }
+  return body;
+}
+
+async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
+  return (await send(path, init)) as T;
+}
+
+function post(body: unknown): RequestInit {
+  return { method: "POST", body: JSON.stringify(body) };
+}
+
+export const getLinkedAddresses = () => request<LinkedAddress[]>("/linked-addresses");
+export const linkAddress = (body: { address: string; signature: string }) =>
+  request<LinkedAddress>("/link-address", post(body));
+
+export const getAccounts = () => request<AccountSummary[]>("/accounts");
+export const createAccount = (body: CreateAccountBody) => request<AccountView>("/accounts", post(body));
+export const getAccount = (address: string) => request<AccountView>(`/accounts/${address}`);
+
+export const getProposals = (address: string, statuses?: ProposalStatus[]) =>
+  request<ProposalView[]>(
+    `/accounts/${address}/proposals${statuses && statuses.length ? `?status=${statuses.join(",")}` : ""}`,
+  );
+export const getProposal = (address: string, txHash: string) =>
+  request<ProposalView>(`/accounts/${address}/proposals/${txHash}`);
+export const confirmProposal = (address: string, txHash: string, body: { signerId: string; signature: string }) =>
+  request<ProposalView>(`/accounts/${address}/proposals/${txHash}/confirmations`, post(body));
+export const executeProposal = (address: string, txHash: string) =>
+  request<ProposalView>(`/accounts/${address}/proposals/${txHash}/execute`, { method: "POST" });
+export const cancelProposal = (address: string, txHash: string) =>
+  request<ProposalView>(`/accounts/${address}/proposals/${txHash}/cancel`, { method: "POST" });
+export const deleteProposal = async (address: string, txHash: string): Promise<void> => {
+  await send(`/accounts/${address}/proposals/${txHash}`, { method: "DELETE" });
+};
+export const proposeTransfer = (address: string, body: TransferProposalBody) =>
+  request<ProposalView>(`/accounts/${address}/proposals/transfer`, post(body));
+export const proposeSigners = (address: string, body: SignersProposalBody) =>
+  request<ProposalView>(`/accounts/${address}/proposals/signers`, post(body));
+
+export const getScheduled = (address: string) => request<ProposalView[]>(`/accounts/${address}/scheduled`);
+export const getVetoCall = (address: string, hash: string) =>
+  request<VetoCall>(`/accounts/${address}/scheduled/${hash}/veto-call`);
+export const executeScheduled = (address: string, hash: string) =>
+  request<ProposalView>(`/accounts/${address}/scheduled/${hash}/execute`, { method: "POST" });
+
+export const getLedger = (address: string, limit = 100) =>
+  request<LedgerEntry[]>(`/accounts/${address}/ledger?limit=${limit}`);
+export const getAddressBook = (address: string) =>
+  request<AddressBookEntry[]>(`/accounts/${address}/address-book`);
+export const addAddressBookEntry = (address: string, body: { address: string; label: string; category?: string }) =>
+  request<AddressBookEntry>(`/accounts/${address}/address-book`, post(body));
+
+// An ECDSA signer's id is its address left-padded to 32 bytes (spec: signer ids are
+// bytes32; for ECDSA the low 20 bytes are the address).
+export function signerIdFor(address: string): string {
+  return `0x${"0".repeat(24)}${address.slice(2).toLowerCase()}`;
+}
+
+export function sameAddress(a: string | null | undefined, b: string | null | undefined): boolean {
+  return Boolean(a && b && a.toLowerCase() === b.toLowerCase());
+}
+
+export function isValidAddress(value: string): value is Hex {
+  return isAddress(value, { strict: false });
+}
+
+// The exact EIP-191 text the service recovers a linked address from: lowercase
+// address, decimal account id, newline separated, no trailing newline.
+export function linkMessage(address: string, accountId: number): string {
+  return `Recourse treasury link\naddress: ${address.toLowerCase()}\naccount: ${accountId}`;
+}
+
+export function formatUsdc(raw: string | bigint): string {
+  const n = typeof raw === "bigint" ? raw : BigInt(raw || "0");
+  const negative = n < 0n;
+  const abs = negative ? -n : n;
+  const whole = abs / 1_000_000n;
+  const frac6 = (abs % 1_000_000n).toString().padStart(6, "0");
+  const trimmed = frac6.replace(/0+$/, "");
+  const frac = trimmed.length <= 2 ? frac6.slice(0, 2) : trimmed;
+  return `${negative ? "-" : ""}${whole.toLocaleString("en-US")}.${frac} USDC`;
+}
+
+// Arc's native balance is USDC with 18 decimals; it pays gas for a signer's own
+// transactions (veto), so the keys panel shows it beside each linked address.
+export function formatNative(wei: bigint): string {
+  const value = Number(formatUnits(wei, 18));
+  if (value === 0) return "0 USDC";
+  if (value < 0.0001) return "<0.0001 USDC";
+  return `${value.toLocaleString("en-US", { maximumFractionDigits: 4 })} USDC`;
+}
+
+// Parses a human USDC amount to its 6-decimal integer string without floats.
+export function parseUsdc(input: string): string | null {
+  const text = input.trim().replace(/,/g, "");
+  if (!/^\d*(\.\d*)?$/.test(text) || text === "" || text === ".") return null;
+  const [whole = "0", frac = ""] = text.split(".");
+  if (frac.length > 6) return null;
+  const units = BigInt(whole || "0") * 1_000_000n + BigInt((frac + "000000").slice(0, 6));
+  if (units <= 0n) return null;
+  return units.toString();
+}
+
+export function shortAddress(value: string): string {
+  return value && value.length > 12 ? `${value.slice(0, 6)}…${value.slice(-4)}` : value;
+}
+
+export function shortHash(value: string): string {
+  return value && value.length > 18 ? `${value.slice(0, 10)}…${value.slice(-6)}` : value;
+}
+
+export function durationLabel(seconds: number): string {
+  if (seconds <= 0) return "none";
+  if (seconds % 86_400 === 0) {
+    const days = seconds / 86_400;
+    return `${days} ${days === 1 ? "day" : "days"}`;
+  }
+  if (seconds % 3_600 === 0) {
+    const hours = seconds / 3_600;
+    return `${hours} ${hours === 1 ? "hour" : "hours"}`;
+  }
+  if (seconds % 60 === 0) {
+    const minutes = seconds / 60;
+    return `${minutes} ${minutes === 1 ? "minute" : "minutes"}`;
+  }
+  return `${seconds} seconds`;
+}
+
+export function countdownLabel(target: number, now: number): string {
+  const left = target - now;
+  if (left <= 0) return "ready";
+  const days = Math.floor(left / 86_400);
+  const hours = Math.floor((left % 86_400) / 3_600);
+  const minutes = Math.floor((left % 3_600) / 60);
+  const seconds = left % 60;
+  const pad = (n: number) => String(n).padStart(2, "0");
+  if (days > 0) return `${days}d ${pad(hours)}h ${pad(minutes)}m ${pad(seconds)}s`;
+  if (hours > 0) return `${hours}h ${pad(minutes)}m ${pad(seconds)}s`;
+  return `${minutes}m ${pad(seconds)}s`;
+}
+
+export function formatTime(unix: number | null | undefined): string {
+  if (!unix) return "";
+  return new Date(unix * 1000).toLocaleString("en-GB", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+export function formatDay(unix: number | null | undefined): string {
+  if (!unix) return "";
+  return new Date(unix * 1000).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+}
+
+export function nowSeconds(): number {
+  return Math.floor(Date.now() / 1000);
+}
+
+export function statusTone(status: ProposalStatus): string {
+  switch (status) {
+    case "ready":
+      return "green";
+    case "executed":
+      return "treasury-executed";
+    case "blocked":
+    case "scheduled":
+      return "amber";
+    case "executing":
+      return "treasury-blue";
+    case "vetoed":
+    case "cancelled":
+    case "failed":
+      return "red";
+    case "replaced":
+    case "stale":
+    case "expired":
+      return "treasury-muted";
+    default:
+      return "neutral";
+  }
+}
+
+export function statusLabel(status: ProposalStatus): string {
+  return status.charAt(0).toUpperCase() + status.slice(1);
+}
+
+export const KIND_LABELS: Record<ProposalKind, string> = {
+  transfer: "Payment",
+  batch: "Batch",
+  signer_change: "Signer change",
+  rule_change: "Rule change",
+  limit_change: "Spending limit",
+  cancel: "Cancellation",
+  contract_call: "Contract call",
+};
+
+export function kindLabel(kind: ProposalKind): string {
+  return KIND_LABELS[kind] ?? kind;
+}
+
+// The typed data as viem and a wallet want it: EIP712Domain dropped (viem derives it
+// from the domain), uint256 fields as bigint, addresses and bytes as hex.
+export interface SignableTypedData {
+  domain: { name: string; version: string; chainId: number; verifyingContract: Hex };
+  types: Record<string, TypedDataField[]>;
+  primaryType: "Transaction";
+  message: {
+    nonce: bigint;
+    epoch: number;
+    calls: { to: Hex; value: bigint; data: Hex }[];
+    validAfter: number;
+    validUntil: number;
+  };
+}
+
+export function typedDataFor(proposal: ProposalView): SignableTypedData {
+  const { domain, types, message } = proposal.typedData;
+  const stripped: Record<string, TypedDataField[]> = {};
+  for (const [name, fields] of Object.entries(types)) {
+    if (name !== "EIP712Domain") stripped[name] = fields;
+  }
+  return {
+    domain: {
+      name: domain.name,
+      version: domain.version,
+      chainId: domain.chainId,
+      verifyingContract: domain.verifyingContract as Hex,
+    },
+    types: stripped,
+    primaryType: "Transaction",
+    message: {
+      nonce: BigInt(message.nonce),
+      epoch: message.epoch,
+      calls: message.calls.map((call) => ({ to: call.to as Hex, value: BigInt(call.value), data: call.data as Hex })),
+      validAfter: message.validAfter,
+      validUntil: message.validUntil,
+    },
+  };
+}
+
+// The hash a hardware wallet shows. Signing is refused when it differs from the
+// service's txHash, so a wrong or tampered typedData never gets a signature.
+export function proposalHash(proposal: ProposalView): Hex {
+  return hashTypedData(typedDataFor(proposal));
+}
+
+export function hashMatches(proposal: ProposalView): boolean {
+  try {
+    return proposalHash(proposal).toLowerCase() === proposal.txHash.toLowerCase();
+  } catch {
+    return false;
+  }
+}
+
+export function errorMessage(error: unknown): string {
+  if (error instanceof Error) return error.message.split("\n")[0];
+  return String(error);
+}
+
+// Route params: an account address or a transaction hash, or nothing at all.
+export function accountParam(value: string): string | null {
+  return /^0x[0-9a-fA-F]{40}$/.test(value) ? value.toLowerCase() : null;
+}
+
+export function hashParam(value: string): string | null {
+  return /^0x[0-9a-fA-F]{64}$/.test(value) ? value.toLowerCase() : null;
+}
+
+export function proposalSummary(proposal: ProposalView): string {
+  const first = proposal.decoded[0];
+  if (proposal.decoded.length === 1 && first) return first.summary;
+  if (proposal.decoded.length > 1) return `${proposal.decoded.length} calls: ${proposal.decoded.map((call) => call.summary).join("; ")}`;
+  return `${proposal.calls.length} ${proposal.calls.length === 1 ? "call" : "calls"}`;
+}
