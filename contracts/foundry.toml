@@ -18,8 +18,8 @@ fs_permissions = [
 
 # The account is compiled through the IR pipeline: it is the one contract that needs the
 # size and the stack room. Everything else stays on the legacy pipeline it was tested on.
-additional_compiler_profiles = [{ name = "concord", via_ir = true, optimizer_runs = 1 }]
-compilation_restrictions = [{ paths = "src/concord/**", via_ir = true }]
+additional_compiler_profiles = [{ name = "olien", via_ir = true, optimizer_runs = 1 }]
+compilation_restrictions = [{ paths = "src/olien/**", via_ir = true }]
 
 # 32k calls per invariant. Below the defaults so the suite stays usable during
 # development; the handler swallows reverts, so afterInvariant asserts the run
