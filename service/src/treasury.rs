@@ -1141,7 +1141,7 @@ fn decode_call(call: &Call, account: Address, usdc: Address, signers: &[SignerRo
             return DecodedCall {
                 to: addr(call.to),
                 label: "USDC".into(),
-                summary: format!("transfer {} USDC to {} ({})", format_usdc(t.amount), addr(t.to), label_of(t.to)),
+                summary: format!("Send {} USDC to {}", format_usdc(t.amount), label_of(t.to)),
                 selector: selector_hex,
                 readable: true,
             };
@@ -1657,9 +1657,20 @@ async fn build_view(
     }
     let proposer = match row.proposer {
         Some(id) => {
-            let name: Option<(Option<String>, Option<String>)> =
-                sqlx::query_as("SELECT given_name, email FROM accounts WHERE account_id = $1").bind(id).fetch_optional(pool).await?;
-            name.map(|(given, email)| Proposer { account_id: id, name: given.or(email).unwrap_or_else(|| format!("member {id}")) })
+            // A wallet account has no name or email; its address is how the team knows it.
+            let name: Option<(Option<String>, Option<String>, String, String)> = sqlx::query_as(
+                "SELECT given_name, email, provider, provider_subject FROM accounts WHERE account_id = $1",
+            )
+            .bind(id)
+            .fetch_optional(pool)
+            .await?;
+            name.map(|(given, email, provider, subject)| Proposer {
+                account_id: id,
+                name: given
+                    .or(email)
+                    .or_else(|| (provider == "wallet").then_some(subject))
+                    .unwrap_or_else(|| format!("member {id}")),
+            })
         }
         None => None,
     };

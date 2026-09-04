@@ -15,11 +15,43 @@ caller is not a member of, 404 for a missing thing, 409 for a state conflict
 (a slot already executed, a proposal that cannot take that action), 502 when the
 chain or the relayer failed.
 
+## Signing in with a wallet
+
+The console's only door, the way Squads opens on a connected wallet: the address
+is the identity. Two public routes under `/api/auth`:
+
+```
+POST /api/auth/wallet/challenge  { address }     -> { message, nonce, expiresAt }
+POST /api/auth/wallet  { address, nonce, signature }
+                                                 -> SessionGrant (the same shape /api/auth/google returns)
+```
+
+The wallet signs `message` with `personal_sign` (EIP-191), verbatim. The text is
+built by the service from the checksummed address, a single-use nonce and the
+nonce's expiry, so the service rebuilds it from what it stored and a signature
+over anything else recovers a different address:
+
+```
+Sign in to Olien
+
+Address: 0xAbC…
+Nonce: 0x…
+Expires: 1757000000
+```
+
+A nonce lives five minutes and is consumed on first use. The account the session
+belongs to has `provider` `wallet` and `providerUserId` equal to the lowercase
+address; the same address always maps to the same account. The address is linked
+(below) in the same transaction, so every Olien naming it as a signer is visible
+from the first sign-in.
+
 ## Who may see an account
 
 A user sees an account when they created it or when one of the account's ECDSA
-signers is an address the user has linked. Linking proves control of the address
-once; every account that names it as a signer becomes visible.
+signers is an address the user has linked. Wallet sign-in links its own address;
+these routes link further addresses to the same session, which the iOS app and
+tests use. Linking proves control of the address once; every account that names
+it as a signer becomes visible.
 
 ```
 GET  /api/treasury/linked-addresses            -> [{ address, linkedAt }]
