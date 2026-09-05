@@ -404,6 +404,11 @@ export function linkMessage(address: string, accountId: number): string {
   return `Recourse treasury link\naddress: ${address.toLowerCase()}\naccount: ${accountId}`;
 }
 
+/// The same number with a dollar sign, for a balance that stands alone.
+export function formatDollars(raw: string | bigint): string {
+  return `$${formatUsdc(raw).replace(/ USDC$/, "")}`;
+}
+
 export function formatUsdc(raw: string | bigint): string {
   const n = typeof raw === "bigint" ? raw : BigInt(raw || "0");
   const negative = n < 0n;

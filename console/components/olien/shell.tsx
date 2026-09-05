@@ -1,12 +1,14 @@
 "use client";
 
-import { ArrowLeftRight, Check, ChevronDown, Copy, Home, LogOut, Menu, Plus, Send, Settings, Users, X } from "lucide-react";
+import { ArrowLeftRight, ArrowUpRight, Check, ChevronDown, Copy, Home, LogOut, Menu, Moon, Plus, Send, Settings, Sun, Users, X } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter, useSelectedLayoutSegments } from "next/navigation";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useDisconnect } from "wagmi";
 import { explorerAddressUrl } from "@/lib/contracts";
-import { accountParam, formatUsdc, shortAddress } from "@/lib/treasury";
+import { accountParam, formatDollars, formatUsdc, shortAddress, type AccountView } from "@/lib/treasury";
+import { DepositDialog } from "./deposit-dialog";
+import { useOlienTheme } from "./theme";
 import { AddressChip, Button, cx, Dialog, Spinner } from "./ui";
 import { rememberAccount, useAccounts, useOlienAccount } from "./use-olien";
 import { OlienLanding } from "./landing";
@@ -23,11 +25,11 @@ function titleFor(segments: string[], address: string | null, name: string | und
     case "settings":
       return "Settings";
     default:
-      return name ?? "Home";
+      return "Dashboard";
   }
 }
 
-function AccountSwitcher({ address, name }: { address: string | null; name: string | undefined }) {
+function AccountSwitcher({ address, name, view }: { address: string | null; name: string | undefined; view: AccountView | undefined }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const accounts = useAccounts();
@@ -52,16 +54,43 @@ function AccountSwitcher({ address, name }: { address: string | null; name: stri
 
   return (
     <div className="olien-switcher" ref={ref}>
-      <button type="button" className="olien-switcher-btn" aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen((current) => !current)}>
+      <button type="button" className={cx("olien-switcher-btn", view && "olien-switcher-btn--card")} aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen((current) => !current)}>
         <span className="olien-switcher-avatar" aria-hidden>
           {address && name ? name.slice(0, 1).toUpperCase() : "O"}
         </span>
         <span className="olien-switcher-text">
-          <strong>{address ? (name ?? shortAddress(address)) : "Select an Olien"}</strong>
-          {address ? <small>{shortAddress(address)}</small> : <small>Arc Testnet</small>}
+          {view ? (
+            <>
+              <small>{view.name}</small>
+              <strong className="olien-switcher-balance">{formatDollars(view.usdcBalance)}</strong>
+            </>
+          ) : (
+            <>
+              <strong>{address ? (name ?? shortAddress(address)) : "Select an Olien"}</strong>
+              <small>{address ? shortAddress(address) : "Arc Testnet"}</small>
+            </>
+          )}
         </span>
         <ChevronDown size={14} />
       </button>
+      {view ? (
+        <div className="olien-switcher-foot">
+          <span className="olien-dash-chip">
+            Threshold <b>{view.threshold}/{view.signers.filter((signer) => signer.permissions.includes("approve")).length}</b>
+          </span>
+          <button
+            type="button"
+            className="olien-icon-btn olien-icon-btn--small"
+            aria-label="Copy address"
+            onClick={() => void navigator.clipboard.writeText(view.address)}
+          >
+            <Copy size={12} />
+          </button>
+          <a className="olien-icon-btn olien-icon-btn--small" href={explorerAddressUrl(view.address)} target="_blank" rel="noreferrer" aria-label="Open in ArcScan">
+            <ArrowUpRight size={12} />
+          </a>
+        </div>
+      ) : null}
       {open ? (
         <div className="olien-menu" role="menu">
           {accounts.isLoading ? (
@@ -113,25 +142,6 @@ function WalletChip() {
   );
 }
 
-function DepositDialog({ address, open, onClose }: { address: string; open: boolean; onClose: () => void }) {
-  return (
-    <Dialog open={open} onClose={onClose} title="Deposit">
-      <p className="olien-dialog-text">Send USDC on Arc to this address. Gas comes out of the same balance.</p>
-      <div className="olien-deposit-address">
-        <AddressChip address={address} full />
-      </div>
-      <div className="olien-dialog-actions">
-        <a className="olien-btn olien-btn--secondary" href={explorerAddressUrl(address)} target="_blank" rel="noreferrer">
-          Open in ArcScan
-        </a>
-        <Button variant="primary" onClick={onClose}>
-          Done
-        </Button>
-      </div>
-    </Dialog>
-  );
-}
-
 export function OlienShell({ children }: { children: ReactNode }) {
   const segments = useSelectedLayoutSegments();
   const pathname = usePathname();
@@ -142,6 +152,7 @@ export function OlienShell({ children }: { children: ReactNode }) {
   const account = useOlienAccount(wallet.session && wallet.connected ? address : null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [depositOpen, setDepositOpen] = useState(false);
+  const [theme, toggleTheme] = useOlienTheme();
 
   useEffect(() => {
     setMenuOpen(false);
@@ -220,7 +231,7 @@ export function OlienShell({ children }: { children: ReactNode }) {
   }
 
   return (
-    <div className="olien olien-shell">
+    <div className="olien olien-shell" data-theme={theme}>
       <aside className={cx("olien-sidebar", menuOpen && "is-open")}>
         <div className="olien-sidebar-top">
           <Link href="/olien/app" className="olien-wordmark">
@@ -231,7 +242,7 @@ export function OlienShell({ children }: { children: ReactNode }) {
           </button>
         </div>
         <div className="olien-sidebar-body">
-          <AccountSwitcher address={address} name={name} />
+          <AccountSwitcher address={address} name={name} view={account.data} />
           {nav.length ? (
             <nav className="olien-nav" aria-label="Olien">
               {nav.map((item) => (
@@ -243,10 +254,9 @@ export function OlienShell({ children }: { children: ReactNode }) {
             </nav>
           ) : null}
           <div className="olien-sidebar-bottom">
-            <span className="olien-network-chip">
-              <span className="olien-dot" aria-hidden /> Arc Testnet
-            </span>
-            <WalletChip />
+            <button type="button" className="olien-signout" onClick={toggleTheme}>
+              {theme === "light" ? <Moon size={14} /> : <Sun size={14} />} {theme === "light" ? "Dark theme" : "Light theme"}
+            </button>
             <button type="button" className="olien-signout" onClick={() => void signOut()}>
               <LogOut size={14} /> Sign out
             </button>
@@ -258,14 +268,20 @@ export function OlienShell({ children }: { children: ReactNode }) {
         {!wallet.matches ? <MismatchBanner /> : null}
         <header className="olien-topbar">
           <h1 className="olien-page-title">{title}</h1>
-          {address ? (
-            <div className="olien-topbar-actions">
-              <Button onClick={() => setDepositOpen(true)}>Deposit</Button>
-              <Link href={`/olien/${address}/transactions/new`} className="olien-btn olien-btn--primary">
-                <Send size={14} /> Send
-              </Link>
-            </div>
-          ) : null}
+          <div className="olien-topbar-actions">
+            <span className="olien-network-chip">
+              Network status <span className="olien-dot" aria-hidden />
+            </span>
+            <WalletChip />
+            {address ? (
+              <>
+                <Button onClick={() => setDepositOpen(true)}>Deposit</Button>
+                <Link href={`/olien/${address}/transactions/new`} className="olien-btn olien-btn--primary">
+                  <Send size={14} /> Send
+                </Link>
+              </>
+            ) : null}
+          </div>
         </header>
         <main className="olien-content">{children}</main>
         {address ? <DepositDialog address={address} open={depositOpen} onClose={() => setDepositOpen(false)} /> : null}

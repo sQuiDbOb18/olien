@@ -3099,3 +3099,535 @@ strong > .olien-tag {
 .olien-wallet-option span {
   flex: 1;
 }
+
+/* Light theme: the dashboard the way Squads draws it, white cards on a warm grey
+   ground. Only tokens change; a few rules below carry hard colours and follow. */
+.olien[data-theme="light"] {
+  --ground: #f4f5f3;
+  --sidebar: #fbfbfa;
+  --panel: #ffffff;
+  --panel-raised: #f4f5f3;
+  --border: #e6e8e4;
+  --border-strong: #d3d7d2;
+  --text: #111b19;
+  --text-muted: #66706d;
+  --text-faint: #a2aba7;
+  --accent: #075b46;
+  --accent-ring: rgba(7, 91, 70, 0.25);
+  --danger-bg: #fdecec;
+  color-scheme: light;
+}
+
+.olien[data-theme="light"] .olien-btn--primary {
+  background: var(--text);
+  color: #ffffff;
+  border-color: var(--text);
+}
+
+.olien[data-theme="light"] .olien-btn--primary:hover:not(:disabled) {
+  background: #1c2825;
+}
+
+.olien[data-theme="light"] .olien-nav-item.is-active {
+  background: #ffffff;
+  box-shadow: 0 1px 2px rgba(17, 27, 25, 0.06);
+}
+
+.olien[data-theme="light"] .olien-nav-item:hover {
+  background: rgba(17, 27, 25, 0.04);
+}
+
+.olien[data-theme="light"] .olien-panel,
+.olien[data-theme="light"] .olien-card,
+.olien[data-theme="light"] .olien-dash-card {
+  box-shadow: 0 1px 2px rgba(17, 27, 25, 0.04), 0 8px 24px -16px rgba(17, 27, 25, 0.12);
+}
+
+.olien[data-theme="light"] .olien-dialog {
+  box-shadow: 0 30px 60px -20px rgba(17, 27, 25, 0.3);
+}
+
+/* Account switcher as a card: name, the balance in full, threshold and links. */
+.olien-switcher-btn--card {
+  align-items: flex-start;
+  padding: 12px 12px 8px;
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.olien-switcher-btn--card .olien-switcher-text small {
+  display: block;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.olien-switcher-balance {
+  display: block;
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+}
+
+.olien-switcher-foot {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px 10px;
+  border: 1px solid var(--border);
+  border-top: 0;
+  border-radius: 0 0 var(--radius-sm) var(--radius-sm);
+  background: var(--panel);
+}
+
+.olien-switcher-foot .olien-dash-chip {
+  margin-right: auto;
+}
+
+.olien-icon-btn--small {
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--panel-raised);
+}
+
+.olien-icon-btn--tiny {
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--text-faint);
+}
+
+.olien-topbar .olien-network-chip,
+.olien-topbar .olien-wallet-chip {
+  height: 36px;
+  padding: 0 12px;
+  border-radius: 8px;
+  color: var(--text);
+  white-space: nowrap;
+}
+
+/* Dashboard */
+.olien-dash-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.olien-dash-card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 22px 24px;
+  min-width: 0;
+}
+
+.olien-dash-label {
+  display: block;
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-bottom: 10px;
+}
+
+.olien-dash-amount {
+  display: block;
+  font-size: clamp(34px, 3.4vw, 46px);
+  font-weight: 500;
+  letter-spacing: -0.03em;
+  line-height: 1.05;
+  font-variant-numeric: tabular-nums;
+}
+
+.olien-dash-balance-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin: 14px 0 22px;
+}
+
+.olien-dash-delta {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border-radius: 8px;
+  background: rgba(34, 197, 94, 0.1);
+  color: var(--green);
+  font-size: 12.5px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+.olien-dash-delta i {
+  width: 0;
+  height: 0;
+  border-left: 4px solid transparent;
+  border-right: 4px solid transparent;
+  border-bottom: 6px solid currentColor;
+}
+
+.olien-dash-delta.is-down {
+  background: rgba(248, 113, 113, 0.12);
+  color: var(--red);
+}
+
+.olien-dash-delta.is-down i {
+  transform: rotate(180deg);
+}
+
+.olien-dash-delta em {
+  font-style: normal;
+  color: var(--text-muted);
+  font-weight: 400;
+}
+
+.olien-dash-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--panel-raised);
+  font-size: 12.5px;
+  color: var(--text-muted);
+}
+
+.olien-dash-chip b {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.olien-dash-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.olien-dash-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 42px;
+  padding: 0 20px;
+  border-radius: 10px;
+  border: 1px solid var(--text);
+  background: var(--text);
+  color: var(--ground);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.olien-dash-action:hover {
+  opacity: 0.9;
+}
+
+.olien-dash-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+
+.olien-dash-card-head h2 {
+  font-size: 16px;
+  font-weight: 500;
+}
+
+.olien-dash-chart-head {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 8px;
+}
+
+.olien-dash-select {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 10px;
+  border-radius: 7px;
+  border: 1px solid var(--border);
+  background: var(--panel-raised);
+  font-size: 12.5px;
+}
+
+.olien-dash-chart-body {
+  display: grid;
+  grid-template-columns: 64px 1fr;
+  gap: 10px;
+}
+
+.olien-dash-ticks {
+  display: grid;
+  align-content: space-between;
+  height: 200px;
+  padding: 12px 0 26px;
+  font-size: 11px;
+  color: var(--text-faint);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.olien-dash-plot {
+  position: relative;
+}
+
+.olien-dash-plot svg {
+  display: block;
+  width: 100%;
+  height: 200px;
+  overflow: visible;
+}
+
+.olien-dash-plot .grid {
+  stroke: var(--border);
+  stroke-width: 1;
+  stroke-dasharray: 2 4;
+}
+
+.olien-dash-plot .line {
+  fill: none;
+  stroke: var(--text);
+  stroke-width: 1.6;
+  vector-effect: non-scaling-stroke;
+}
+
+.olien-dash-plot .cursor {
+  stroke: var(--border-strong);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+
+.olien-dash-plot .point {
+  fill: var(--text);
+}
+
+.olien-dash-tip {
+  position: absolute;
+  top: 0;
+  transform: translateX(-50%);
+  display: grid;
+  gap: 2px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  box-shadow: 0 10px 24px -12px rgba(0, 0, 0, 0.35);
+  font-size: 11px;
+  color: var(--text-muted);
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+.olien-dash-tip strong {
+  font-size: 13px;
+  color: var(--text);
+  font-weight: 600;
+}
+
+.olien-dash-months {
+  position: relative;
+  height: 16px;
+  margin-top: -20px;
+  font-size: 11px;
+  color: var(--text-faint);
+}
+
+.olien-dash-months span {
+  position: absolute;
+  transform: translateX(-50%);
+}
+
+.olien-dash-accounts table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.olien-dash-accounts th {
+  text-align: left;
+  font-weight: 400;
+  font-size: 12px;
+  color: var(--text-faint);
+  padding: 0 0 8px;
+}
+
+.olien-dash-accounts th.num,
+.olien-dash-accounts td.num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.olien-dash-accounts td {
+  padding: 12px 0;
+  border-top: 1px solid var(--border);
+  vertical-align: middle;
+}
+
+.olien-dash-accounts td strong {
+  display: block;
+  font-weight: 500;
+}
+
+.olien-dash-accounts td:last-child {
+  text-align: right;
+  width: 110px;
+}
+
+.olien-dash-addr {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: var(--text-faint);
+}
+
+.olien-dash-addr small {
+  color: var(--green);
+}
+
+.olien-dash-avatars {
+  display: inline-flex;
+  justify-content: flex-end;
+}
+
+.olien-dash-avatars i {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 2px solid var(--panel);
+  margin-left: -6px;
+  display: inline-grid;
+  place-items: center;
+  font-style: normal;
+  font-size: 10px;
+  font-weight: 600;
+  color: #0a0a0b;
+}
+
+.olien-dash-avatars i.tone-a {
+  background: #7dd3a0;
+}
+
+.olien-dash-avatars i.tone-b {
+  background: #f0b56a;
+}
+
+.olien-dash-avatars i.tone-c {
+  background: #8ea2ff;
+}
+
+.olien-dash-avatars i.tone-d {
+  background: #f28aa8;
+}
+
+.olien-dash-avatars i.more {
+  background: var(--panel-raised);
+  color: var(--text-muted);
+}
+
+.olien-dash-hint {
+  margin-top: 12px;
+  font-size: 12.5px;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+.olien-dash-day {
+  display: block;
+  font-size: 12px;
+  color: var(--text-faint);
+  margin-bottom: 4px;
+}
+
+.olien-dash-flows li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 0;
+  border-top: 1px solid var(--border);
+}
+
+.olien-dash-flows li:first-child {
+  border-top: 0;
+}
+
+.olien-dash-coin {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  display: inline-grid;
+  place-items: center;
+  background: #2775ca;
+  color: #fff;
+  font-style: normal;
+  font-weight: 700;
+  font-size: 13px;
+  flex: none;
+}
+
+.olien-dash-coin.eurc {
+  background: #3ecf8e;
+  color: #0a0a0b;
+}
+
+.olien-dash-flow-amount {
+  display: grid;
+  line-height: 1.25;
+}
+
+.olien-dash-flow-amount strong {
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+.olien-dash-flow-amount strong.in {
+  color: var(--green);
+}
+
+.olien-dash-flow-amount strong.out {
+  color: var(--red);
+}
+
+.olien-dash-flow-amount small {
+  color: var(--text-faint);
+  font-size: 11px;
+}
+
+.olien-dash-flow-who {
+  margin-left: auto;
+  display: grid;
+  text-align: right;
+  font-size: 12px;
+  line-height: 1.3;
+}
+
+.olien-dash-flow-who small {
+  color: var(--text-faint);
+  font-size: 11px;
+}
+
+.olien-dash-flow-who a {
+  color: var(--text);
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  justify-content: flex-end;
+}
+
+@media (max-width: 980px) {
+  .olien-dash-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .olien-topbar .olien-network-chip {
+    display: none;
+  }
+}
