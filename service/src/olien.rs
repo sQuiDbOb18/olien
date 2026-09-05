@@ -775,6 +775,19 @@ impl OlienClient {
     }
 
     /// The account's own logs plus USDC transfers touching it, in one block range.
+    /// Every USDC transfer into any of the given addresses in the block range, one
+    /// query: the recipient topic takes a list, so a hundred Safes cost one call.
+    pub async fn usdc_received(&self, recipients: &[Address], from_block: u64, to_block: u64) -> Result<Vec<Log>> {
+        let topics: Vec<B256> = recipients.iter().map(|a| signer_id_of_address(*a)).collect();
+        let filter = Filter::new()
+            .address(self.usdc)
+            .event_signature(IERC20::Transfer::SIGNATURE_HASH)
+            .topic2(topics)
+            .from_block(from_block)
+            .to_block(to_block);
+        self.provider.get_logs(&filter).await.context("reading incoming transfers")
+    }
+
     pub async fn account_logs(&self, account: Address, from_block: u64, to_block: u64) -> Result<Vec<Log>> {
         let own = Filter::new().address(account).from_block(from_block).to_block(to_block);
         let mut logs = self.provider.get_logs(&own).await.context("reading account logs")?;
