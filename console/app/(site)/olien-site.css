@@ -184,7 +184,7 @@
 
 .osite-hero-card {
   position: relative;
-  min-height: 660px;
+  min-height: 720px;
   border-radius: var(--radius);
   background:
     radial-gradient(70% 90% at 100% 0%, color-mix(in srgb, var(--green) 7%, #fff) 0%, transparent 60%),
@@ -229,17 +229,17 @@
 .osite-hero-shot {
   position: relative;
   align-self: stretch;
-  min-height: 620px;
+  min-height: 700px;
 }
 
 /* The product shot, tilted the way Squads tilts theirs. */
 .osite-shot {
   position: absolute;
-  top: 40px;
-  left: 31%;
+  top: 34px;
+  left: 28%;
   width: 1120px;
   transform-origin: 0 0;
-  transform: perspective(3200px) rotateX(7deg) rotateY(-17deg) rotateZ(1.5deg) scale(0.86);
+  transform: perspective(3200px) rotateX(7deg) rotateY(-17deg) rotateZ(1.5deg) scale(1.08);
   font-size: 9.5px;
   color: var(--muted);
 }
