@@ -192,7 +192,7 @@
   box-shadow: var(--shadow);
   overflow: hidden;
   display: grid;
-  grid-template-columns: minmax(320px, 0.78fr) 1.22fr;
+  grid-template-columns: minmax(320px, 0.72fr) 1.28fr;
   align-items: center;
 }
 
@@ -235,11 +235,11 @@
 /* The product shot, tilted the way Squads tilts theirs. */
 .osite-shot {
   position: absolute;
-  top: 44px;
-  left: 110px;
-  width: 1040px;
+  top: 40px;
+  left: 31%;
+  width: 1120px;
   transform-origin: 0 0;
-  transform: perspective(3200px) rotateX(7deg) rotateY(-17deg) rotateZ(1.5deg) scale(0.9);
+  transform: perspective(3200px) rotateX(7deg) rotateY(-17deg) rotateZ(1.5deg) scale(0.86);
   font-size: 9.5px;
   color: var(--muted);
 }
@@ -1530,7 +1530,7 @@
   }
 
   .osite-shot {
-    left: 170px;
+    left: 24%;
     top: 30px;
     transform: perspective(3200px) rotateX(7deg) rotateY(-17deg) rotateZ(1.5deg) scale(0.72);
   }
@@ -1595,7 +1595,7 @@
   }
 
   .osite-shot {
-    left: 150px;
+    left: 30%;
     transform: perspective(3200px) rotateX(7deg) rotateY(-17deg) rotateZ(1.5deg) scale(0.5);
   }
 
