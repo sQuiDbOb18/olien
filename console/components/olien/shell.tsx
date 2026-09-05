@@ -180,6 +180,27 @@ export function OlienShell({ children }: { children: ReactNode }) {
     );
   }
 
+  // Creating an Olien is its own page, in Squads' shape: the bar, then one column.
+  if (segments[0] === "new") {
+    return (
+      <div className="olien olien-focus">
+        {!wallet.matches ? <MismatchBanner /> : null}
+        <header className="olien-landing-bar">
+          <Link href="/olien/app" className="olien-wordmark">
+            Olien<span className="olien-dot" aria-hidden />
+          </Link>
+          <div className="olien-landing-bar-right">
+            <span className="olien-network-chip">
+              Network Status <span className="olien-dot" aria-hidden />
+            </span>
+            <WalletChip />
+          </div>
+        </header>
+        <main className="olien-focus-main">{children}</main>
+      </div>
+    );
+  }
+
   const name = account.data?.name;
   const title = titleFor(segments, address, name);
   const section = segments[1] ?? "";

@@ -1,12 +1,12 @@
 "use client";
 
 import { useQueryClient } from "@tanstack/react-query";
-import { Check, KeyRound, Plus, Trash2 } from "lucide-react";
+import { Check, Info, KeyRound, Plus, Trash2, TriangleAlert, Users } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { createPasskey, friendlyPasskeyError, passkeySupported, type PasskeyRecord } from "@/lib/passkey";
 import { createAccount, durationLabel, errorMessage, isHandle, isValidAddress, shortAddress, type CreateAccountBody, type Permission, type SignerInput } from "@/lib/treasury";
-import { AddressChip, Button, cx, Disclosure, DurationInput, Field, InlineError, Note, Panel, PermissionTags, Spinner, Table, Tag } from "./ui";
+import { AddressChip, Button, cx, Disclosure, DurationInput, Field, InlineError, PermissionTags, Spinner, Tag } from "./ui";
 import { olienKeys, rememberAccount } from "./use-olien";
 import { useWalletSession } from "./wallet";
 
@@ -190,11 +190,13 @@ export function validateMembers(rows: MemberDraft[], taken: Set<string> = new Se
 
 type Step = "name" | "members" | "review";
 const STEPS: { id: Step; label: string }[] = [
-  { id: "name", label: "Name" },
-  { id: "members", label: "Members" },
+  { id: "name", label: "Olien Details" },
+  { id: "members", label: "Members & Threshold" },
   { id: "review", label: "Review" },
 ];
 
+// Squads' create flow: three underlined steps, a headline for each, one card that
+// holds the step, and two equal buttons at its foot.
 export function OlienNewAccount() {
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -215,6 +217,7 @@ export function OlienNewAccount() {
   const vetoers = members.filter((row) => row.veto).length;
   const recoverers = members.filter((row) => row.recover).length;
   const stepIndex = STEPS.findIndex((entry) => entry.id === step);
+  const boundedThreshold = Math.min(Math.max(1, threshold), Math.max(1, approvers));
 
   function patch(key: number, change: Partial<MemberDraft>) {
     setMembers((current) => current.map((row) => (row.key === key ? { ...row, ...change } : row)));
@@ -230,7 +233,7 @@ export function OlienNewAccount() {
       const problem = validateMembers(members);
       if (problem) return setError(problem);
       if (approvers === 0) return setError("At least one member must be able to approve.");
-      if (threshold < 1 || threshold > approvers) return setError(`The threshold must be between 1 and ${approvers}, the number of members that can approve.`);
+      setThreshold(boundedThreshold);
       setStep("review");
     }
   }
@@ -248,7 +251,7 @@ export function OlienNewAccount() {
     return {
       name: name.trim(),
       signers: members.map((row, index) => signerInputOf(row, `Member ${index + 1}`)),
-      threshold,
+      threshold: boundedThreshold,
       vetoThreshold,
       configDelay,
       recoveryDelay,
@@ -275,152 +278,177 @@ export function OlienNewAccount() {
     }
   }
 
+  const headline: Record<Step, [string, string]> = {
+    name: ["Secure your team's money in a few clicks", "Give your Olien a name. You can always adjust the details later."],
+    members: ["Add members and configure security", "Add your team members and set the threshold."],
+    review: ["Review and confirm", "One last look at the parameters before the Olien is deployed."],
+  };
+
   return (
-    <div className="olien-page olien-wizard">
-      <ol className="olien-steps" aria-label="Steps">
-        {STEPS.map((entry, index) => {
-          const done = index < stepIndex;
-          return (
-            <li key={entry.id} className={cx("olien-step", entry.id === step && "is-active", done && "is-done")} aria-current={entry.id === step ? "step" : undefined}>
-              <span className="olien-step-number">{done ? <Check size={12} /> : index + 1}</span>
-              {entry.label}
-            </li>
-          );
-        })}
+    <div className="olien-wiz">
+      <ol className="olien-wiz-steps" aria-label="Steps">
+        {STEPS.map((entry, index) => (
+          <li key={entry.id} className={cx("olien-wiz-step", index <= stepIndex && "is-reached", entry.id === step && "is-active")} aria-current={entry.id === step ? "step" : undefined}>
+            {entry.label}
+          </li>
+        ))}
       </ol>
+      <div className="olien-wiz-head">
+        <h1>{headline[step][0]}</h1>
+        <p>{headline[step][1]}</p>
+      </div>
 
-      <div className="olien-wizard-body">
-        {step === "name" ? (
-          <Panel title="Name your Olien">
-            <Field label="Name" hint="What members see in the switcher and in notifications.">
-              <input className="olien-input" value={name} placeholder="Northwind treasury" autoFocus disabled={creating} onChange={(event) => setName(event.target.value)} onKeyDown={(event) => event.key === "Enter" && next()} />
-            </Field>
-            <InlineError message={error} />
-            <div className="olien-wizard-actions">
-              <Button variant="primary" onClick={next}>
-                Continue
-              </Button>
+      {step === "name" ? (
+        <section className="olien-wiz-card">
+          <h2>Create an Olien</h2>
+          <div className="olien-wiz-name">
+            <span className="olien-wiz-plus" aria-hidden>
+              <Plus size={16} />
+            </span>
+            <label className="olien-wiz-name-field">
+              <input className="olien-wiz-input olien-wiz-input--big" value={name} placeholder="Olien name" autoFocus disabled={creating} onChange={(event) => setName(event.target.value)} onKeyDown={(event) => event.key === "Enter" && next()} />
+              <span className="olien-field-hint">Members see this name in the switcher and in alerts.</span>
+            </label>
+          </div>
+          <InlineError message={error} />
+          <div className="olien-wiz-actions">
+            <button type="button" className="olien-wiz-btn" onClick={() => router.push("/olien/app")}>
+              Cancel
+            </button>
+            <button type="button" className="olien-wiz-btn is-primary" onClick={next}>
+              Next
+            </button>
+          </div>
+        </section>
+      ) : null}
+
+      {step === "members" ? (
+        <>
+          <section className="olien-wiz-card">
+            <h2>Add initial members</h2>
+            <MemberRows rows={members} onChange={patch} onRemove={(key) => setMembers((current) => current.filter((row) => row.key !== key))} passkey={passkey} disabled={creating} />
+            <button type="button" className="olien-wiz-btn olien-wiz-btn--add" onClick={() => setMembers((current) => [...current, newMember()])}>
+              <Plus size={15} /> Add Member
+            </button>
+            <p className="olien-wiz-warn">
+              <TriangleAlert size={14} /> Only add keys the team controls. An exchange deposit address cannot sign, and a member that cannot sign cannot approve.
+            </p>
+          </section>
+          <section className="olien-wiz-card">
+            <h2>Set confirmation threshold</h2>
+            <div className="olien-wiz-slider">
+              <div>
+                <input type="range" min={1} max={Math.max(1, approvers)} value={boundedThreshold} disabled={creating || approvers <= 1} aria-label="Approvals needed" onChange={(event) => setThreshold(Number(event.target.value))} />
+                <div className="olien-wiz-slider-scale">
+                  <span>1</span>
+                  <b>{boundedThreshold}</b>
+                  <span>{Math.max(1, approvers)}</span>
+                </div>
+              </div>
+              <p>
+                {boundedThreshold} of {approvers} {approvers === 1 ? "member" : "members"} with approve must sign before a transaction runs.
+              </p>
             </div>
-          </Panel>
-        ) : null}
+            {members.length === 1 ? (
+              <p className="olien-wiz-warn">
+                <TriangleAlert size={14} /> Add another member as a backup. Losing access to your wallet would lose access to the Olien&apos;s money.
+              </p>
+            ) : null}
+            <InlineError message={error} />
+            <div className="olien-wiz-actions">
+              <button type="button" className="olien-wiz-btn" onClick={() => setStep("name")}>
+                Back
+              </button>
+              <button type="button" className="olien-wiz-btn is-primary" onClick={next}>
+                Next
+              </button>
+            </div>
+          </section>
+        </>
+      ) : null}
 
-        {step === "members" ? (
-          <>
-            <Panel
-              title="Members"
-              action={
-                <Button size="sm" icon={<Plus size={13} />} onClick={() => setMembers((current) => [...current, newMember()])}>
-                  Add member
-                </Button>
-              }
-            >
-              <p className="olien-panel-lead">Approve signs transactions and counts toward the threshold. Veto stops a scheduled change during the time lock. Recover can replace a lost key after the recovery delay.</p>
-              <MemberRows rows={members} onChange={patch} onRemove={(key) => setMembers((current) => current.filter((row) => row.key !== key))} passkey={passkey} disabled={creating} />
-            </Panel>
-            <Panel title="Threshold">
-              <Field label="Approvals needed" hint={`${threshold} of ${approvers} ${approvers === 1 ? "member" : "members"} with approve must sign before a transaction runs.`}>
-                <select className="olien-input olien-input--short" value={threshold} onChange={(event) => setThreshold(Number(event.target.value))}>
-                  {Array.from({ length: Math.max(1, approvers) }, (_, index) => index + 1).map((n) => (
+      {step === "review" ? (
+        <section className="olien-wiz-card">
+          <h2>Review your Olien</h2>
+          <div className="olien-wiz-review-name">
+            <span className="olien-wiz-avatar" aria-hidden>
+              {name.trim().slice(0, 1).toUpperCase()}
+            </span>
+            <strong>{name.trim()}</strong>
+          </div>
+          <div className="olien-wiz-tiles">
+            <div>
+              <Users size={14} />
+              <strong>{members.length}</strong>
+              <span>Members</span>
+            </div>
+            <div>
+              <Check size={14} />
+              <strong>
+                {boundedThreshold}/{approvers}
+              </strong>
+              <span>Threshold</span>
+            </div>
+            <div>
+              <Info size={14} />
+              <strong>$0</strong>
+              <span>Deploy fee</span>
+            </div>
+          </div>
+          <p className="olien-wiz-fine">
+            <Info size={13} /> The relayer pays the deployment. The address is predicted from the members and a random salt, and the account can take deposits the moment it exists. Changes to members or rules wait {durationLabel(configDelay)}.
+          </p>
+          <ul className="olien-wiz-members">
+            {members.map((row, index) => (
+              <li key={row.key}>
+                <span>
+                  <strong>{row.label.trim() || `Member ${index + 1}`}</strong>
+                  {walletAddress && row.address.toLowerCase() === walletAddress.toLowerCase() ? <Tag tone="accent">You</Tag> : null}
+                </span>
+                {row.kind === "webauthn" ? <Tag tone="accent">Passkey</Tag> : <AddressChip address={row.address} />}
+                <PermissionTags permissions={permissionsOf(row)} />
+              </li>
+            ))}
+          </ul>
+          <Disclosure summary="Advanced">
+            <div className="olien-form-grid">
+              <Field label="Veto threshold" hint="Automatic derives it from the threshold: the fewest members holding approve and veto whose refusal makes the threshold unreachable.">
+                <select className="olien-input olien-input--short" value={vetoThreshold} disabled={creating} onChange={(event) => setVetoThreshold(Number(event.target.value))}>
+                  <option value={0}>Automatic</option>
+                  {Array.from({ length: vetoers }, (_, index) => index + 1).map((n) => (
                     <option key={n} value={n}>
-                      {n} of {approvers}
+                      {n} of {vetoers}
                     </option>
                   ))}
                 </select>
               </Field>
-              <InlineError message={error} />
-              <div className="olien-wizard-actions">
-                <Button onClick={() => setStep("name")}>Back</Button>
-                <Button variant="primary" onClick={next}>
-                  Continue
-                </Button>
-              </div>
-            </Panel>
-          </>
-        ) : null}
-
-        {step === "review" ? (
-          <>
-            {creating ? (
-              <Note tone="info" icon={<Spinner />}>
-                Creating on Arc, the relayer pays. This takes 10 to 30 seconds; the page moves to the new Olien when the receipt lands.
-              </Note>
-            ) : null}
-            <Panel title="Review">
-              <dl className="olien-kv">
-                <div>
-                  <dt>Name</dt>
-                  <dd>{name.trim()}</dd>
-                </div>
-                <div>
-                  <dt>Threshold</dt>
-                  <dd>
-                    {threshold} of {approvers}
-                  </dd>
-                </div>
-                <div>
-                  <dt>Time lock</dt>
-                  <dd>{durationLabel(configDelay)}</dd>
-                </div>
-              </dl>
-            </Panel>
-            <Panel title="Members" flush>
-              <Table head={["Member", "Address", "Permissions"]}>
-                {members.map((row, index) => (
-                  <tr key={row.key}>
-                    <td>
-                      <strong>{row.label.trim() || `Member ${index + 1}`}</strong>
-                      {walletAddress && row.address.toLowerCase() === walletAddress.toLowerCase() ? <span className="olien-tag olien-tag--accent">You</span> : null}
-                    </td>
-                    <td>
-                      <AddressChip address={row.address} />
-                    </td>
-                    <td>
-                      <PermissionTags permissions={permissionsOf(row)} />
-                    </td>
-                  </tr>
-                ))}
-              </Table>
-            </Panel>
-            <Panel>
-              <Disclosure summary="Advanced">
-                <div className="olien-form-grid">
-                  <Field label="Veto threshold" hint="Automatic derives it from the threshold: the fewest members holding approve and veto whose refusal makes the threshold unreachable.">
-                    <select className="olien-input olien-input--short" value={vetoThreshold} disabled={creating} onChange={(event) => setVetoThreshold(Number(event.target.value))}>
-                      <option value={0}>Automatic</option>
-                      {Array.from({ length: vetoers }, (_, index) => index + 1).map((n) => (
-                        <option key={n} value={n}>
-                          {n} of {vetoers}
-                        </option>
-                      ))}
-                    </select>
-                  </Field>
-                  <Field label="Config delay" hint={`Member, threshold and time lock changes wait ${durationLabel(configDelay)} after execution and can be vetoed meanwhile.`}>
-                    <DurationInput value={configDelay} disabled={creating} onChange={setConfigDelay} />
-                  </Field>
-                  <Field label="Recovery delay" hint={`A recovery by a recover member alone waits ${durationLabel(recoveryDelay)}. At least 1 hour when a recover member exists.`}>
-                    <DurationInput value={recoveryDelay} disabled={creating} onChange={setRecoveryDelay} />
-                  </Field>
-                  <Field label="Recovery co-sign delay" hint={`A recovery co-signed by an approver waits ${durationLabel(recoveryCoSignDelay)}.`}>
-                    <DurationInput value={recoveryCoSignDelay} disabled={creating} onChange={setRecoveryCoSignDelay} />
-                  </Field>
-                </div>
-              </Disclosure>
-              <InlineError message={error} />
-              <div className="olien-wizard-actions">
-                <Button disabled={creating} onClick={() => setStep("members")}>
-                  Back
-                </Button>
-                <Button variant="primary" busy={creating} onClick={() => void create()}>
-                  {creating ? "Creating on Arc" : "Create"}
-                </Button>
-              </div>
-              <p className="olien-field-hint">
-                The address is predicted from the members and a random salt; the relayer pays the deployment. Signing in as {walletAddress ? shortAddress(walletAddress) : "your wallet"} makes it visible to you at once.
-              </p>
-            </Panel>
-          </>
-        ) : null}
-      </div>
+              <Field label="Config delay" hint={`Member, threshold and time lock changes wait ${durationLabel(configDelay)} after execution and can be vetoed meanwhile.`}>
+                <DurationInput value={configDelay} disabled={creating} onChange={setConfigDelay} />
+              </Field>
+              <Field label="Recovery delay" hint={`A recovery by a recover member alone waits ${durationLabel(recoveryDelay)}. At least 1 hour when a recover member exists.`}>
+                <DurationInput value={recoveryDelay} disabled={creating} onChange={setRecoveryDelay} />
+              </Field>
+              <Field label="Recovery co-sign delay" hint={`A recovery co-signed by an approver waits ${durationLabel(recoveryCoSignDelay)}.`}>
+                <DurationInput value={recoveryCoSignDelay} disabled={creating} onChange={setRecoveryCoSignDelay} />
+              </Field>
+            </div>
+          </Disclosure>
+          {creating ? (
+            <p className="olien-wiz-fine">
+              <Spinner /> Creating on Arc. This takes 10 to 30 seconds; the page moves to the new Olien when the receipt lands.
+            </p>
+          ) : null}
+          <InlineError message={error} />
+          <div className="olien-wiz-actions">
+            <button type="button" className="olien-wiz-btn" disabled={creating} onClick={() => setStep("members")}>
+              Back
+            </button>
+            <button type="button" className="olien-wiz-btn is-primary" disabled={creating} onClick={() => void create()}>
+              {creating ? "Creating on Arc" : "Confirm"}
+            </button>
+          </div>
+        </section>
+      ) : null}
     </div>
   );
 }

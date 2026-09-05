@@ -2127,6 +2127,7 @@ strong > .olien-tag {
 }
 
 .olien-landing-bar .olien-network-chip {
+  white-space: nowrap;
   height: 40px;
   padding: 0 16px;
   border-radius: 10px;
@@ -2710,6 +2711,349 @@ strong > .olien-tag {
   }
 
   .olien-still-pair {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Create flow, after app.squads.so: one 600px column under the landing bar. */
+.olien-focus {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.olien-focus .olien-landing-bar .olien-wallet-chip {
+  height: 40px;
+  padding: 0 14px;
+  border-radius: 10px;
+  font-size: 13px;
+  color: var(--text);
+}
+
+.olien-focus-main {
+  flex: 1;
+  padding: 16px 24px 80px;
+}
+
+.olien-wiz {
+  width: min(600px, 100%);
+  margin: 0 auto;
+  display: grid;
+  gap: 24px;
+}
+
+.olien-wiz-steps {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  width: min(460px, 100%);
+  margin: 0 auto 8px;
+  text-align: center;
+}
+
+.olien-wiz-step {
+  padding: 0 0 12px;
+  border-bottom: 2px solid var(--border);
+  font-size: 12.5px;
+  color: var(--text-faint);
+}
+
+.olien-wiz-step.is-reached {
+  color: var(--text);
+  border-bottom-color: var(--text);
+}
+
+.olien-wiz-step.is-active {
+  font-weight: 500;
+}
+
+.olien-wiz-head {
+  text-align: center;
+  display: grid;
+  gap: 14px;
+  justify-items: center;
+  margin-bottom: 8px;
+}
+
+.olien-wiz-head h1 {
+  font-size: clamp(28px, 3.4vw, 38px);
+  line-height: 1.08;
+  font-weight: 500;
+  letter-spacing: -0.03em;
+  max-width: 18ch;
+  text-wrap: balance;
+}
+
+.olien-wiz-head p {
+  color: var(--text-muted);
+  font-size: 15px;
+  max-width: 40ch;
+}
+
+.olien-wiz-card {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--panel);
+  padding: 24px;
+  display: grid;
+  gap: 18px;
+}
+
+.olien-wiz-card h2 {
+  font-size: 17px;
+  font-weight: 500;
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--border);
+}
+
+.olien-wiz-name {
+  display: grid;
+  grid-template-columns: 36px 1fr;
+  gap: 16px;
+  align-items: start;
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--border);
+}
+
+.olien-wiz-plus {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--panel-raised);
+  border: 1px solid var(--border);
+  margin-top: 10px;
+}
+
+.olien-wiz-name-field {
+  display: grid;
+  gap: 8px;
+}
+
+.olien-wiz-input {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--ground);
+  color: var(--text);
+  padding: 12px 14px;
+  font: inherit;
+}
+
+.olien-wiz-input--big {
+  font-size: 22px;
+  padding: 14px 16px;
+}
+
+.olien-wiz-input::placeholder {
+  color: var(--text-faint);
+}
+
+.olien-wiz-input:focus {
+  outline: none;
+  border-color: var(--border-strong);
+  box-shadow: 0 0 0 3px var(--accent-ring);
+}
+
+.olien-wiz-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.olien-wiz-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 44px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--panel-raised);
+  color: var(--text);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.olien-wiz-btn:hover:not(:disabled) {
+  border-color: var(--border-strong);
+}
+
+.olien-wiz-btn.is-primary {
+  background: #ffffff;
+  color: var(--ground);
+  border-color: #ffffff;
+}
+
+.olien-wiz-btn.is-primary:hover:not(:disabled) {
+  background: #e8e8ea;
+}
+
+.olien-wiz-btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.olien-wiz-btn--add {
+  width: 100%;
+}
+
+.olien-wiz-warn,
+.olien-wiz-fine {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+
+.olien-wiz-warn {
+  color: var(--amber);
+}
+
+.olien-wiz-warn svg,
+.olien-wiz-fine svg {
+  flex: none;
+  margin-top: 3px;
+}
+
+.olien-wiz .olien-member-row {
+  grid-template-columns: 1fr;
+  background: var(--ground);
+}
+
+.olien-wiz .olien-member-remove {
+  justify-self: end;
+}
+
+.olien-wiz-slider {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr;
+  gap: 20px;
+  align-items: start;
+}
+
+.olien-wiz-slider p {
+  font-size: 12.5px;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+.olien-wiz-slider input[type="range"] {
+  width: 100%;
+  accent-color: #ffffff;
+  margin: 8px 0 6px;
+}
+
+.olien-wiz-slider-scale {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.olien-wiz-slider-scale b {
+  color: var(--text);
+  font-weight: 500;
+}
+
+.olien-wiz-review-name {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--border);
+}
+
+.olien-wiz-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--panel-raised);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.olien-wiz-review-name strong {
+  font-size: 32px;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+}
+
+.olien-wiz-tiles {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+
+.olien-wiz-tiles > div {
+  position: relative;
+  padding: 16px;
+  border-radius: 10px;
+  background: var(--panel-raised);
+  border: 1px solid var(--border);
+  display: grid;
+  gap: 6px;
+}
+
+.olien-wiz-tiles svg {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  color: var(--text-muted);
+}
+
+.olien-wiz-tiles strong {
+  font-size: 28px;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+.olien-wiz-tiles span {
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.olien-wiz-members {
+  display: grid;
+  gap: 8px;
+}
+
+.olien-wiz-members li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: var(--ground);
+  border: 1px solid var(--border);
+  font-size: 13px;
+}
+
+.olien-wiz-members li > span:first-child {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 120px;
+}
+
+.olien-wiz-members li > :last-child {
+  margin-left: auto;
+}
+
+@media (max-width: 640px) {
+  .olien-wiz-slider,
+  .olien-wiz-tiles {
     grid-template-columns: 1fr;
   }
 }
