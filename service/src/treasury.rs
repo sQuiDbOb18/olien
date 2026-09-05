@@ -32,6 +32,8 @@ pub struct Treasury {
     // The indexer keeps this current; /health reports it, so an emptying relayer key is
     // seen by whoever watches the service rather than by the first failed execute.
     pub relayer: Arc<Mutex<Option<RelayerStatus>>>,
+    /// Alerts to members' phones; None when APNs is not configured.
+    pub push: Option<Arc<super::push::Push>>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -1412,7 +1414,7 @@ pub async fn create_proposal(pool: &PgPool, treasury: &Treasury, user: i64, addr
         "transfer" | "batch" | "signer_change" | "rule_change" | "limit_change" | "cancel" | "contract_call" => body.kind.clone(),
         other => return Err(bad(format!("unknown kind {other}"))),
     };
-    insert_proposal(pool, client, treasury.chain_id, &ctx, user, kind, body.intent.unwrap_or_else(|| json!({})), calls, body.nonce_key, body.sequence, body.valid_after, body.valid_until).await
+    insert_proposal(pool, client, treasury.chain_id, treasury.push.as_deref(), &ctx, user, kind, body.intent.unwrap_or_else(|| json!({})), calls, body.nonce_key, body.sequence, body.valid_after, body.valid_until).await
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -1420,6 +1422,7 @@ async fn insert_proposal(
     pool: &PgPool,
     client: &OlienClient,
     chain_id: u64,
+    push: Option<&super::push::Push>,
     ctx: &AccountContext,
     user: i64,
     kind: String,
@@ -1513,7 +1516,22 @@ async fn insert_proposal(
         return Err(TreasuryError::Conflict("this exact transaction is already proposed".into()));
     }
     refresh_statuses(pool, &ctx.row).await?;
-    proposal_view(pool, chain_id, user, &ctx.row, &hash_text).await
+    let view = proposal_view(pool, chain_id, user, &ctx.row, &hash_text).await?;
+    if let Some(push) = push {
+        // The other members hear now; the proposer is looking at it already.
+        let members = super::push::member_accounts(pool, ctx.row.id, Some(user)).await;
+        let who = view.proposer.as_ref().map(|p| p.name.clone()).unwrap_or_else(|| "A member".into());
+        let what = view.decoded.first().map(|d| d.summary.clone()).unwrap_or_else(|| view.kind.clone());
+        push.notify(
+            pool,
+            &members,
+            &ctx.row.name,
+            &format!("{who} proposed: {what}. Your approval is needed."),
+            json!({ "kind": "proposal", "account": ctx.row.address, "txHash": hash_text }),
+        )
+        .await;
+    }
+    Ok(view)
 }
 
 pub async fn propose_transfer(pool: &PgPool, treasury: &Treasury, user: i64, address: &str, body: TransferBody) -> Res<ProposalView> {
@@ -1542,7 +1560,7 @@ pub async fn propose_transfer(pool: &PgPool, treasury: &Treasury, user: i64, add
     }
     let intent = json!({ "recipients": intent_rows, "token": addr(token), "total": total.to_string() });
     let kind = if body.recipients.len() == 1 { "transfer" } else { "batch" };
-    insert_proposal(pool, client, treasury.chain_id, &ctx, user, kind.into(), intent, calls, body.nonce_key, None, None, body.valid_until).await
+    insert_proposal(pool, client, treasury.chain_id, treasury.push.as_deref(), &ctx, user, kind.into(), intent, calls, body.nonce_key, None, None, body.valid_until).await
 }
 
 pub async fn propose_signers(pool: &PgPool, treasury: &Treasury, user: i64, address: &str, body: SignersProposalBody) -> Res<ProposalView> {
@@ -1584,7 +1602,7 @@ pub async fn propose_signers(pool: &PgPool, treasury: &Treasury, user: i64, addr
     }
     let intent = json!({ "labels": labels.iter().map(|(a, l)| json!({ "address": a, "label": l })).collect::<Vec<_>>() });
     let kind = if body.add.is_empty() && body.remove.is_empty() && body.replace.is_empty() { "rule_change" } else { "signer_change" };
-    insert_proposal(pool, client, treasury.chain_id, &ctx, user, kind.into(), intent, calls, None, None, None, None).await
+    insert_proposal(pool, client, treasury.chain_id, treasury.push.as_deref(), &ctx, user, kind.into(), intent, calls, None, None, None, None).await
 }
 
 pub async fn propose_limit(pool: &PgPool, treasury: &Treasury, user: i64, address: &str, body: LimitProposalBody) -> Res<ProposalView> {
@@ -1627,7 +1645,7 @@ pub async fn propose_limit(pool: &PgPool, treasury: &Treasury, user: i64, addres
         calls.push(Call { to: account, value: U256::ZERO, data: calldata::allow_limit_destination(id, parse_address(d)?) });
     }
     let intent = json!({ "limitId": id, "token": addr(token), "amount": amount.to_string(), "period": body.period, "signers": body.signers, "destinations": body.destinations });
-    insert_proposal(pool, client, treasury.chain_id, &ctx, user, "limit_change".into(), intent, calls, None, None, None, None).await
+    insert_proposal(pool, client, treasury.chain_id, treasury.push.as_deref(), &ctx, user, "limit_change".into(), intent, calls, None, None, None, None).await
 }
 
 pub async fn propose_remove_limit(pool: &PgPool, treasury: &Treasury, user: i64, address: &str, body: RemoveLimitBody) -> Res<ProposalView> {
@@ -1636,7 +1654,7 @@ pub async fn propose_remove_limit(pool: &PgPool, treasury: &Treasury, user: i64,
     require_live(&ctx.row)?;
     let account = ctx.row.address();
     let calls = vec![Call { to: account, value: U256::ZERO, data: calldata::remove_spending_limit(body.id) }];
-    insert_proposal(pool, client, treasury.chain_id, &ctx, user, "limit_change".into(), json!({ "removeLimitId": body.id }), calls, None, None, None, None).await
+    insert_proposal(pool, client, treasury.chain_id, treasury.push.as_deref(), &ctx, user, "limit_change".into(), json!({ "removeLimitId": body.id }), calls, None, None, None, None).await
 }
 
 pub async fn propose_cancel(pool: &PgPool, treasury: &Treasury, user: i64, address: &str, tx_hash: &str) -> Res<ProposalView> {
@@ -1649,7 +1667,7 @@ pub async fn propose_cancel(pool: &PgPool, treasury: &Treasury, user: i64, addre
     }
     let account = ctx.row.address();
     let calls = vec![Call { to: account, value: U256::ZERO, data: calldata::cancel(parse_hash(tx_hash)?) }];
-    insert_proposal(pool, client, treasury.chain_id, &ctx, user, "cancel".into(), json!({ "cancels": target.tx_hash }), calls, None, None, None, None).await
+    insert_proposal(pool, client, treasury.chain_id, treasury.push.as_deref(), &ctx, user, "cancel".into(), json!({ "cancels": target.tx_hash }), calls, None, None, None, None).await
 }
 
 async fn load_proposal(pool: &PgPool, olien_id: i64, tx_hash: &str) -> Res<ProposalRow> {

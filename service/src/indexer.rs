@@ -13,6 +13,7 @@ use std::time::Duration;
 use tracing::{info, warn};
 
 use crate::services::olien::{IOlien, OlienClient, IERC20, PATH_RECOVERY, PATH_SINGLE, SCHEDULE_WINDOW};
+use crate::services::push::{self, Push};
 use crate::services::treasury::{self, AccountRow, RelayerStatus};
 
 // drpc caps a getLogs answer at 10k entries; a fresh account has few logs, so a large
@@ -23,7 +24,7 @@ const MAX_CHUNKS_PER_CYCLE: u64 = 50;
 /// Below this the relayer cannot be trusted to pay for the next creation or execution.
 pub const RELAYER_LOW_USDC: u128 = 5_000_000;
 
-pub async fn run(client: OlienClient, pool: PgPool, interval_secs: u64, relayer: Arc<Mutex<Option<RelayerStatus>>>) {
+pub async fn run(client: OlienClient, pool: PgPool, interval_secs: u64, relayer: Arc<Mutex<Option<RelayerStatus>>>, push: Option<Arc<Push>>) {
     let mut ticker = tokio::time::interval(Duration::from_secs(interval_secs.max(5)));
     let mut cycles: u64 = 0;
     loop {
@@ -34,7 +35,7 @@ pub async fn run(client: OlienClient, pool: PgPool, interval_secs: u64, relayer:
             watch_relayer(&client, &relayer).await;
         }
         cycles += 1;
-        if let Err(e) = index_once(&client, &pool).await {
+        if let Err(e) = index_once(&client, &pool, push.as_deref()).await {
             warn!("olien index cycle failed: {e:#}");
         }
     }
@@ -66,7 +67,7 @@ async fn watch_relayer(client: &OlienClient, status: &Arc<Mutex<Option<RelayerSt
     }
 }
 
-async fn index_once(client: &OlienClient, pool: &PgPool) -> anyhow::Result<()> {
+async fn index_once(client: &OlienClient, pool: &PgPool, push: Option<&Push>) -> anyhow::Result<()> {
     let accounts: Vec<AccountRow> =
         sqlx::query_as("SELECT * FROM olien_accounts WHERE status = 'live' ORDER BY id").fetch_all(pool).await?;
     if accounts.is_empty() {
@@ -74,7 +75,7 @@ async fn index_once(client: &OlienClient, pool: &PgPool) -> anyhow::Result<()> {
     }
     let head = client.block_number().await?;
     for account in accounts {
-        if let Err(e) = index_account(client, pool, &account, head).await {
+        if let Err(e) = index_account(client, pool, push, &account, head).await {
             warn!("indexing {} failed: {e:#}", account.address);
         }
     }
@@ -89,7 +90,7 @@ fn addr(address: Address) -> String {
     format!("{address:#x}")
 }
 
-async fn index_account(client: &OlienClient, pool: &PgPool, account: &AccountRow, head: u64) -> anyhow::Result<()> {
+async fn index_account(client: &OlienClient, pool: &PgPool, push: Option<&Push>, account: &AccountRow, head: u64) -> anyhow::Result<()> {
     let address = account.address();
     let mut from = (account.indexed_block.max(0) as u64) + 1;
     let mut chunks = 0;
@@ -99,7 +100,7 @@ async fn index_account(client: &OlienClient, pool: &PgPool, account: &AccountRow
         let to = (from + CHUNK_BLOCKS - 1).min(head);
         let logs = client.account_logs(address, from, to).await?;
         for log in &logs {
-            match apply(client, pool, account, log, &mut timestamps).await {
+            match apply(client, pool, push, account, log, &mut timestamps).await {
                 Ok(touched_config) => config_changed |= touched_config,
                 Err(e) => warn!("log {:?}/{:?} on {} skipped: {e:#}", log.transaction_hash, log.log_index, account.address),
             }
@@ -172,7 +173,7 @@ async fn proposal_id(pool: &PgPool, olien_id: i64, hash: B256) -> anyhow::Result
 
 /// Applies one log. Returns whether it changed who decides or the rules, which means
 /// the signer set and config must be re-read from the chain.
-async fn apply(client: &OlienClient, pool: &PgPool, account: &AccountRow, log: &Log, timestamps: &mut HashMap<u64, u64>) -> anyhow::Result<bool> {
+async fn apply(client: &OlienClient, pool: &PgPool, push: Option<&Push>, account: &AccountRow, log: &Log, timestamps: &mut HashMap<u64, u64>) -> anyhow::Result<bool> {
     let Some(topic0) = log.topic0().copied() else { return Ok(false) };
     let tx = hex(log.transaction_hash.unwrap_or_default().as_slice());
     let block = log.block_number.unwrap_or_default();
@@ -252,6 +253,20 @@ async fn apply(client: &OlienClient, pool: &PgPool, account: &AccountRow, log: &
                     .bind(if event.path == PATH_RECOVERY { "recovery" } else { "threshold" })
                     .execute(pool)
                     .await?;
+                    if let Some(push) = push {
+                        // A scheduled change is the one thing a member who did not
+                        // sign can still stop, so every member hears about it.
+                        let members = push::member_accounts(pool, account.id, None).await;
+                        let hash_text = hex(event.hash.as_slice());
+                        push.notify(
+                            pool,
+                            &members,
+                            &account.name,
+                            "A change to this treasury is scheduled. You can veto it until the delay runs out.",
+                            serde_json::json!({ "kind": "proposal", "account": account.address, "txHash": hash_text }),
+                        )
+                        .await;
+                    }
                 }
                 treasury::mark_replaced(pool, account.id, &key, sequence, id).await.map_err(|e| anyhow::anyhow!("{}", e.parts().1))?;
             }
