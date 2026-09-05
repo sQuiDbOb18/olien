@@ -8,7 +8,7 @@ import { useSession } from "@/components/session-provider";
 import { arcTestnet } from "@/lib/contracts";
 import { signInWithWallet, walletChallenge } from "@/lib/session";
 import { errorMessage, sameAddress, shortAddress, type AccountView, type SignerView } from "@/lib/treasury";
-import { Button, InlineError } from "./ui";
+import { Button, Dialog, InlineError, Spinner } from "./ui";
 import { olienKeys } from "./use-olien";
 
 // The console's identity is one wallet: the session names the address that signed in,
@@ -77,16 +77,46 @@ export function friendlyWalletError(cause: unknown): string {
 }
 
 function ConnectButton({ label = "Connect wallet" }: { label?: string }) {
-  const { connect, connectors, isPending, error } = useConnect();
-  const injected = connectors[0];
+  const { connectors } = useConnect();
+  const [choosing, setChoosing] = useState(false);
   return (
     <>
-      <Button variant="primary" icon={<Wallet size={15} />} busy={isPending} disabled={!injected} onClick={() => injected && connect({ connector: injected })}>
+      <Button variant="primary" icon={<Wallet size={15} />} disabled={connectors.length === 0} onClick={() => setChoosing(true)}>
         {label}
       </Button>
-      {!injected ? <InlineError message="No wallet found. Install MetaMask or Rabby, then reload this page." /> : null}
-      {error ? <InlineError message={friendlyWalletError(error)} /> : null}
+      {connectors.length === 0 ? <InlineError message="No wallet found. Install MetaMask or Rabby, then reload this page." /> : null}
+      <WalletChooser open={choosing} onClose={() => setChoosing(false)} />
     </>
+  );
+}
+
+// Every wallet the browser announced (EIP-6963), each one a row with its own icon.
+// The generic injected connector is the fallback when nothing announced itself.
+export function WalletChooser({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const { connect, connectors, isPending, error, variables } = useConnect();
+  const named = connectors.filter((connector) => connector.id !== "injected");
+  const list = named.length ? named : connectors;
+  return (
+    <Dialog open={open} onClose={onClose} title="Connect a wallet">
+      {list.length === 0 ? <InlineError message="No wallet found. Install MetaMask or Rabby, then reload this page." /> : null}
+      <ul className="olien-wallets">
+        {list.map((connector) => {
+          const busy = isPending && variables?.connector === connector;
+          return (
+            <li key={connector.uid}>
+              <button type="button" className="olien-wallet-option" disabled={isPending} onClick={() => connect({ connector }, { onSuccess: onClose })}>
+                {/* Wallet icons arrive as data URIs from the wallet itself; next/image cannot optimise those. */}
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                {connector.icon ? <img src={connector.icon} alt="" width={28} height={28} /> : <Wallet size={22} />}
+                <span>{connector.id === "injected" ? "Browser wallet" : connector.name}</span>
+                {busy ? <Spinner /> : null}
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+      {error ? <InlineError message={friendlyWalletError(error)} /> : null}
+    </Dialog>
   );
 }
 
@@ -94,21 +124,22 @@ function ConnectButton({ label = "Connect wallet" }: { label?: string }) {
 // label changes with the step so the member always knows what the wallet will ask.
 export function LandingDoor() {
   const { address, connected } = useWalletSession();
-  const { connect, connectors, isPending, error: connectError } = useConnect();
+  const { connectors } = useConnect();
   const { disconnect } = useDisconnect();
   const { signIn, busy, error } = useSignIn();
-  const injected = connectors[0];
+  const [choosing, setChoosing] = useState(false);
+  const anyWallet = connectors.length > 0;
 
   if (!connected || !address) {
     return (
       <>
-        <Button variant="primary" className="olien-landing-cta" icon={<Plus size={16} />} busy={isPending} disabled={!injected} onClick={() => injected && connect({ connector: injected })}>
+        <Button variant="primary" className="olien-landing-cta" icon={<Plus size={16} />} disabled={!anyWallet} onClick={() => setChoosing(true)}>
           Create Olien
         </Button>
         <p className="olien-landing-note">
-          {injected ? "Connect a wallet to create one or open the Oliens you belong to." : "No wallet found. Install MetaMask or Rabby, then reload this page."}
+          {anyWallet ? "Connect a wallet to create one or open the Oliens you belong to." : "No wallet found. Install MetaMask or Rabby, then reload this page."}
         </p>
-        {connectError ? <InlineError message={friendlyWalletError(connectError)} /> : null}
+        <WalletChooser open={choosing} onClose={() => setChoosing(false)} />
       </>
     );
   }
@@ -119,11 +150,19 @@ export function LandingDoor() {
       </Button>
       <p className="olien-landing-note">
         Signing proves you hold this wallet. It never moves money.{" "}
-        <button type="button" className="olien-link-btn" onClick={() => disconnect()}>
+        <button
+          type="button"
+          className="olien-link-btn"
+          onClick={() => {
+            disconnect();
+            setChoosing(true);
+          }}
+        >
           Use another wallet
         </button>
       </p>
       <InlineError message={error} />
+      <WalletChooser open={choosing} onClose={() => setChoosing(false)} />
     </>
   );
 }

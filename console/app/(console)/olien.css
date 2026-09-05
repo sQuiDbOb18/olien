@@ -3057,3 +3057,45 @@ strong > .olien-tag {
     grid-template-columns: 1fr;
   }
 }
+
+/* The wallet chooser: one row per wallet the browser announced. */
+.olien-wallets {
+  display: grid;
+  gap: 8px;
+}
+
+.olien-wallet-option {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--panel-raised);
+  color: var(--text);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  text-align: left;
+}
+
+.olien-wallet-option:hover:not(:disabled) {
+  border-color: var(--border-strong);
+}
+
+.olien-wallet-option:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.olien-wallet-option img {
+  width: 28px;
+  height: 28px;
+  border-radius: 7px;
+}
+
+.olien-wallet-option span {
+  flex: 1;
+}
