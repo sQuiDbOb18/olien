@@ -160,6 +160,16 @@ one machine; what is left is listed under each item.
 - iOS: `OlienSigner` and `OlienSubmitter` beside the Safe ones; team queue;
   approve with Face ID as a nested `Message(hash)` signature; push on new proposals
   and on `Scheduled`, with a veto button.
+  Status, 2026-09-05: the Team area exists (`Features/Team`, `TeamStore`,
+  `OlienAPIClient`, `OlienSigning`): the treasuries the account belongs to, each
+  one's queue and members, and the proposal screen with Approve, Execute, Execute
+  now and Veto. Approve signs the transaction hash the way a cheque is signed,
+  the Safe's message hash by both keys, after the phone has recomputed the
+  EIP-712 hash from the typed data and found it equal; the service and then the
+  Olien check it through the Safe's EIP-1271. Veto is `veto(hash)` sent by the
+  Safe itself through the bundler. Built and tested on the simulator (189 tests);
+  not yet run on a phone against the service. No push notifications: nothing in
+  the stack speaks APNs yet.
 - Backend: consumer accounts created as Oliens on testnet (device P256, cloud
   ECDSA, server RECOVER); the recovery flow as `replaceSigner` through the recovery
   path; migration of existing testnet Safes by sweep (`05-onchain-design.md`,
