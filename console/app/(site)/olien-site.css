@@ -240,6 +240,7 @@
   width: 1120px;
   transform-origin: 0 0;
   transform: perspective(3200px) rotateX(7deg) rotateY(-17deg) rotateZ(1.5deg) scale(1.08);
+  transform-style: preserve-3d;
   font-size: 9.5px;
   color: var(--muted);
 }
@@ -618,15 +619,15 @@
 
 .osite-phone {
   position: absolute;
-  left: -150px;
-  bottom: -40px;
-  width: 224px;
+  left: -120px;
+  bottom: -10px;
+  width: 204px;
   border-radius: 24px;
   background: linear-gradient(180deg, #ffffff 0%, #f1f3f0 38%, #13171a 38.5%, #0b0d0d 100%);
   color: #edf2ed;
   border: 1px solid #c9cec9;
   box-shadow: 0 60px 90px -30px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.9);
-  transform: perspective(1400px) rotateY(-6deg) rotateX(3deg) rotate(-3deg);
+  transform: translateZ(90px) rotateY(-9deg) rotateX(2deg) rotate(5deg);
   overflow: hidden;
   font-size: 10px;
 }
