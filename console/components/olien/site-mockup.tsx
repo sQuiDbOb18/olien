@@ -5,6 +5,7 @@ import { ArrowDown, ArrowLeftRight, ArrowUp, ChevronDown, ChevronRight } from "l
 export function DashboardShot() {
   return (
     <div className="osite-shot" role="img" aria-label="The Olien console: a treasury dashboard beside the Recourse app showing the same account">
+      <div className="osite-frame">
       <div className="osite-dash">
         <aside className="osite-dash-side">
           <div className="osite-dash-brand">
@@ -149,6 +150,7 @@ export function DashboardShot() {
             </div>
           </div>
         </div>
+      </div>
       </div>
 
       <div className="osite-phone">

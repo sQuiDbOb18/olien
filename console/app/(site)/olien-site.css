@@ -17,6 +17,7 @@
   --night-muted: #8c9991;
   --radius: 28px;
   --wrap: 1400px;
+  --gutter: clamp(16px, 5.2vw, 104px);
   --shadow: 0 40px 80px -40px rgba(17, 27, 25, 0.35), 0 12px 32px -20px rgba(17, 27, 25, 0.2);
 
   font-family: var(--inter);
@@ -111,9 +112,7 @@
 }
 
 .osite-nav-inner {
-  max-width: calc(var(--wrap) + 96px);
-  margin: 0 auto;
-  padding: 18px 48px;
+  padding: 22px var(--gutter);
   display: grid;
   grid-template-columns: 1fr auto 1fr;
   align-items: center;
@@ -180,22 +179,20 @@
 
 /* Hero */
 .osite-hero {
-  padding: 8px 48px 0;
+  padding: 4px var(--gutter) 0;
 }
 
 .osite-hero-card {
   position: relative;
-  max-width: var(--wrap);
-  margin: 0 auto;
-  min-height: 600px;
+  min-height: 660px;
   border-radius: var(--radius);
   background:
-    radial-gradient(70% 90% at 100% 0%, color-mix(in srgb, var(--green) 9%, #fff) 0%, transparent 60%),
-    linear-gradient(180deg, #fff 0%, #fbfcfb 100%);
+    radial-gradient(70% 90% at 100% 0%, color-mix(in srgb, var(--green) 7%, #fff) 0%, transparent 60%),
+    linear-gradient(180deg, #ffffff 0%, #f7f8f6 100%);
   box-shadow: var(--shadow);
   overflow: hidden;
   display: grid;
-  grid-template-columns: minmax(320px, 0.9fr) 1.3fr;
+  grid-template-columns: minmax(320px, 0.78fr) 1.22fr;
   align-items: center;
 }
 
@@ -211,7 +208,7 @@
 }
 
 .osite-hero-copy {
-  padding: 64px 48px 64px 72px;
+  padding: 64px 32px 64px 84px;
   position: relative;
   z-index: 1;
 }
@@ -226,34 +223,42 @@
   font-size: 20px;
   line-height: 1.4;
   color: var(--muted);
-  max-width: 30ch;
+  max-width: 40ch;
 }
 
 .osite-hero-shot {
   position: relative;
   align-self: stretch;
-  min-height: 560px;
+  min-height: 620px;
 }
 
 /* The product shot, tilted the way Squads tilts theirs. */
 .osite-shot {
   position: absolute;
-  top: 56px;
-  left: 70px;
-  width: 980px;
+  top: 44px;
+  left: 110px;
+  width: 1040px;
   transform-origin: 0 0;
-  transform: perspective(2400px) rotateX(9deg) rotateY(-14deg) rotateZ(2deg) scale(0.8);
-  font-size: 9px;
+  transform: perspective(3200px) rotateX(7deg) rotateY(-17deg) rotateZ(1.5deg) scale(0.9);
+  font-size: 9.5px;
   color: var(--muted);
+}
+
+/* The tablet bezel: a slab of brushed light grey the screen sits in. */
+.osite-frame {
+  padding: 16px;
+  border-radius: 26px;
+  background: linear-gradient(135deg, #f4f5f3 0%, #dfe2df 40%, #eceeeb 70%, #d5d9d6 100%);
+  box-shadow: 0 80px 120px -50px rgba(17, 27, 25, 0.55), 0 30px 50px -30px rgba(17, 27, 25, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.9), inset 0 -1px 0 rgba(17, 27, 25, 0.12);
 }
 
 .osite-dash {
   display: grid;
-  grid-template-columns: 150px 1fr;
-  border-radius: 14px;
+  grid-template-columns: 156px 1fr;
+  border-radius: 12px;
   background: #fff;
   border: 1px solid var(--line);
-  box-shadow: 0 60px 100px -50px rgba(17, 27, 25, 0.5), 0 2px 0 rgba(255, 255, 255, 0.8) inset;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.6);
   overflow: hidden;
 }
 
@@ -613,16 +618,34 @@
 
 .osite-phone {
   position: absolute;
-  left: -120px;
-  bottom: -60px;
-  width: 190px;
-  padding: 14px 12px 10px;
-  border-radius: 22px;
-  background: linear-gradient(180deg, #16191a, #0b0d0d);
+  left: -150px;
+  bottom: -40px;
+  width: 224px;
+  border-radius: 24px;
+  background: linear-gradient(180deg, #ffffff 0%, #f1f3f0 38%, #13171a 38.5%, #0b0d0d 100%);
   color: #edf2ed;
-  border: 1px solid #2a2f2e;
-  box-shadow: 0 50px 80px -30px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.08);
-  transform: rotate(-4deg);
+  border: 1px solid #c9cec9;
+  box-shadow: 0 60px 90px -30px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  transform: perspective(1400px) rotateY(-6deg) rotateX(3deg) rotate(-3deg);
+  overflow: hidden;
+  font-size: 10px;
+}
+
+.osite-phone-head,
+.osite-phone-balance {
+  color: var(--ink);
+  padding: 0 14px;
+}
+
+.osite-phone-head {
+  padding-top: 16px;
+}
+
+.osite-phone-tabs,
+.osite-phone ul,
+.osite-phone-bar {
+  margin-left: 12px;
+  margin-right: 12px;
 }
 
 .osite-phone-head {
@@ -640,28 +663,28 @@
 }
 
 .osite-phone-head small {
-  color: var(--night-muted);
+  color: var(--muted);
 }
 
 .osite-phone-head b {
-  color: var(--night-muted);
+  color: var(--muted);
   font-weight: 400;
 }
 
 .osite-phone-balance {
-  margin: 16px 0 12px;
+  margin: 18px 0 16px;
   display: grid;
 }
 
 .osite-phone-balance strong {
-  font-size: 20px;
+  font-size: 24px;
   font-weight: 500;
   letter-spacing: -0.02em;
   font-variant-numeric: tabular-nums;
 }
 
 .osite-phone-balance small {
-  color: var(--night-muted);
+  color: var(--muted);
 }
 
 .osite-phone-tabs {
@@ -670,6 +693,7 @@
   padding: 3px;
   border-radius: 8px;
   background: #1f2423;
+  margin-top: 12px;
   margin-bottom: 8px;
 }
 
@@ -726,7 +750,7 @@
 .osite-phone-bar {
   display: flex;
   justify-content: space-around;
-  padding-top: 10px;
+  padding: 10px 0 12px;
   margin-top: 4px;
   border-top: 1px solid #1f2423;
 }
@@ -805,8 +829,8 @@
   grid-template-columns: minmax(300px, 0.9fr) 1.1fr;
   gap: 48px;
   align-items: center;
-  margin-left: 48px;
-  margin-right: 48px;
+  margin-left: var(--gutter);
+  margin-right: var(--gutter);
   max-width: none;
   background:
     radial-gradient(50% 60% at 100% 100%, rgba(62, 207, 142, 0.14), transparent 70%),
@@ -816,8 +840,8 @@
 }
 
 .osite-chapter--light {
-  margin-left: 48px;
-  margin-right: 48px;
+  margin-left: var(--gutter);
+  margin-right: var(--gutter);
   max-width: none;
   background: var(--card);
   box-shadow: var(--shadow);
@@ -1442,8 +1466,7 @@
 }
 
 .osite-footer-inner {
-  max-width: calc(var(--wrap) + 96px);
-  margin: 0 auto;
+  padding: 0 calc(var(--gutter) - 48px);
   display: grid;
   grid-template-columns: 1.4fr 2fr;
   gap: 48px;
@@ -1507,9 +1530,9 @@
   }
 
   .osite-shot {
-    left: 140px;
+    left: 170px;
     top: 30px;
-    transform: perspective(2400px) rotateX(9deg) rotateY(-14deg) rotateZ(2deg) scale(0.72);
+    transform: perspective(3200px) rotateX(7deg) rotateY(-17deg) rotateZ(1.5deg) scale(0.72);
   }
 
   .osite-chapter--dark,
@@ -1572,8 +1595,8 @@
   }
 
   .osite-shot {
-    left: 90px;
-    transform: perspective(2400px) rotateX(9deg) rotateY(-14deg) rotateZ(2deg) scale(0.5);
+    left: 150px;
+    transform: perspective(3200px) rotateX(7deg) rotateY(-17deg) rotateZ(1.5deg) scale(0.5);
   }
 
   .osite-member-grid,
