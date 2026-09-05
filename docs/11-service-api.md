@@ -316,6 +316,20 @@ come from the proposal's intent and the address book.
 empty string when none was given. Posting an address that exists replaces its
 label and category.
 
+## Push tokens
+
+`PUT /api/me/push-token` with `{ "token": "<hex>", "environment": "sandbox" | "production" }`
+records the phone's APNs token under the signed-in account; `DELETE` with the same body
+removes it. The service sends two alerts, each with `route: { kind: "proposal",
+account, txHash }` so a tap opens the proposal:
+
+- a new proposal, to every member of the treasury except the proposer;
+- a scheduled change, to every member, since any of them may veto it.
+
+Members are Recourse accounts whose live Safe is a signer, and console wallets
+linked to an account. Sending is best effort and never delays the request that
+caused it. A token Apple reports as gone is deleted on the spot.
+
 ## Health
 
 `GET /health` (outside `/api`) carries `relayer: { address, usdcBalance, low,

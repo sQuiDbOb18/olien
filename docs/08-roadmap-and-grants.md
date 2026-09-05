@@ -168,8 +168,13 @@ one machine; what is left is listed under each item.
   EIP-712 hash from the typed data and found it equal; the service and then the
   Olien check it through the Safe's EIP-1271. Veto is `veto(hash)` sent by the
   Safe itself through the bundler. Built and tested on the simulator (189 tests);
-  not yet run on a phone against the service. No push notifications: nothing in
-  the stack speaks APNs yet.
+  not yet run on a phone against the service. Push, 2026-09-05: team alerts
+  exist end to end (`services/push.rs`, `PUT /api/me/push-token`, iOS
+  `PushCoordinator`): a new proposal reaches the other members and a scheduled
+  change reaches every member, each carrying the route to its proposal. APNs
+  token auth over HTTP/2; off until APNS_KEY_ID, APNS_TEAM_ID, APNS_KEY_P8 and
+  APNS_BUNDLE_ID are set on the service, which needs the .p8 key from the
+  developer account. Not yet delivered to a phone.
 - Backend: consumer accounts created as Oliens on testnet (device P256, cloud
   ECDSA, server RECOVER); the recovery flow as `replaceSigner` through the recovery
   path; migration of existing testnet Safes by sweep (`05-onchain-design.md`,
