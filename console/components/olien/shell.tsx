@@ -9,7 +9,8 @@ import { explorerAddressUrl } from "@/lib/contracts";
 import { accountParam, formatUsdc, shortAddress } from "@/lib/treasury";
 import { AddressChip, Button, cx, Dialog, Spinner } from "./ui";
 import { rememberAccount, useAccounts, useOlienAccount } from "./use-olien";
-import { MismatchBanner, SignInCard, useWalletSession } from "./wallet";
+import { OlienLanding } from "./landing";
+import { LandingDoor, MismatchBanner, SignInCard, useWalletSession } from "./wallet";
 
 function titleFor(segments: string[], address: string | null, name: string | undefined): string {
   if (!address) return segments[0] === "new" ? "Create an Olien" : "Your Oliens";
@@ -161,10 +162,12 @@ export function OlienShell({ children }: { children: ReactNode }) {
     );
   }
 
+  // Signed out, the console is its own front door: the landing, with connecting and
+  // signing in as the one action. Squads does the same at app.squads.so.
   if (!wallet.session) {
     return (
       <div className="olien">
-        <SignInCard mode="signin" />
+        <OlienLanding action={<LandingDoor />} />
       </div>
     );
   }
@@ -192,14 +195,14 @@ export function OlienShell({ children }: { children: ReactNode }) {
   async function signOut() {
     await wallet.signOut();
     disconnect();
-    router.push("/olien");
+    router.push("/olien/app");
   }
 
   return (
     <div className="olien olien-shell">
       <aside className={cx("olien-sidebar", menuOpen && "is-open")}>
         <div className="olien-sidebar-top">
-          <Link href="/olien" className="olien-wordmark">
+          <Link href="/olien/app" className="olien-wordmark">
             Olien<span className="olien-dot" aria-hidden />
           </Link>
           <button type="button" className="olien-icon-btn olien-menu-toggle" aria-label={menuOpen ? "Close menu" : "Open menu"} aria-expanded={menuOpen} onClick={() => setMenuOpen((current) => !current)}>

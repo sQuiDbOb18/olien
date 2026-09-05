@@ -1,7 +1,7 @@
 "use client";
 
 import { useQueryClient } from "@tanstack/react-query";
-import { Wallet } from "lucide-react";
+import { Plus, Wallet } from "lucide-react";
 import { useCallback, useState } from "react";
 import { useAccount, useConnect, useDisconnect, useSignMessage, useSwitchChain } from "wagmi";
 import { useSession } from "@/components/session-provider";
@@ -86,6 +86,44 @@ function ConnectButton({ label = "Connect wallet" }: { label?: string }) {
       </Button>
       {!injected ? <InlineError message="No wallet found. Install MetaMask or Rabby, then reload this page." /> : null}
       {error ? <InlineError message={friendlyWalletError(error)} /> : null}
+    </>
+  );
+}
+
+// The landing's one button: connect if nothing is connected, otherwise sign. The
+// label changes with the step so the member always knows what the wallet will ask.
+export function LandingDoor() {
+  const { address, connected } = useWalletSession();
+  const { connect, connectors, isPending, error: connectError } = useConnect();
+  const { disconnect } = useDisconnect();
+  const { signIn, busy, error } = useSignIn();
+  const injected = connectors[0];
+
+  if (!connected || !address) {
+    return (
+      <>
+        <Button variant="primary" className="olien-landing-cta" icon={<Plus size={16} />} busy={isPending} disabled={!injected} onClick={() => injected && connect({ connector: injected })}>
+          Create Olien
+        </Button>
+        <p className="olien-landing-note">
+          {injected ? "Connect a wallet to create one or open the Oliens you belong to." : "No wallet found. Install MetaMask or Rabby, then reload this page."}
+        </p>
+        {connectError ? <InlineError message={friendlyWalletError(connectError)} /> : null}
+      </>
+    );
+  }
+  return (
+    <>
+      <Button variant="primary" className="olien-landing-cta" busy={busy} onClick={() => void signIn(address)}>
+        {busy ? "Check your wallet" : `Sign in with ${shortAddress(address)}`}
+      </Button>
+      <p className="olien-landing-note">
+        Signing proves you hold this wallet. It never moves money.{" "}
+        <button type="button" className="olien-link-btn" onClick={() => disconnect()}>
+          Use another wallet
+        </button>
+      </p>
+      <InlineError message={error} />
     </>
   );
 }
