@@ -526,7 +526,7 @@ fn describe(error: ContractError) -> anyhow::Error {
 /// A public RPC is load balanced, so the node that takes a send may not have seen the
 /// relayer's previous transaction yet and answers "nonce too low"; one short wait and a
 /// second attempt reads a fresh pending nonce. Reverts are not retried.
-async fn retry_nonce<T, F, Fut>(mut send: F) -> Result<T>
+pub(crate) async fn retry_nonce<T, F, Fut>(mut send: F) -> Result<T>
 where
     F: FnMut() -> Fut,
     Fut: std::future::Future<Output = Result<T>>,
