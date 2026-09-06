@@ -63,7 +63,7 @@
 }
 
 /* Buttons rendered as links keep the button colours; every other link inherits. */
-.olien a:not(.olien-btn) {
+.olien a:not(.olien-btn):not(.olien-dash-action) {
   color: inherit;
 }
 
