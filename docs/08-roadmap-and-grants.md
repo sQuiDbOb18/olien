@@ -157,6 +157,22 @@ one machine; what is left is listed under each item.
 
 ## Phase 3: members that are people (about 2 weeks)
 
+- Deposits from another chain, 2026-09-07: the app's second deposit door is open.
+  Circle's CCTP V2 carries USDC from Base, Arbitrum or Ethereum onto Arc, burned
+  in the person's own wallet through a page at `/deposit` and minted on Arc by
+  Circle's forwarding hook, so nothing is held in between and no gas on Arc is
+  needed to receive it. Verified against the contracts rather than the docs on
+  2026-09-07: Arc answers 26 to `localDomain`, its TokenMessenger is wired to its
+  own MessageTransmitter and TokenMinter, remote messengers are registered for
+  domains 0, 1, 2, 3, 5, 6, 7, 10 and 11, Base has domain 26 registered in return,
+  and Arc maps Base and Ethereum USDC to its own `0x3600...0000`. A zero-amount
+  `depositForBurnWithHook` on Base Sepolia to domain 26 reverts only on the
+  amount, so the route is open. Circle quotes the fast path at 1 to 1.3 basis
+  points plus about 0.016 USDC for forwarding, and the standard path free. Not
+  yet: a real burn end to end, Solana as a source (a different wallet stack and
+  an ephemeral signer), and mainnet, where Arc has no CCTP deployment yet.
+
+
 - iOS: `OlienSigner` and `OlienSubmitter` beside the Safe ones; team queue;
   approve with Face ID as a nested `Message(hash)` signature; push on new proposals
   and on `Scheduled`, with a veto button.
