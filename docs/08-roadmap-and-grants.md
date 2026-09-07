@@ -157,6 +157,20 @@ one machine; what is left is listed under each item.
 
 ## Phase 3: members that are people (about 2 weeks)
 
+- Earn pays a real rate, 2026-09-07: the settlement vault holds Circle's USYC for
+  its idle float instead of a simulated share price. The teller is an ERC-4626
+  vault whose asset is Arc USDC, verified on chain rather than from a page, and
+  its own oracle prices the position, so the vault's share price now moves with
+  the fund. Two measured facts shaped it: the teller held 5,160 USDC of cash
+  against 751,910 of assets, so redeeming at size is not available, and its
+  oracle had not updated in 147 hours. So the vault keeps a cash buffer, twenty
+  percent to start and owner tunable, invests only above it, sells the fund when
+  a withdrawal is larger than the cash, and reverts rather than short paying when
+  the fund cannot meet it. Ten tests cover it, including a loss showing up
+  honestly in the balance and a refused redeem leaving every share where it was.
+  `MockUSYCAdapter` stays behind the escrow, which is a separate path. Not yet:
+  deployed, and it does not go to mainnet before the audit in Phase 4.
+
 - Deposit addresses, 2026-09-07: a person is shown a plain address on Base and
   sends USDC to it from an exchange or any wallet, with nothing to connect and
   nothing to sign. The address is a `DepositVault`, deployed by `DepositFactory`
