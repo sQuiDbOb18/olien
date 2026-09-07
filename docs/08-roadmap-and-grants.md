@@ -168,11 +168,14 @@ one machine; what is left is listed under each item.
   live in the factory rather than the vault, so one person's deposit address is
   the same on every chain and a wrong-chain send is recoverable by deploying the
   factory there. 24 unit tests plus two against the real CCTP contracts on a Base
-  fork; the factory lands at `0x0641fBa0218Bb061c18da4cc600Dd6f3307D6c03` through
-  the Arachnid deployer. Backend: `services/deposits.rs`, the sweeper job, and
+  fork. Deployed to Base Sepolia on 2026-09-07 at
+  `0x0641fBa0218Bb061c18da4cc600Dd6f3307D6c03` through the Arachnid deployer
+  (`0x8610e7a3...4d38fc`, 856,117 gas, 0.0000051 ETH), and read back from the
+  chain: the right USDC, Circle's messenger, destination domain 26. Backend: `services/deposits.rs`, the sweeper job, and
   `GET /api/me/deposit-address`; the door stays shut unless `DEPOSIT_RPC_URL` and
   `DEPOSIT_FACTORY` are set, rather than handing out a dead address. Not yet:
-  deployed, a real deposit end to end, chains past Base, and mainnet.
+  those two set on Railway, a real deposit end to end, chains past Base, and
+  mainnet.
 - Deposits by connecting a wallet, 2026-09-07: the app's second deposit door is open.
   Circle's CCTP V2 carries USDC from Base, Arbitrum or Ethereum onto Arc, burned
   in the person's own wallet through a page at `/deposit` and minted on Arc by
