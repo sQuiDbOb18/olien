@@ -157,7 +157,23 @@ one machine; what is left is listed under each item.
 
 ## Phase 3: members that are people (about 2 weeks)
 
-- Deposits from another chain, 2026-09-07: the app's second deposit door is open.
+- Deposit addresses, 2026-09-07: a person is shown a plain address on Base and
+  sends USDC to it from an exchange or any wallet, with nothing to connect and
+  nothing to sign. The address is a `DepositVault`, deployed by `DepositFactory`
+  through CREATE2, whose beneficiary is a constructor argument and therefore part
+  of the creation code: a different Arc account is a different address, so nobody,
+  operator included, can redirect it. `sweep()` is open to anyone, so the money
+  is movable even if Recourse stops existing. The fee ceiling is fixed in code
+  because CCTP bounds `maxFee` only by being under the amount. Chain addresses
+  live in the factory rather than the vault, so one person's deposit address is
+  the same on every chain and a wrong-chain send is recoverable by deploying the
+  factory there. 24 unit tests plus two against the real CCTP contracts on a Base
+  fork; the factory lands at `0x0641fBa0218Bb061c18da4cc600Dd6f3307D6c03` through
+  the Arachnid deployer. Backend: `services/deposits.rs`, the sweeper job, and
+  `GET /api/me/deposit-address`; the door stays shut unless `DEPOSIT_RPC_URL` and
+  `DEPOSIT_FACTORY` are set, rather than handing out a dead address. Not yet:
+  deployed, a real deposit end to end, chains past Base, and mainnet.
+- Deposits by connecting a wallet, 2026-09-07: the app's second deposit door is open.
   Circle's CCTP V2 carries USDC from Base, Arbitrum or Ethereum onto Arc, burned
   in the person's own wallet through a page at `/deposit` and minted on Arc by
   Circle's forwarding hook, so nothing is held in between and no gas on Arc is
@@ -170,7 +186,11 @@ one machine; what is left is listed under each item.
   amount, so the route is open. Circle quotes the fast path at 1 to 1.3 basis
   points plus about 0.016 USDC for forwarding, and the standard path free. Not
   yet: a real burn end to end, Solana as a source (a different wallet stack and
-  an ephemeral signer), and mainnet, where Arc has no CCTP deployment yet.
+  an ephemeral signer), and mainnet, where Arc has no CCTP deployment yet. The
+  page is still served at `/deposit` for anyone who would rather sign from their
+  own wallet, but the app no longer links to it: asking somebody to connect a
+  wallet to add money makes a money app read as a crypto app, and the deposit
+  address above is what every other money app does instead.
 
 
 - iOS: `OlienSigner` and `OlienSubmitter` beside the Safe ones; team queue;
