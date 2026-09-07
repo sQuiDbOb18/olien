@@ -171,8 +171,21 @@ one machine; what is left is listed under each item.
   fork. Deployed to Base Sepolia on 2026-09-07 at
   `0x0641fBa0218Bb061c18da4cc600Dd6f3307D6c03` through the Arachnid deployer
   (`0x8610e7a3...4d38fc`, 856,117 gas, 0.0000051 ETH), and read back from the
-  chain: the right USDC, Circle's messenger, destination domain 26. Backend: `services/deposits.rs`, the sweeper job, and
-  `GET /api/me/deposit-address`; the door stays shut unless `DEPOSIT_RPC_URL` and
+  chain: the right USDC, Circle's messenger, destination domain 26. Widened the
+  same day from three chains to eight (Base, Arbitrum, Optimism, Ethereum,
+  Polygon, Avalanche, Unichain, Linea), which moves the factory to
+  `0x9C24d756781171e8839Ce0a5e37522BE5528FD82` and every deposit address with
+  it. That is the price of keeping the chain table inside the code: settings
+  someone can edit are settings someone can point at a fake bridge, so the list
+  is meant to be settled once, and it was settled before anyone held an address.
+  The first factory stays deployed and still sweeps, so nothing sent to an
+  address it issued is lost. Each chain's USDC was read off its own chain before
+  going in the table, and the Arachnid deployer was confirmed on all eight, which
+  is what lets one factory address hold everywhere and gives one person one
+  deposit address on every chain. The backend runs a watcher per chain, each of
+  which checks for the factory and idles if it is not there, so deploying to a
+  new chain lights it up without new settings. Endpoints default to public ones
+  and are overridden per chain with `DEPOSIT_RPCS`, as `base=https://...`.
   `DEPOSIT_FACTORY` are set, rather than handing out a dead address. Not yet:
   those two set on Railway, a real deposit end to end, chains past Base, and
   mainnet.
