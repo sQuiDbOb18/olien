@@ -10,6 +10,7 @@ import {
   addAddressBookEntry,
   durationLabel,
   errorMessage,
+  formatLedgerAmount,
   formatNative,
   formatTime,
   formatUsdc,
@@ -573,7 +574,7 @@ function LedgerSection({ address }: { address: string }) {
               </td>
               <td className={cx("num", entry.direction === "in" ? "olien-ok" : "")}>
                 {entry.direction === "in" ? "+" : "-"}
-                {formatUsdc(entry.amount)}
+                {formatLedgerAmount(entry)}
               </td>
               <td className="olien-muted">
                 {entry.memo ? <span>{entry.memo} </span> : null}

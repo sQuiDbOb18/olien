@@ -307,11 +307,17 @@ GET  /api/treasury/accounts/{address}/address-book                     -> [Addre
 POST /api/treasury/accounts/{address}/address-book  { address, label, category? }  -> AddressBookEntry
 ```
 
-`LedgerEntry`: `{ id, tx, logIndex, token, symbol, direction: "in" | "out",
-counterparty, counterpartyLabel, amount, blockNumber, blockTime, proposalTxHash,
-limitId, subAccount, memo }`. Entries come from USDC `Transfer` logs where the
-account or one of its sub-accounts is a party; `memo` and `counterpartyLabel`
-come from the proposal's intent and the address book.
+`LedgerEntry`: `{ id, tx, logIndex, token, symbol, decimals, direction: "in" |
+"out", counterparty, counterpartyLabel, amount, blockNumber, blockTime,
+proposalTxHash, limitId, subAccount, memo }`. Entries come from USDC and EURC
+`Transfer` logs where the account or one of its sub-accounts is a party, and from
+the EntryPoint's `UserOperationEvent` for operations the account sent: those rows
+have `symbol` `gas`, `decimals` 18 (the others are 6), the EntryPoint as
+counterparty, `actualGasCost` as the amount, and a `memo` saying so, or saying the
+operation ran but the account's call reverted, since the gas was paid either way.
+A reverted operation the service sent also moves its proposal to `failed`. For
+transfers, `memo` and `counterpartyLabel` come from the proposal's intent and the
+address book.
 
 `AddressBookEntry`: `{ address, label, category, createdAt }`; `category` is an
 empty string when none was given. Posting an address that exists replaces its

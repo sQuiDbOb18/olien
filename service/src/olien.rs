@@ -210,6 +210,17 @@ sol! {
     #[sol(rpc)]
     interface IEntryPointView {
         function balanceOf(address account) external view returns (uint256);
+
+        /// EntryPoint v0.7: one per operation, success or not; gas came off the deposit either way.
+        event UserOperationEvent(
+            bytes32 indexed userOpHash,
+            address indexed sender,
+            address indexed paymaster,
+            uint256 nonce,
+            bool success,
+            uint256 actualGasCost,
+            uint256 actualGasUsed
+        );
     }
 }
 
@@ -863,6 +874,15 @@ impl OlienClient {
             .from_block(from_block)
             .to_block(to_block);
         logs.extend(self.provider.get_logs(&outgoing).await.context("reading outgoing transfers")?);
+        // Operations the account sent through the EntryPoint: the only record of gas
+        // leaving its deposit, and of an operation that ran but reverted.
+        let operations = Filter::new()
+            .address(self.deployment.entry_point)
+            .event_signature(IEntryPointView::UserOperationEvent::SIGNATURE_HASH)
+            .topic2(topic)
+            .from_block(from_block)
+            .to_block(to_block);
+        logs.extend(self.provider.get_logs(&operations).await.context("reading user operations")?);
         logs.sort_by_key(|log| (log.block_number.unwrap_or_default(), log.log_index.unwrap_or_default()));
         logs.dedup_by_key(|log| (log.transaction_hash, log.log_index));
         Ok(logs)
@@ -928,6 +948,16 @@ pub fn u48(value: u64) -> alloy::primitives::Uint<48, 1> {
 mod tests {
     use super::*;
     use alloy::primitives::address;
+    use alloy::sol_types::SolEvent;
+
+    /// The topic the indexer filters on is EntryPoint v0.7's, not a retyped one.
+    #[test]
+    fn the_user_operation_event_is_the_entry_points_own() {
+        assert_eq!(
+            format!("{:#x}", IEntryPointView::UserOperationEvent::SIGNATURE_HASH),
+            "0x49628fd1471006c1482da88028e9ce4dbb080b815c9b0344d39e5a8e6ec1419f"
+        );
+    }
 
     // Pinned against the live testnet account of the proofs (spec §18):
     // `cast call 0x12808a601475b87ce7b343A18f11062cc74Eae81 "domainSeparator()(bytes32)"`.

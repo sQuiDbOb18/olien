@@ -89,7 +89,9 @@ one machine; what is left is listed under each item.
   since 2026-09-09: the ledger already carried the token that moved, so movements
   only needed the filter widened, and the balance grew a second column beside the
   dollars. The console shows euros beside the balance only when there are any, and
-  a ledger row names its own token. Not yet: `UserOperationEvent`, discovery of
+  a ledger row names its own token. `UserOperationEvent` since 2026-09-09: gas a
+  user operation took off the deposit is a ledger row in its own unit, and one
+  that reverted says so and fails its proposal. Not yet: discovery of
   accounts the service did not create.
 - Relayer: `createAccount`, `execute` and `executeScheduled` paid by us, one key
   shared with the Safe deployer (`RELAYER_PK` falls back to `ATTESTOR_PK`), the

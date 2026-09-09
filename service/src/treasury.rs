@@ -457,6 +457,8 @@ pub struct LedgerEntry {
     pub log_index: i32,
     pub token: String,
     pub symbol: String,
+    /// 6 for USDC and EURC, 18 for gas; the console formats by this, not by symbol.
+    pub decimals: u8,
     pub direction: String,
     pub counterparty: String,
     pub counterparty_label: Option<String>,
@@ -1906,14 +1908,26 @@ fn book_usdc() -> Address {
 
 /// The ledger stores the token that moved, so a row can name itself. Anything we do
 /// not know is called a token rather than guessed at.
+/// What a ledger row holds when it is gas rather than a token: on Arc that is USDC
+/// too, but with 18 decimals and paid from the EntryPoint deposit, so it is kept
+/// apart from the dollars the balance counts.
+pub const GAS_TOKEN: &str = "gas";
+
 fn symbol_for(token: &str) -> String {
     if token == addr(book_usdc()) {
         "USDC".into()
     } else if token.eq_ignore_ascii_case("0x89b50855aa3be2f677cd6303cec089b5f319d72a") {
         "EURC".into()
+    } else if token == GAS_TOKEN {
+        "gas".into()
     } else {
         "token".into()
     }
+}
+
+/// The decimals a ledger amount is in, by the symbol the row was given.
+fn decimals_for(symbol: &str) -> u8 {
+    if symbol == "gas" { 18 } else { 6 }
 }
 
 pub async fn list_proposals(pool: &PgPool, treasury: &Treasury, user: i64, address: &str, statuses: Option<&str>) -> Res<Vec<ProposalView>> {
@@ -2283,10 +2297,11 @@ pub async fn ledger(pool: &PgPool, user: i64, address: &str, limit: i64, before:
         intent: Option<Value>,
         limit_id: Option<i64>,
         sub_account: Option<String>,
+        note: Option<String>,
     }
     let rows: Vec<Row> = sqlx::query_as(
         "SELECT l.id, l.tx, l.log_index, l.token, l.direction, l.counterparty, l.amount, l.block_number, l.block_time,
-            p.tx_hash AS proposal_tx, p.intent, l.limit_id, l.sub_account
+            p.tx_hash AS proposal_tx, p.intent, l.limit_id, l.sub_account, l.note
          FROM olien_ledger l LEFT JOIN olien_proposals p ON p.id = l.proposal_id
          WHERE l.olien_id = $1 AND ($2::bigint IS NULL OR l.id < $2) ORDER BY l.id DESC LIMIT $3",
     )
@@ -2298,14 +2313,22 @@ pub async fn ledger(pool: &PgPool, user: i64, address: &str, limit: i64, before:
     Ok(rows
         .into_iter()
         .map(|r| {
-            let memo = r.intent.as_ref().and_then(|i| {
-                i.get("recipients")?.as_array()?.iter().find(|x| x.get("to").and_then(Value::as_str) == Some(r.counterparty.as_str()))?.get("memo")?.as_str().map(String::from)
-            });
+            // A transfer's memo is the proposal's; a row with no transfer behind it
+            // carries its own note.
+            let memo = r
+                .intent
+                .as_ref()
+                .and_then(|i| {
+                    i.get("recipients")?.as_array()?.iter().find(|x| x.get("to").and_then(Value::as_str) == Some(r.counterparty.as_str()))?.get("memo")?.as_str().map(String::from)
+                })
+                .or(r.note);
+            let symbol = symbol_for(&r.token);
             LedgerEntry {
                 id: r.id,
                 tx: r.tx,
                 log_index: r.log_index,
-                symbol: symbol_for(&r.token),
+                decimals: decimals_for(&symbol),
+                symbol,
                 token: r.token,
                 direction: r.direction,
                 counterparty_label: book.get(&r.counterparty).cloned(),
@@ -2410,5 +2433,13 @@ mod token_symbol_tests {
     #[test]
     fn an_unknown_token_is_called_a_token_rather_than_guessed_at() {
         assert_eq!(symbol_for("0x0000000000000000000000000000000000000001"), "token");
+    }
+
+    #[test]
+    fn gas_is_its_own_symbol_with_the_chains_decimals() {
+        assert_eq!(symbol_for(GAS_TOKEN), "gas");
+        assert_eq!(decimals_for("gas"), 18);
+        assert_eq!(decimals_for("USDC"), 6);
+        assert_eq!(decimals_for("EURC"), 6);
     }
 }

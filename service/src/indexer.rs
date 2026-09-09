@@ -1,7 +1,8 @@
 // Mirrors every live Olien account from its events (06-algorithms.md §8): executions,
 // schedules, vetoes, approvals, cancellations, signer and rule changes, spending
-// limits, sub-accounts, and USDC transfers into the ledger. The chain decides; this
-// job only writes down what it said, then recomputes the queue's derived states.
+// limits, sub-accounts, USDC and EURC transfers into the ledger, and the EntryPoint's
+// record of every user operation the account sent. The chain decides; this job only
+// writes down what it said, then recomputes the queue's derived states.
 
 use alloy::primitives::{Address, B256, U256};
 use alloy::rpc::types::Log;
@@ -12,7 +13,7 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use tracing::{info, warn};
 
-use crate::services::olien::{IOlien, OlienClient, IERC20, PATH_RECOVERY, PATH_SINGLE, SCHEDULE_WINDOW};
+use crate::services::olien::{IEntryPointView, IOlien, OlienClient, IERC20, PATH_RECOVERY, PATH_SINGLE, SCHEDULE_WINDOW};
 use crate::services::push::{self, Push};
 use crate::services::treasury::{self, AccountRow, RelayerStatus};
 
@@ -23,6 +24,9 @@ const MAX_CHUNKS_PER_CYCLE: u64 = 50;
 
 /// Below this the relayer cannot be trusted to pay for the next creation or execution.
 pub const RELAYER_LOW_USDC: u128 = 5_000_000;
+
+const GAS_NOTE: &str = "Gas for a user operation";
+const REVERTED_NOTE: &str = "The user operation ran but the account's call reverted; the gas was still paid";
 
 pub async fn run(client: OlienClient, pool: PgPool, interval_secs: u64, relayer: Arc<Mutex<Option<RelayerStatus>>>, push: Option<Arc<Push>>) {
     let mut ticker = tokio::time::interval(Duration::from_secs(interval_secs.max(5)));
@@ -208,6 +212,50 @@ async fn apply(client: &OlienClient, pool: &PgPool, push: Option<&Push>, account
         .bind(proposal.map(|p| p.0))
         .execute(pool)
         .await?;
+        return Ok(false);
+    }
+
+    // A user operation is the one way the treasury's money leaves without a Transfer:
+    // gas comes off its EntryPoint deposit, whether or not the call inside succeeded.
+    // So it is a ledger row, in gas, and a reverted one says so rather than vanishing.
+    if log.address() == client.deployment.entry_point {
+        if topic0 != IEntryPointView::UserOperationEvent::SIGNATURE_HASH {
+            return Ok(false);
+        }
+        let event = IEntryPointView::UserOperationEvent::decode_log(&log.inner)?;
+        if event.sender != address {
+            return Ok(false);
+        }
+        let time = block_time(client, timestamps, block).await?;
+        let proposal: Option<(i64,)> =
+            sqlx::query_as("SELECT id FROM olien_proposals WHERE olien_id = $1 AND executed_tx = $2").bind(account.id).bind(&tx).fetch_optional(pool).await?;
+        let note = if event.success { GAS_NOTE } else { REVERTED_NOTE };
+        sqlx::query(
+            "INSERT INTO olien_ledger (olien_id, tx, log_index, token, direction, counterparty, amount, block_number, block_time, proposal_id, note)
+             VALUES ($1, $2, $3, $4, 'out', $5, $6, $7, $8, $9, $10) ON CONFLICT (tx, log_index) DO NOTHING",
+        )
+        .bind(account.id)
+        .bind(&tx)
+        .bind(log.log_index.unwrap_or_default() as i32)
+        .bind(treasury::GAS_TOKEN)
+        .bind(addr(client.deployment.entry_point))
+        .bind(event.actualGasCost.to_string())
+        .bind(block as i64)
+        .bind(time as i64)
+        .bind(proposal.map(|p| p.0))
+        .bind(note)
+        .execute(pool)
+        .await?;
+        if !event.success {
+            // The service sent it and was waiting on it; the members can try again.
+            sqlx::query("UPDATE olien_proposals SET status = 'failed', failure = $3, updated_at = now() WHERE olien_id = $1 AND executed_tx = $2 AND status = 'executing'")
+                .bind(account.id)
+                .bind(&tx)
+                .bind(REVERTED_NOTE)
+                .execute(pool)
+                .await?;
+            warn!("{}: user operation {} reverted in {tx}", account.address, hex(event.userOpHash.as_slice()));
+        }
         return Ok(false);
     }
 

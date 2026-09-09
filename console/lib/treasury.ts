@@ -267,7 +267,10 @@ export interface LedgerEntry {
   tx: string;
   logIndex: number;
   token: string;
+  // "USDC", "EURC", or "gas" for a user operation paid from the EntryPoint deposit.
   symbol: string;
+  // 6 for the coins, 18 for gas: the amount is formatted by this, never by symbol.
+  decimals: number;
   direction: "in" | "out";
   counterparty: string;
   counterpartyLabel: string | null;
@@ -278,6 +281,19 @@ export interface LedgerEntry {
   limitId: number | null;
   subAccount: string | null;
   memo: string | null;
+}
+
+// A ledger row's amount in its own unit. Gas on Arc is USDC too, so the word stays.
+export function formatLedgerAmount(entry: LedgerEntry): string {
+  if (entry.decimals === 18) return `${formatNative(BigInt(entry.amount || "0"))} gas`;
+  return entry.symbol === "EURC" ? formatEuros(entry.amount) : formatUsdc(entry.amount);
+}
+
+// The same amount as a plain decimal for a spreadsheet, in the row's own decimals.
+export function ledgerDecimal(entry: LedgerEntry): string {
+  const n = BigInt(entry.amount || "0");
+  const scale = 10n ** BigInt(entry.decimals);
+  return `${n / scale}.${(n % scale).toString().padStart(entry.decimals, "0")}`;
 }
 
 export interface AddressBookEntry {
@@ -643,13 +659,6 @@ export const proposeRemoveLimit = (address: string, body: { id: number }) =>
   request<ProposalView>(`/accounts/${address}/proposals/remove-limit`, post(body));
 
 // A USDC amount as a plain decimal with six places, for spreadsheets.
-export function usdcDecimal(raw: string | bigint): string {
-  const n = typeof raw === "bigint" ? raw : BigInt(raw || "0");
-  const negative = n < 0n;
-  const abs = negative ? -n : n;
-  return `${negative ? "-" : ""}${abs / 1_000_000n}.${(abs % 1_000_000n).toString().padStart(6, "0")}`;
-}
-
 export function ledgerCsv(entries: LedgerEntry[]): string {
   const escape = (value: string | number | null | undefined) => {
     const text = value == null ? "" : String(value);
@@ -664,7 +673,7 @@ export function ledgerCsv(entries: LedgerEntry[]): string {
       entry.direction,
       entry.counterparty,
       entry.counterpartyLabel,
-      `${entry.direction === "out" ? "-" : ""}${usdcDecimal(entry.amount)}`,
+      `${entry.direction === "out" ? "-" : ""}${ledgerDecimal(entry)}`,
       entry.symbol,
       entry.memo,
       entry.proposalTxHash,

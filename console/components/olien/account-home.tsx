@@ -278,8 +278,9 @@ function AccountsCard({ view }: { view: AccountView }) {
 function FlowsCard({ entries, loading }: { entries: LedgerEntry[]; loading: boolean }) {
   const dayStart = new Date();
   dayStart.setHours(0, 0, 0, 0);
-  const today = entries.filter((entry) => entry.blockTime * 1000 >= dayStart.getTime());
-  const rows = (today.length ? today : entries).slice(0, 6);
+  const flows = entries.filter((entry) => entry.symbol !== "gas");
+  const today = flows.filter((entry) => entry.blockTime * 1000 >= dayStart.getTime());
+  const rows = (today.length ? today : flows).slice(0, 6);
   return (
     <section className="olien-dash-card olien-dash-flows">
       <div className="olien-dash-card-head">
