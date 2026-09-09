@@ -225,6 +225,8 @@ sol! {
         event Transfer(address indexed from, address indexed to, uint256 value);
         function transfer(address to, uint256 amount) external returns (bool);
         function balanceOf(address owner) external view returns (uint256);
+        /// EIP-3009: true once an authorization's nonce is used or cancelled.
+        function authorizationState(address authorizer, bytes32 nonce) external view returns (bool);
     }
 
     #[sol(rpc)]
@@ -424,9 +426,8 @@ pub fn user_operation_signature(valid_after: u64, valid_until: u64, packed: &[u8
     out.into()
 }
 
-// What a member account signs to confirm another account's transaction (spec §9); the
-// service will need it when the app is a signer (Phase 3), and the test pins it now.
-#[allow(dead_code)]
+// What a member account signs to confirm another account's transaction, and what the
+// account's members sign for a cheque (spec §9): Message(hash) in the account's domain.
 pub fn message_hash(chain_id: u64, account: Address, hash: B256) -> B256 {
     let struct_hash = keccak256((typehash("Message(bytes32 hash)"), hash).abi_encode());
     typed(domain_separator(chain_id, account), struct_hash)
@@ -831,6 +832,11 @@ impl OlienClient {
 
     async fn token_balance(&self, token: Address, account: Address) -> Result<U256> {
         IERC20::new(token, &self.provider).balanceOf(account).call().await.map_err(describe)
+    }
+
+    /// Whether a USDC authorization from `authorizer` with this nonce has been used.
+    pub async fn authorization_used(&self, authorizer: Address, nonce: B256) -> Result<bool> {
+        IERC20::new(self.usdc, &self.provider).authorizationState(authorizer, nonce).call().await.map_err(describe)
     }
 
     /// The EntryPoint's nonce for the account in a key, the whole `key << 64 | seq`.

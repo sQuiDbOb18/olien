@@ -834,6 +834,47 @@ export const enableWebhook = (address: string, id: number) => request<Webhook>(`
 export const testWebhook = (address: string, id: number) => request<WebhookDelivery>(`/accounts/${address}/webhooks/${id}/test`, post({}));
 export const getWebhookDeliveries = (address: string, id: number) => request<WebhookDelivery[]>(`/accounts/${address}/webhooks/${id}/deliveries`);
 
+// Cheques written by the treasury: USDC's own signed authorization, signed by the
+// threshold over Message(digest) in the account's domain. Nothing moves on chain until
+// the recipient cashes it from their Recourse app.
+export type ChequeStatus = "open" | "issued" | "cashed" | "voiding" | "voided" | "expired";
+
+export interface ChequeMessageTypedData {
+  domain: { name: string; version: string; chainId: number; verifyingContract: string };
+  types: Record<string, TypedDataField[]>;
+  primaryType: "Message";
+  message: { hash: string };
+}
+
+export interface TreasuryCheque {
+  id: number;
+  to: string;
+  toLabel: string | null;
+  amount: string;
+  validAfter: number;
+  validBefore: number;
+  nonce: string;
+  digest: string;
+  messageHash: string;
+  typedData: ChequeMessageTypedData;
+  memo: string | null;
+  status: ChequeStatus;
+  signatures: ConfirmationView[];
+  required: number;
+  voidProposalTxHash: string | null;
+  proposer: string | null;
+  createdAt: number;
+  issuedAt: number | null;
+  cashedAt: number | null;
+}
+
+export const getCheques = (address: string) => request<TreasuryCheque[]>(`/accounts/${address}/cheques`);
+export const writeCheque = (address: string, body: { to: string; amount: string; memo?: string; validFor?: number }) =>
+  request<TreasuryCheque>(`/accounts/${address}/cheques`, post(body));
+export const signCheque = (address: string, id: number, body: { signerId: string; signature: string }) =>
+  request<TreasuryCheque>(`/accounts/${address}/cheques/${id}/signatures`, post(body));
+export const voidCheque = (address: string, id: number) => request<TreasuryCheque | void>(`/accounts/${address}/cheques/${id}/void`, post({}));
+
 export const getApiKeys = (address: string) => request<ApiKey[]>(`/accounts/${address}/api-keys`);
 export const mintApiKey = (address: string, name: string, scope: ApiKeyScope) =>
   request<MintedApiKey>(`/accounts/${address}/api-keys`, post({ name, scope }));

@@ -91,7 +91,7 @@ pub(crate) fn bad(message: impl Into<String>) -> TreasuryError {
     TreasuryError::Bad(message.into())
 }
 
-fn now() -> u64 {
+pub(crate) fn now() -> u64 {
     SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0)
 }
 
@@ -107,15 +107,15 @@ pub fn parse_address(value: &str) -> Res<Address> {
     value.trim().parse().map_err(|_| bad(format!("{value} is not an address")))
 }
 
-fn parse_hash(value: &str) -> Res<B256> {
+pub(crate) fn parse_hash(value: &str) -> Res<B256> {
     value.trim().parse().map_err(|_| bad(format!("{value} is not a 32-byte hash")))
 }
 
-fn parse_amount(value: &str) -> Res<U256> {
+pub(crate) fn parse_amount(value: &str) -> Res<U256> {
     U256::from_str_radix(value.trim(), 10).map_err(|_| bad(format!("{value} is not an amount")))
 }
 
-fn parse_hex_bytes(value: &str) -> Res<Vec<u8>> {
+pub(crate) fn parse_hex_bytes(value: &str) -> Res<Vec<u8>> {
     alloy::hex::decode(value.trim()).map_err(|_| bad(format!("{value} is not hex")))
 }
 
@@ -167,7 +167,7 @@ pub struct SignerRow {
 }
 
 impl SignerRow {
-    fn approves(&self) -> bool {
+    pub(crate) fn approves(&self) -> bool {
         self.permissions & PERM_APPROVE as i32 != 0
     }
     fn vetoes(&self) -> bool {
@@ -1425,8 +1425,8 @@ fn typed_data(chain_id: u64, account: Address, nonce: U256, epoch: u64, calls: &
 
 pub(crate) struct AccountContext {
     pub(crate) row: AccountRow,
-    signers: Vec<SignerRow>,
-    membership: Membership,
+    pub(crate) signers: Vec<SignerRow>,
+    pub(crate) membership: Membership,
 }
 
 pub(crate) async fn context_for(pool: &PgPool, user: i64, address: &str) -> Res<AccountContext> {
@@ -1436,7 +1436,7 @@ pub(crate) async fn context_for(pool: &PgPool, user: i64, address: &str) -> Res<
     Ok(AccountContext { row, signers, membership })
 }
 
-fn require_live(row: &AccountRow) -> Res<()> {
+pub(crate) fn require_live(row: &AccountRow) -> Res<()> {
     match row.status.as_str() {
         "live" => Ok(()),
         "deploying" => Err(TreasuryError::Conflict("the account is still being created".into())),
@@ -1751,6 +1751,14 @@ pub async fn propose_remove_limit(pool: &PgPool, treasury: &Treasury, user: i64,
     insert_proposal(pool, client, treasury.chain_id, treasury.push.as_deref(), &ctx, user, "limit_change".into(), json!({ "removeLimitId": body.id }), calls, None, None, None, None, None).await
 }
 
+/// A proposal from calls the service built itself, in the default lane.
+pub(crate) async fn propose_calls(pool: &PgPool, treasury: &Treasury, user: i64, address: &str, kind: String, intent: Value, calls: Vec<Call>) -> Res<ProposalView> {
+    let client = treasury.client.as_ref().ok_or(TreasuryError::Off)?;
+    let ctx = context_for(pool, user, address).await?;
+    require_live(&ctx.row)?;
+    insert_proposal(pool, client, treasury.chain_id, treasury.push.as_deref(), &ctx, user, kind, intent, calls, None, None, None, None, None).await
+}
+
 pub async fn propose_cancel(pool: &PgPool, treasury: &Treasury, user: i64, address: &str, tx_hash: &str) -> Res<ProposalView> {
     let client = treasury.client.as_ref().ok_or(TreasuryError::Off)?;
     let ctx = context_for(pool, user, address).await?;
@@ -1839,7 +1847,7 @@ pub(crate) async fn proposal_view(pool: &PgPool, chain_id: u64, user: i64, accou
     build_view(pool, chain_id, account, &row, &signers, &linked, &book).await
 }
 
-async fn address_book_map(pool: &PgPool, olien_id: i64) -> Res<HashMap<String, String>> {
+pub(crate) async fn address_book_map(pool: &PgPool, olien_id: i64) -> Res<HashMap<String, String>> {
     let rows: Vec<(String, String)> = sqlx::query_as("SELECT address, label FROM olien_address_book WHERE olien_id = $1")
         .bind(olien_id)
         .fetch_all(pool)
@@ -2084,38 +2092,7 @@ pub async fn confirm(pool: &PgPool, treasury: &Treasury, user: i64, address: &st
         }
         "onchain"
     } else {
-        // Off-chain signatures are accepted only from a signer the caller controls; an
-        // on-chain approval is public and needs no such link.
-        // A P-256 or passkey signature over this very hash is its own proof of control,
-        // so those need no linked address behind them.
-        let key_based = matches!(signer.kind.as_str(), "p256" | "webauthn");
-        if !key_based && !ctx.membership.signer_ids.contains(&signer_id) {
-            return Err(TreasuryError::Forbidden);
-        }
-        let check = match signer.kind.as_str() {
-            "ecdsa" => {
-                let expected = parse_address(signer.address.as_deref().unwrap_or(""))?;
-                olien::verify_ecdsa(hash, &signature, expected)
-            }
-            "p256" => olien::verify_p256_raw(hash, &signature, key_part(signer.x.as_deref())?, key_part(signer.y.as_deref())?),
-            "webauthn" => olien::verify_webauthn(
-                hash,
-                &signature,
-                key_part(signer.x.as_deref())?,
-                key_part(signer.y.as_deref())?,
-                signer.flags & FLAG_UV_REQUIRED as i32 != 0,
-            ),
-            "contract" => {
-                let member = parse_address(signer.address.as_deref().unwrap_or(""))?;
-                match client.is_valid_signature(member, hash, &signature).await {
-                    Ok(true) => Ok(()),
-                    Ok(false) => Err(anyhow!("the member account does not accept this signature")),
-                    Err(e) => Err(e),
-                }
-            }
-            other => Err(anyhow!("unsupported signer kind {other}")),
-        };
-        check.map_err(|e| bad(format!("signature refused: {e:#}")))?;
+        check_signature(client, &ctx, signer, hash, &signature).await?;
         "offchain"
     };
     sqlx::query(
@@ -2130,6 +2107,41 @@ pub async fn confirm(pool: &PgPool, treasury: &Treasury, user: i64, address: &st
     .await?;
     refresh_statuses(pool, &ctx.row).await?;
     proposal_view(pool, treasury.chain_id, user, &ctx.row, tx_hash).await
+}
+
+/// An off-chain signature from a member, checked exactly as the contract will check
+/// it (spec §5.2), so a refusal comes now and with a reason. Accepted only from a
+/// signer the caller controls: a linked address for ECDSA and contract signers, while
+/// a P-256 or passkey signature over this very hash is its own proof of control.
+pub(crate) async fn check_signature(client: &OlienClient, ctx: &AccountContext, signer: &SignerRow, hash: B256, signature: &[u8]) -> Res<()> {
+    let key_based = matches!(signer.kind.as_str(), "p256" | "webauthn");
+    if !key_based && !ctx.membership.signer_ids.contains(&signer.signer_id) {
+        return Err(TreasuryError::Forbidden);
+    }
+    let check = match signer.kind.as_str() {
+        "ecdsa" => {
+            let expected = parse_address(signer.address.as_deref().unwrap_or(""))?;
+            olien::verify_ecdsa(hash, signature, expected)
+        }
+        "p256" => olien::verify_p256_raw(hash, signature, key_part(signer.x.as_deref())?, key_part(signer.y.as_deref())?),
+        "webauthn" => olien::verify_webauthn(
+            hash,
+            signature,
+            key_part(signer.x.as_deref())?,
+            key_part(signer.y.as_deref())?,
+            signer.flags & FLAG_UV_REQUIRED as i32 != 0,
+        ),
+        "contract" => {
+            let member = parse_address(signer.address.as_deref().unwrap_or(""))?;
+            match client.is_valid_signature(member, hash, signature).await {
+                Ok(true) => Ok(()),
+                Ok(false) => Err(anyhow!("the member account does not accept this signature")),
+                Err(e) => Err(e),
+            }
+        }
+        other => Err(anyhow!("unsupported signer kind {other}")),
+    };
+    check.map_err(|e| bad(format!("signature refused: {e:#}")))
 }
 
 fn key_part(value: Option<&str>) -> Res<U256> {

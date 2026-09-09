@@ -143,7 +143,7 @@ async fn view_of(pool: &PgPool, row: KeyRow) -> Res<ApiKeyView> {
 }
 
 // The same naming the proposer gets: a wallet account is known by its address.
-async fn member_name(pool: &PgPool, id: i64) -> Res<String> {
+pub(crate) async fn member_name(pool: &PgPool, id: i64) -> Res<String> {
     let row: Option<(Option<String>, Option<String>, String, String)> =
         sqlx::query_as("SELECT given_name, email, provider, provider_subject FROM accounts WHERE account_id = $1")
             .bind(id)

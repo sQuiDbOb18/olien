@@ -1,7 +1,8 @@
 "use client";
 
 import { useQueryClient } from "@tanstack/react-query";
-import { CalendarClock, Pencil, Play, Plus, Trash2 } from "lucide-react";
+import { Ban, CalendarClock, FileSignature, KeyRound, Pencil, Play, Plus, Trash2 } from "lucide-react";
+import { useSignTypedData } from "wagmi";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -14,12 +15,23 @@ import {
   formatUsdc,
   runPayroll,
   updatePayroll,
+  isValidAddress,
+  parseUsdc,
+  signCheque,
+  signerIdFor,
+  voidCheque,
+  writeCheque,
+  type Hex,
+  type TreasuryCheque,
   type PayrollPeriod,
   type PayrollRun,
 } from "@/lib/treasury";
-import { AddRecipientButton, draftsFrom, newRecipient, recipientsTotal, RecipientsEditor, validateRecipients, type RecipientDraft } from "./recipients";
-import { Button, Dialog, EmptyState, Field, InlineError, Loading, Note, Panel, Pill, plural, Table } from "./ui";
-import { accountError, applyProposal, olienKeys, useAddressBook, useOlienAccount, usePayrolls } from "./use-olien";
+import { AddRecipientButton, AddressInput, draftsFrom, newRecipient, recipientsTotal, RecipientsEditor, validateRecipients, type RecipientDraft } from "./recipients";
+import { AddressChip, Button, Dialog, EmptyState, Field, InlineError, Loading, Note, Panel, Pill, plural, Table, TxChip } from "./ui";
+import { accountError, applyProposal, olienKeys, useAddressBook, useCheques, useOlienAccount, usePayrolls } from "./use-olien";
+import { friendlyPasskeyError, knownPasskeys, passkeySupported, signWithPasskey } from "@/lib/passkey";
+import { friendlyWalletError, useWalletSession, walletSigner } from "./wallet";
+import { type AccountView } from "@/lib/treasury";
 
 const PERIODS: { id: PayrollPeriod; label: string }[] = [
   { id: "none", label: "Run by hand" },
@@ -207,6 +219,255 @@ function PayrollRow({ address, run, onEdit }: { address: string; run: PayrollRun
   );
 }
 
+function chequeTone(status: TreasuryCheque["status"]): "green" | "amber" | "blue" | "red" | "gray" {
+  switch (status) {
+    case "open":
+      return "amber";
+    case "issued":
+      return "blue";
+    case "cashed":
+      return "green";
+    case "voiding":
+      return "amber";
+    default:
+      return "gray";
+  }
+}
+
+function chequeLabel(status: TreasuryCheque["status"]): string {
+  switch (status) {
+    case "open":
+      return "Needs signatures";
+    case "issued":
+      return "Issued, not cashed";
+    case "cashed":
+      return "Cashed";
+    case "voiding":
+      return "Void proposed";
+    case "voided":
+      return "Voided";
+    case "expired":
+      return "Expired";
+  }
+}
+
+// A cheque needs the threshold's signatures like a payment, but nothing goes on
+// chain: the packed set is what the recipient's app hands to the token when they
+// cash it. Members sign Message(digest) in the account's domain, the wallet showing
+// it as typed data and a passkey signing the hash as it signs a confirmation.
+function ChequeRow({ address, account, cheque }: { address: string; account: AccountView; cheque: TreasuryCheque }) {
+  const queryClient = useQueryClient();
+  const wallet = useWalletSession();
+  const { signTypedDataAsync } = useSignTypedData();
+  const [busy, setBusy] = useState<"wallet" | "passkey" | "void" | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const signed = new Set(cheque.signatures.map((s) => s.signerId.toLowerCase()));
+  const mySigner = walletSigner(account, wallet.address);
+  const canWallet = cheque.status === "open" && Boolean(wallet.matches && mySigner?.permissions.includes("approve") && !signed.has(mySigner.signerId.toLowerCase()));
+  const mine = new Set(knownPasskeys().map((record) => record.signerId.toLowerCase()));
+  const passkeys = account.signers.filter((s) => s.kind === "webauthn" && s.permissions.includes("approve") && mine.has(s.signerId.toLowerCase()) && !signed.has(s.signerId.toLowerCase()));
+  const canPasskey = cheque.status === "open" && passkeys.length > 0 && passkeySupported();
+
+  async function refresh() {
+    await queryClient.invalidateQueries({ queryKey: olienKeys.cheques(address) });
+  }
+
+  async function signWithWallet() {
+    if (!wallet.address || !mySigner) return;
+    setBusy("wallet");
+    setError(null);
+    try {
+      const { domain, types, message } = cheque.typedData;
+      const signature = await signTypedDataAsync({
+        domain: { ...domain, verifyingContract: domain.verifyingContract as Hex },
+        types: { Message: types.Message },
+        primaryType: "Message",
+        message: { hash: message.hash as Hex },
+      });
+      await signCheque(address, cheque.id, { signerId: signerIdFor(wallet.address), signature });
+      await refresh();
+    } catch (cause) {
+      setError(friendlyWalletError(cause));
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function signWithKey() {
+    setBusy("passkey");
+    setError(null);
+    try {
+      const result = await signWithPasskey(cheque.messageHash as Hex, passkeys.map((s) => ({ signerId: s.signerId, x: s.x, y: s.y })));
+      await signCheque(address, cheque.id, result);
+      await refresh();
+    } catch (cause) {
+      setError(friendlyPasskeyError(cause));
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function voidIt() {
+    const question = cheque.status === "open" ? "Delete this draft cheque?" : "Void this cheque? It opens a cancellation for the members to approve; once executed the token refuses it.";
+    if (!window.confirm(question)) return;
+    setBusy("void");
+    setError(null);
+    try {
+      await voidCheque(address, cheque.id);
+      await refresh();
+      await queryClient.invalidateQueries({ queryKey: olienKeys.proposalsOf(address) });
+    } catch (cause) {
+      setError(errorMessage(cause));
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  return (
+    <tr>
+      <td>
+        <AddressChip address={cheque.to} label={cheque.toLabel} />
+        {cheque.memo ? <div className="olien-muted">{cheque.memo}</div> : null}
+        {error ? <InlineError message={error} /> : null}
+      </td>
+      <td className="num">{formatUsdc(cheque.amount)}</td>
+      <td>
+        <Pill tone={chequeTone(cheque.status)}>{chequeLabel(cheque.status)}</Pill>
+        {cheque.status === "open" ? (
+          <div className="olien-muted">
+            {cheque.signatures.length} of {cheque.required} signed
+          </div>
+        ) : cheque.status === "voiding" && cheque.voidProposalTxHash ? (
+          <div className="olien-muted">
+            <Link href={`/olien/${address}/transactions/${cheque.voidProposalTxHash}`} className="olien-link">
+              Cancellation
+            </Link>
+          </div>
+        ) : null}
+      </td>
+      <td className="olien-muted">
+        {cheque.status === "cashed" && cheque.cashedAt ? formatTime(cheque.cashedAt) : `Until ${formatDay(cheque.validBefore)}`}
+      </td>
+      <td className="num">
+        <div className="olien-actions">
+          {canWallet ? (
+            <Button size="sm" variant="primary" icon={<FileSignature size={12} />} busy={busy === "wallet"} disabled={busy != null} onClick={() => void signWithWallet()}>
+              {busy === "wallet" ? "Confirm in wallet" : "Sign"}
+            </Button>
+          ) : null}
+          {canPasskey ? (
+            <Button size="sm" variant="primary" icon={<KeyRound size={12} />} busy={busy === "passkey"} disabled={busy != null} onClick={() => void signWithKey()}>
+              {busy === "passkey" ? "Touch ID" : "Sign with passkey"}
+            </Button>
+          ) : null}
+          {cheque.status === "open" || cheque.status === "issued" ? (
+            <Button size="sm" icon={cheque.status === "open" ? <Trash2 size={12} /> : <Ban size={12} />} busy={busy === "void"} disabled={busy != null} onClick={() => void voidIt()}>
+              {cheque.status === "open" ? "Delete" : "Void"}
+            </Button>
+          ) : null}
+        </div>
+      </td>
+    </tr>
+  );
+}
+
+function ChequeForm({ address, onClose }: { address: string; onClose: () => void }) {
+  const queryClient = useQueryClient();
+  const book = useAddressBook(address);
+  const [to, setTo] = useState("");
+  const [amount, setAmount] = useState("");
+  const [memo, setMemo] = useState("");
+  const [days, setDays] = useState(90);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function write() {
+    if (!isValidAddress(to)) return setError("The recipient needs a valid address.");
+    const units = parseUsdc(amount);
+    if (!units) return setError("The amount is in USDC with at most 6 decimals.");
+    if (days < 1 || days > 365) return setError("A cheque is valid for 1 to 365 days.");
+    setBusy(true);
+    setError(null);
+    try {
+      await writeCheque(address, { to: to.toLowerCase(), amount: units, memo: memo.trim() || undefined, validFor: days * 86_400 });
+      await queryClient.invalidateQueries({ queryKey: olienKeys.cheques(address) });
+      onClose();
+    } catch (cause) {
+      setError(errorMessage(cause));
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Dialog open onClose={onClose} title="Write a cheque">
+      <div className="olien-dialog-body olien-stack">
+        <div className="olien-form-grid">
+          <Field label="To" className="olien-field--wide">
+            <AddressInput value={to} book={book.data ?? []} disabled={busy} onChange={(value) => setTo(value.trim())} onPick={(entry) => setTo(entry.address)} />
+          </Field>
+          <Field label="Amount (USDC)">
+            <input className="olien-input num" value={amount} inputMode="decimal" placeholder="250.00" disabled={busy} onChange={(event) => setAmount(event.target.value)} />
+          </Field>
+          <Field label="Valid for (days)">
+            <input className="olien-input olien-input--short num" type="number" min={1} max={365} value={days} disabled={busy} onChange={(event) => setDays(Math.max(1, Math.min(365, Math.floor(Number(event.target.value) || 1))))} />
+          </Field>
+          <Field label="Memo (optional)" className="olien-field--wide">
+            <input className="olien-input" value={memo} maxLength={140} placeholder="Invoice 1042" disabled={busy} onChange={(event) => setMemo(event.target.value)} />
+          </Field>
+        </div>
+        <p className="olien-muted olien-section-lede">
+          Members sign it here; nothing leaves the account until the recipient cashes it from their Recourse app. Until then it can be voided.
+        </p>
+        <InlineError message={error} />
+        <div className="olien-dialog-actions">
+          <Button onClick={onClose} disabled={busy}>
+            Cancel
+          </Button>
+          <Button variant="primary" busy={busy} onClick={() => void write()}>
+            Write cheque
+          </Button>
+        </div>
+      </div>
+    </Dialog>
+  );
+}
+
+function ChequesSection({ address, account }: { address: string; account: AccountView }) {
+  const cheques = useCheques(address);
+  const [writing, setWriting] = useState(false);
+  const list = cheques.data ?? [];
+  return (
+    <Panel
+      title="Cheques"
+      action={
+        <Button size="sm" icon={<Plus size={13} />} disabled={account.status !== "live"} onClick={() => setWriting(true)}>
+          Write a cheque
+        </Button>
+      }
+    >
+      <p className="olien-muted olien-section-lede">
+        A cheque is a payment the recipient collects when they like. It needs the same signatures as a payment, but nothing moves until it is cashed,
+        and an uncashed one can be voided.
+      </p>
+      {cheques.isLoading ? (
+        <Loading label="Loading cheques" />
+      ) : cheques.error ? (
+        <InlineError message={errorMessage(cheques.error)} />
+      ) : list.length === 0 ? (
+        <EmptyState title="No cheques" hint="Write one to a contractor who will collect it when their invoice is due." />
+      ) : (
+        <Table head={["To", "Amount", "Status", "Valid", ""]}>
+          {list.map((cheque) => (
+            <ChequeRow key={cheque.id} address={address} account={account} cheque={cheque} />
+          ))}
+        </Table>
+      )}
+      {writing ? <ChequeForm address={address} onClose={() => setWriting(false)} /> : null}
+    </Panel>
+  );
+}
+
 export function OlienPayroll({ address }: { address: string }) {
   const account = useOlienAccount(address);
   const payrolls = usePayrolls(address);
@@ -251,6 +512,7 @@ export function OlienPayroll({ address }: { address: string }) {
         ) : null}
       </Panel>
       {editing ? <PayrollEditor address={address} existing={editing === "new" ? null : editing} onClose={() => setEditing(null)} /> : null}
+      <ChequesSection address={address} account={account.data} />
     </div>
   );
 }

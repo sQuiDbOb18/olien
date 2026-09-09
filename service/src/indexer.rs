@@ -18,6 +18,7 @@ use crate::services::push::{self, Push};
 use crate::services::payroll;
 use crate::services::webhooks;
 use crate::services::treasury::{self, AccountRow, RelayerStatus, Treasury};
+use crate::services::treasury_cheques;
 
 // drpc caps a getLogs answer at 10k entries; a fresh account has few logs, so a large
 // block window is safe and catches up fast.
@@ -145,6 +146,8 @@ async fn index_account(client: &OlienClient, pool: &PgPool, push: Option<&Push>,
     }
     let fresh = treasury::load_account_by_id(pool, account.id).await.map_err(|e| anyhow::anyhow!("{}", e.parts().1))?;
     treasury::refresh_statuses(pool, &fresh).await.map_err(|e| anyhow::anyhow!("{}", e.parts().1))?;
+    // A cheque is cashed on the token, not on the account, so its state is asked for.
+    treasury_cheques::refresh(pool, client, account.id, address).await?;
     Ok(())
 }
 
@@ -383,6 +386,7 @@ async fn apply(client: &OlienClient, pool: &PgPool, push: Option<&Push>, account
         }
         t if t == IOlien::Cancelled::SIGNATURE_HASH => {
             let event = IOlien::Cancelled::decode_log(&log.inner)?;
+            treasury_cheques::on_cancelled(pool, account.id, event.hash).await?;
             if let Some((id, _, _, status)) = proposal_id(pool, account.id, event.hash).await? {
                 let next = if status == "scheduled" { "vetoed" } else { "cancelled" };
                 sqlx::query("UPDATE olien_proposals SET status = $2, updated_at = now() WHERE id = $1 AND status <> 'executed'")

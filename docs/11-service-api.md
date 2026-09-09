@@ -400,6 +400,45 @@ one, `lastError` says so and nothing opens. `POST /run` opens it now, as the
 caller, without moving the schedule; a `propose` API key may call it. The three
 writing routes are session only.
 
+## Cheques
+
+The consumer app's cheque with the treasury as the writer (06-algorithms.md §10).
+A cheque is USDC's `TransferWithAuthorization`, signed offline and cashed by the
+recipient when they like; for an Olien the signature is the account's EIP-1271
+answer, `threshold` approvers over `Message(digest)` in its own domain (spec §9).
+So writing one is a signing round like a proposal's, except nothing lands on
+chain: when enough members have signed, the packed set is stored in the same
+`cheques` table the consumer app reads its inbox from, and the recipient cashes
+it there.
+
+```
+GET  /api/treasury/accounts/{address}/cheques                        -> [Cheque]
+POST /api/treasury/accounts/{address}/cheques  { to, amount, memo?, validFor? }   -> Cheque
+GET  /api/treasury/accounts/{address}/cheques/{id}                   -> Cheque
+POST /api/treasury/accounts/{address}/cheques/{id}/signatures  { signerId, signature }  -> Cheque
+POST /api/treasury/accounts/{address}/cheques/{id}/void              -> Cheque, or 204 for a draft
+```
+
+`Cheque`: `{ id, to, toLabel, amount, validAfter, validBefore, nonce, digest,
+messageHash, typedData, memo, status, signatures, required, voidProposalTxHash,
+proposer, createdAt, issuedAt, cashedAt }`. `validFor` is seconds from now, ninety
+days by default, a year at most. `digest` is the token's EIP-712 digest (domain
+`USDC` version `2` on Arc, pinned to the phone's golden vector), `messageHash` is
+`Message(digest)` in the account's domain, and `typedData` is the EIP-712 a
+wallet shows for it. A signature is accepted the way a confirmation is: a wallet
+signs the typed data, a passkey signs `messageHash` as its challenge, and the
+service checks it against the signer's key before storing it. There is no
+on-chain approval for a cheque.
+
+`status` runs `open` (collecting signatures), `issued` (stored for the
+recipient), `cashed` (the token says the nonce is used, seen by the indexer),
+`voiding` (a cancellation is in the queue), `voided` (the account's `cancel` over
+`messageHash` ran, seen as a `Cancelled` event; the token now refuses the
+signature), or `expired`. `void` on a draft deletes it; on an issued cheque it
+opens a `cancel` proposal for the threshold, no delay, and links it in
+`voidProposalTxHash`. A `propose` API key may write a cheque; signing and voiding
+are session only.
+
 ## API keys
 
 For finance tooling: a payroll run that puts the month's payouts in the queue, an

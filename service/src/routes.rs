@@ -10,6 +10,7 @@ use crate::services::account_sessions;
 use crate::services::payroll::{self, PayrollBody};
 use crate::services::webhooks::{self, WebhookBody};
 use crate::services::treasury::{self, Treasury, TreasuryError};
+use crate::services::treasury_cheques::{self, ChequeSignatureBody, NewChequeBody};
 use crate::services::treasury_keys::{self, Need};
 
 /// Who is asking: a person with a session, or an API key standing in for the member
@@ -472,6 +473,44 @@ pub async fn webhook_deliveries(pool: web::Data<PgPool>, req: HttpRequest, path:
     reply(webhooks::deliveries(pool.get_ref(), user, &address, id).await)
 }
 
+pub async fn list_cheques(pool: web::Data<PgPool>, service: web::Data<Treasury>, req: HttpRequest, path: web::Path<String>) -> HttpResponse {
+    let user = who_on!(pool, req, Need::Read, &path).user;
+    reply(treasury_cheques::list(pool.get_ref(), service.get_ref(), user, &path).await)
+}
+
+pub async fn write_cheque(pool: web::Data<PgPool>, service: web::Data<Treasury>, req: HttpRequest, path: web::Path<String>, body: web::Json<NewChequeBody>) -> HttpResponse {
+    let user = who_on!(pool, req, Need::Propose, &path).user;
+    reply(treasury_cheques::write(pool.get_ref(), service.get_ref(), user, &path, body.into_inner()).await)
+}
+
+pub async fn get_cheque(pool: web::Data<PgPool>, service: web::Data<Treasury>, req: HttpRequest, path: web::Path<(String, i64)>) -> HttpResponse {
+    let user = who_on!(pool, req, Need::Read, &path.0).user;
+    let (address, id) = path.into_inner();
+    reply(treasury_cheques::get(pool.get_ref(), service.get_ref(), user, &address, id).await)
+}
+
+pub async fn sign_cheque(
+    pool: web::Data<PgPool>,
+    service: web::Data<Treasury>,
+    req: HttpRequest,
+    path: web::Path<(String, i64)>,
+    body: web::Json<ChequeSignatureBody>,
+) -> HttpResponse {
+    let user = who!(pool, req);
+    let (address, id) = path.into_inner();
+    reply(treasury_cheques::sign(pool.get_ref(), service.get_ref(), user, &address, id, body.into_inner()).await)
+}
+
+pub async fn void_cheque(pool: web::Data<PgPool>, service: web::Data<Treasury>, req: HttpRequest, path: web::Path<(String, i64)>) -> HttpResponse {
+    let user = who!(pool, req);
+    let (address, id) = path.into_inner();
+    match treasury_cheques::void(pool.get_ref(), service.get_ref(), user, &address, id).await {
+        Ok(view) => HttpResponse::Ok().json(view),
+        Err(TreasuryError::NotFound(message)) if message.starts_with("the draft") => HttpResponse::NoContent().finish(),
+        Err(error) => failed(error),
+    }
+}
+
 /// The route table, mounted under /api/treasury.
 pub fn routes(scope: actix_web::Scope) -> actix_web::Scope {
     scope
@@ -510,6 +549,11 @@ pub fn routes(scope: actix_web::Scope) -> actix_web::Scope {
         .route("/accounts/{address}/payrolls/{id}", web::put().to(update_payroll))
         .route("/accounts/{address}/payrolls/{id}", web::delete().to(delete_payroll))
         .route("/accounts/{address}/payrolls/{id}/run", web::post().to(run_payroll))
+        .route("/accounts/{address}/cheques", web::get().to(list_cheques))
+        .route("/accounts/{address}/cheques", web::post().to(write_cheque))
+        .route("/accounts/{address}/cheques/{id}", web::get().to(get_cheque))
+        .route("/accounts/{address}/cheques/{id}/signatures", web::post().to(sign_cheque))
+        .route("/accounts/{address}/cheques/{id}/void", web::post().to(void_cheque))
         .route("/accounts/{address}/webhooks", web::get().to(list_webhooks))
         .route("/accounts/{address}/webhooks", web::post().to(create_webhook))
         .route("/accounts/{address}/webhooks/{id}", web::delete().to(delete_webhook))

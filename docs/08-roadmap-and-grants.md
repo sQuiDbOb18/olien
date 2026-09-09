@@ -332,9 +332,15 @@ one machine; what is left is listed under each item.
   failure on the template rather than losing it. The CSV export and API keys are
   done. Webhooks too (`services/webhooks.rs`, migration 0023): signed
   deliveries for ledger rows and proposal changes from an outbox the indexer's
-  cycle fills and drains with retries, and the console shows deliveries. Not
-  yet: the payroll sub-account and limit path (`spend` per recipient), cheques
-  and invoices from the treasury.
+  cycle fills and drains with retries, and the console shows deliveries.
+  Cheques from the treasury too (`services/treasury_cheques.rs`, migration
+  0024): the members sign Message(digest) like a confirmation, the packed set
+  lands in the consumer app's `cheques` table, the indexer marks cashed from the
+  token's `authorizationState`, and void is a `cancel` proposal over the message
+  hash. The digest is pinned to the phone's golden vector. Not yet: an Olien
+  cheque cashed on chain (the Safe case is verified, the Olien EIP-1271 path is
+  not), the payroll sub-account and limit path (`spend` per recipient), invoices
+  approved by the treasury.
 - Exit: a monthly run pays five recipients from the payroll sub-account under a
   limit; one is paid by cheque and cashes it from the consumer app.
 
