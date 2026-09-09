@@ -796,6 +796,44 @@ export const updatePayroll = (address: string, id: number, body: PayrollBody) =>
 export const deletePayroll = (address: string, id: number) => request<void>(`/accounts/${address}/payrolls/${id}`, { method: "DELETE" });
 export const runPayroll = (address: string, id: number) => request<ProposalView>(`/accounts/${address}/payrolls/${id}/run`, post({}));
 
+// Webhooks: the service posts a signed JSON delivery when a ledger row lands or a
+// proposal changes. The secret is shown once; the receiver checks x-olien-signature.
+export type WebhookTopic = "ledger" | "proposals";
+
+export interface Webhook {
+  id: number;
+  url: string;
+  events: WebhookTopic[];
+  disabledReason: string | null;
+  lastDeliveryAt: number | null;
+  lastStatus: number | null;
+  pending: number;
+  createdAt: number;
+}
+
+export interface CreatedWebhook extends Webhook {
+  secret: string;
+}
+
+export interface WebhookDelivery {
+  id: number;
+  event: string;
+  attempts: number;
+  deliveredAt: number | null;
+  abandonedAt: number | null;
+  lastStatus: number | null;
+  lastError: string | null;
+  createdAt: number;
+}
+
+export const getWebhooks = (address: string) => request<Webhook[]>(`/accounts/${address}/webhooks`);
+export const createWebhook = (address: string, body: { url: string; events: WebhookTopic[] }) =>
+  request<CreatedWebhook>(`/accounts/${address}/webhooks`, post(body));
+export const deleteWebhook = (address: string, id: number) => request<void>(`/accounts/${address}/webhooks/${id}`, { method: "DELETE" });
+export const enableWebhook = (address: string, id: number) => request<Webhook>(`/accounts/${address}/webhooks/${id}/enable`, post({}));
+export const testWebhook = (address: string, id: number) => request<WebhookDelivery>(`/accounts/${address}/webhooks/${id}/test`, post({}));
+export const getWebhookDeliveries = (address: string, id: number) => request<WebhookDelivery[]>(`/accounts/${address}/webhooks/${id}/deliveries`);
+
 export const getApiKeys = (address: string) => request<ApiKey[]>(`/accounts/${address}/api-keys`);
 export const mintApiKey = (address: string, name: string, scope: ApiKeyScope) =>
   request<MintedApiKey>(`/accounts/${address}/api-keys`, post({ name, scope }));

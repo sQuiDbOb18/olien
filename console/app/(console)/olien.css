@@ -3691,6 +3691,28 @@ strong > .olien-tag {
   justify-self: start;
 }
 
+.olien-topics {
+  gap: 16px;
+  margin: 0 0 14px;
+}
+
+.olien-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.olien-check input {
+  accent-color: var(--accent);
+}
+
+.olien-table--compact {
+  margin-top: 10px;
+  font-size: 12.5px;
+}
+
 .olien-spend-form {
   display: grid;
   gap: 10px;

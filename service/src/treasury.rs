@@ -1831,7 +1831,7 @@ pub async fn refresh_statuses(pool: &PgPool, account: &AccountRow) -> Res<()> {
     Ok(())
 }
 
-async fn proposal_view(pool: &PgPool, chain_id: u64, user: i64, account: &AccountRow, tx_hash: &str) -> Res<ProposalView> {
+pub(crate) async fn proposal_view(pool: &PgPool, chain_id: u64, user: i64, account: &AccountRow, tx_hash: &str) -> Res<ProposalView> {
     let row = load_proposal(pool, account.id, tx_hash).await?;
     let signers = signers_of(pool, account.id).await?;
     let linked = linked_set(pool, user).await?;
@@ -2584,7 +2584,12 @@ pub async fn execute_scheduled(pool: &PgPool, treasury: &Treasury, user: i64, ad
 
 pub async fn ledger(pool: &PgPool, user: i64, address: &str, limit: i64, before: Option<i64>) -> Res<Vec<LedgerEntry>> {
     let ctx = context_for(pool, user, address).await?;
-    let book = address_book_map(pool, ctx.row.id).await?;
+    ledger_entries(pool, ctx.row.id, before, None, limit).await
+}
+
+/// A page of the ledger, newest first: rows below `before` and above `after`.
+pub(crate) async fn ledger_entries(pool: &PgPool, olien_id: i64, before: Option<i64>, after: Option<i64>, limit: i64) -> Res<Vec<LedgerEntry>> {
+    let book = address_book_map(pool, olien_id).await?;
     let limit = limit.clamp(1, 500);
     #[derive(sqlx::FromRow)]
     struct Row {
@@ -2607,11 +2612,12 @@ pub async fn ledger(pool: &PgPool, user: i64, address: &str, limit: i64, before:
         "SELECT l.id, l.tx, l.log_index, l.token, l.direction, l.counterparty, l.amount, l.block_number, l.block_time,
             p.tx_hash AS proposal_tx, p.intent, l.limit_id, l.sub_account, l.note
          FROM olien_ledger l LEFT JOIN olien_proposals p ON p.id = l.proposal_id
-         WHERE l.olien_id = $1 AND ($2::bigint IS NULL OR l.id < $2) ORDER BY l.id DESC LIMIT $3",
+         WHERE l.olien_id = $1 AND ($2::bigint IS NULL OR l.id < $2) AND ($4::bigint IS NULL OR l.id > $4) ORDER BY l.id DESC LIMIT $3",
     )
-    .bind(ctx.row.id)
+    .bind(olien_id)
     .bind(before)
     .bind(limit)
+    .bind(after)
     .fetch_all(pool)
     .await?;
     Ok(rows

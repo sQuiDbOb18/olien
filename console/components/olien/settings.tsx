@@ -1,7 +1,7 @@
 "use client";
 
 import { useQueryClient } from "@tanstack/react-query";
-import { ArrowDownLeft, ArrowUpRight, Download, KeyRound, Lock, Plus, Send, Trash2 } from "lucide-react";
+import { ArrowDownLeft, ArrowUpRight, Download, KeyRound, Lock, Plus, Radio, Send, Trash2 } from "lucide-react";
 import { useSendTransaction } from "wagmi";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -33,12 +33,19 @@ import {
   type Hex,
   mintApiKey,
   revokeApiKey,
+  createWebhook,
+  deleteWebhook,
+  enableWebhook,
+  testWebhook,
+  type Webhook,
+  type WebhookTopic,
+  type CreatedWebhook,
   type ApiKey,
   type ApiKeyScope,
   type MintedApiKey,
 } from "@/lib/treasury";
 import { AddressChip, Button, CopyButton, cx, DurationInput, EmptyState, Field, InlineError, KeyValue, Loading, Note, Panel, Pill, plural, Table, TxChip } from "./ui";
-import { accountError, applyProposal, olienKeys, useAddressBook, useApiKeys, useLedger, useOlienAccount } from "./use-olien";
+import { accountError, applyProposal, olienKeys, useAddressBook, useApiKeys, useLedger, useOlienAccount, useWebhookDeliveries, useWebhooks } from "./use-olien";
 import { AddressInput } from "./recipients";
 import { friendlyWalletError, useArcChain, useWalletSession, walletSigner } from "./wallet";
 import { friendlyPasskeyError, knownPasskeys, passkeySupported, signWithPasskey } from "@/lib/passkey";
@@ -884,6 +891,191 @@ function ApiKeysSection({ address }: { address: string }) {
   );
 }
 
+const TOPICS: { id: WebhookTopic; label: string; hint: string }[] = [
+  { id: "ledger", label: "Money moved", hint: "Every ledger row: a payment in or out, gas, a limit spend." },
+  { id: "proposals", label: "Proposal changed", hint: "Opened, approved, executed, scheduled, vetoed, failed." },
+];
+
+function WebhookRow({ address, hook }: { address: string; hook: Webhook }) {
+  const queryClient = useQueryClient();
+  const [open, setOpen] = useState(false);
+  const [busy, setBusy] = useState<"test" | "enable" | "delete" | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const deliveries = useWebhookDeliveries(address, hook.id, open);
+
+  async function act(kind: "test" | "enable" | "delete") {
+    if (kind === "delete" && !window.confirm(`Remove the webhook to ${hook.url}?`)) return;
+    setBusy(kind);
+    setError(null);
+    try {
+      if (kind === "test") await testWebhook(address, hook.id);
+      if (kind === "enable") await enableWebhook(address, hook.id);
+      if (kind === "delete") await deleteWebhook(address, hook.id);
+      await queryClient.invalidateQueries({ queryKey: olienKeys.webhooks(address) });
+      if (kind === "test") {
+        setOpen(true);
+        await queryClient.invalidateQueries({ queryKey: olienKeys.deliveries(address, hook.id) });
+      }
+    } catch (cause) {
+      setError(errorMessage(cause));
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  const status = hook.disabledReason ? (
+    <Pill tone="red">Off</Pill>
+  ) : hook.lastStatus == null ? (
+    <Pill tone="gray">Waiting</Pill>
+  ) : hook.lastStatus >= 200 && hook.lastStatus < 300 ? (
+    <Pill tone="green">OK {hook.lastStatus}</Pill>
+  ) : (
+    <Pill tone="amber">Answered {hook.lastStatus}</Pill>
+  );
+
+  return (
+    <li className="olien-limit">
+      <div className="olien-limit-main">
+        <strong className="olien-mono">{hook.url}</strong>
+        <span className="olien-inline">
+          {status}
+          <span className="olien-muted">{hook.events.map((topic) => TOPICS.find((t) => t.id === topic)?.label ?? topic).join(", ")}</span>
+          {hook.pending > 0 ? <span className="olien-muted">{plural(hook.pending, "delivery", "deliveries")} pending</span> : null}
+        </span>
+        {hook.lastDeliveryAt ? <small className="olien-muted">Last delivery {formatTime(hook.lastDeliveryAt)}</small> : null}
+        {hook.disabledReason ? <InlineError message={hook.disabledReason} /> : null}
+        <InlineError message={error} />
+        {open ? (
+          deliveries.isLoading ? (
+            <Loading label="Loading deliveries" />
+          ) : deliveries.data && deliveries.data.length > 0 ? (
+            <Table head={["Event", "When", "Tries", "Result"]} className="olien-table--compact">
+              {deliveries.data.map((delivery) => (
+                <tr key={delivery.id}>
+                  <td className="olien-mono">{delivery.event}</td>
+                  <td className="num olien-muted">{formatTime(delivery.createdAt)}</td>
+                  <td className="num">{delivery.attempts}</td>
+                  <td className={delivery.deliveredAt ? "olien-ok" : delivery.abandonedAt ? "olien-muted" : ""}>
+                    {delivery.deliveredAt ? `Delivered, ${delivery.lastStatus}` : delivery.abandonedAt ? `Given up: ${delivery.lastError ?? ""}` : delivery.lastError ? `Retrying: ${delivery.lastError}` : "Queued"}
+                  </td>
+                </tr>
+              ))}
+            </Table>
+          ) : (
+            <span className="olien-muted">Nothing delivered yet.</span>
+          )
+        ) : null}
+      </div>
+      <div className="olien-limit-actions">
+        <Button size="sm" busy={busy === "test"} disabled={busy != null || Boolean(hook.disabledReason)} onClick={() => void act("test")}>
+          Send a test
+        </Button>
+        <Button variant="ghost" size="sm" disabled={busy != null} onClick={() => setOpen((value) => !value)}>
+          {open ? "Hide deliveries" : "Deliveries"}
+        </Button>
+        {hook.disabledReason ? (
+          <Button variant="ghost" size="sm" busy={busy === "enable"} disabled={busy != null} onClick={() => void act("enable")}>
+            Switch on
+          </Button>
+        ) : null}
+        <Button variant="ghost" size="sm" icon={<Trash2 size={13} />} busy={busy === "delete"} disabled={busy != null} onClick={() => void act("delete")}>
+          Remove
+        </Button>
+      </div>
+    </li>
+  );
+}
+
+function WebhooksSection({ address }: { address: string }) {
+  const queryClient = useQueryClient();
+  const hooks = useWebhooks(address);
+  const [url, setUrl] = useState("");
+  const [topics, setTopics] = useState<WebhookTopic[]>(["ledger", "proposals"]);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [created, setCreated] = useState<CreatedWebhook | null>(null);
+
+  async function create() {
+    setBusy(true);
+    setError(null);
+    try {
+      const fresh = await createWebhook(address, { url: url.trim(), events: topics });
+      setCreated(fresh);
+      setUrl("");
+      await queryClient.invalidateQueries({ queryKey: olienKeys.webhooks(address) });
+    } catch (cause) {
+      setError(errorMessage(cause));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Panel title="Webhooks">
+      <p className="olien-muted olien-section-lede">
+        The service posts a signed JSON delivery to your URL when money moves or a proposal changes, so an accounting system reconciles as it happens.
+        Each delivery carries an <code>x-olien-signature</code> header to check against the secret.
+      </p>
+      <form
+        className="olien-inline-form"
+        onSubmit={(event) => {
+          event.preventDefault();
+          void create();
+        }}
+      >
+        <input className="olien-input olien-input--mono" placeholder="https://hooks.example.com/olien" value={url} onChange={(event) => setUrl(event.target.value)} disabled={busy} required />
+        <Button type="submit" variant="primary" disabled={busy || !url.trim() || topics.length === 0} icon={<Radio size={14} />}>
+          {busy ? "Adding" : "Add webhook"}
+        </Button>
+      </form>
+      <div className="olien-inline olien-topics">
+        {TOPICS.map((topic) => (
+          <label key={topic.id} className="olien-check" title={topic.hint}>
+            <input
+              type="checkbox"
+              checked={topics.includes(topic.id)}
+              disabled={busy}
+              onChange={(event) => setTopics((current) => (event.target.checked ? [...current, topic.id] : current.filter((t) => t !== topic.id)))}
+            />
+            {topic.label}
+          </label>
+        ))}
+      </div>
+      {error ? <InlineError message={error} /> : null}
+      {created ? (
+        <Note tone="warn" icon={<Radio size={14} />}>
+          <div className="olien-secret">
+            <div>Signing secret for {created.url}. Copy it now: this is the only time it is shown.</div>
+            <div className="olien-secret-value">
+              <code>{created.secret}</code>
+              <CopyButton value={created.secret} title="Copy secret" />
+            </div>
+            <div className="olien-muted">
+              Check <code>x-olien-signature</code>: <code>t=&lt;unix&gt;,v1=&lt;hex&gt;</code>, where v1 is HMAC-SHA256 of <code>&lt;t&gt;.&lt;body&gt;</code> under this secret.
+            </div>
+            <Button size="sm" onClick={() => setCreated(null)}>
+              I have copied it
+            </Button>
+          </div>
+        </Note>
+      ) : null}
+      {hooks.isLoading ? (
+        <Loading label="Loading webhooks" />
+      ) : hooks.error ? (
+        <InlineError message={errorMessage(hooks.error)} />
+      ) : !hooks.data || hooks.data.length === 0 ? (
+        <EmptyState title="No webhooks" hint="Add one and press Send a test to see a delivery land." />
+      ) : (
+        <ul className="olien-limits">
+          {hooks.data.map((hook) => (
+            <WebhookRow key={hook.id} address={address} hook={hook} />
+          ))}
+        </ul>
+      )}
+    </Panel>
+  );
+}
+
 export function OlienSettings({ address }: { address: string }) {
   const account = useOlienAccount(address);
   if (account.isLoading) return <Loading label="Loading settings" />;
@@ -897,6 +1089,7 @@ export function OlienSettings({ address }: { address: string }) {
       <AddressBookSection address={address} />
       <SubAccountsSection account={view} />
       <ApiKeysSection address={address} />
+      <WebhooksSection address={address} />
       <LedgerSection address={address} />
     </div>
   );

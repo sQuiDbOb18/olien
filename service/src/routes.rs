@@ -8,6 +8,7 @@ use sqlx::PgPool;
 use crate::handlers::auth::{account_error_response, bearer_token, error_response};
 use crate::services::account_sessions;
 use crate::services::payroll::{self, PayrollBody};
+use crate::services::webhooks::{self, WebhookBody};
 use crate::services::treasury::{self, Treasury, TreasuryError};
 use crate::services::treasury_keys::{self, Need};
 
@@ -433,6 +434,44 @@ pub async fn run_payroll(pool: web::Data<PgPool>, service: web::Data<Treasury>, 
     reply(payroll::run(pool.get_ref(), service.get_ref(), caller.user, &address, id, caller.key).await)
 }
 
+pub async fn list_webhooks(pool: web::Data<PgPool>, req: HttpRequest, path: web::Path<String>) -> HttpResponse {
+    let user = who!(pool, req);
+    reply(webhooks::list(pool.get_ref(), user, &path).await)
+}
+
+/// POST /api/treasury/accounts/{address}/webhooks - the only response that carries the secret.
+pub async fn create_webhook(pool: web::Data<PgPool>, req: HttpRequest, path: web::Path<String>, body: web::Json<WebhookBody>) -> HttpResponse {
+    let user = who!(pool, req);
+    reply(webhooks::create(pool.get_ref(), user, &path, body.into_inner()).await)
+}
+
+pub async fn delete_webhook(pool: web::Data<PgPool>, req: HttpRequest, path: web::Path<(String, i64)>) -> HttpResponse {
+    let user = who!(pool, req);
+    let (address, id) = path.into_inner();
+    match webhooks::delete(pool.get_ref(), user, &address, id).await {
+        Ok(()) => HttpResponse::NoContent().finish(),
+        Err(error) => failed(error),
+    }
+}
+
+pub async fn enable_webhook(pool: web::Data<PgPool>, req: HttpRequest, path: web::Path<(String, i64)>) -> HttpResponse {
+    let user = who!(pool, req);
+    let (address, id) = path.into_inner();
+    reply(webhooks::enable(pool.get_ref(), user, &address, id).await)
+}
+
+pub async fn test_webhook(pool: web::Data<PgPool>, req: HttpRequest, path: web::Path<(String, i64)>) -> HttpResponse {
+    let user = who!(pool, req);
+    let (address, id) = path.into_inner();
+    reply(webhooks::test(pool.get_ref(), user, &address, id).await)
+}
+
+pub async fn webhook_deliveries(pool: web::Data<PgPool>, req: HttpRequest, path: web::Path<(String, i64)>) -> HttpResponse {
+    let user = who!(pool, req);
+    let (address, id) = path.into_inner();
+    reply(webhooks::deliveries(pool.get_ref(), user, &address, id).await)
+}
+
 /// The route table, mounted under /api/treasury.
 pub fn routes(scope: actix_web::Scope) -> actix_web::Scope {
     scope
@@ -471,4 +510,10 @@ pub fn routes(scope: actix_web::Scope) -> actix_web::Scope {
         .route("/accounts/{address}/payrolls/{id}", web::put().to(update_payroll))
         .route("/accounts/{address}/payrolls/{id}", web::delete().to(delete_payroll))
         .route("/accounts/{address}/payrolls/{id}/run", web::post().to(run_payroll))
+        .route("/accounts/{address}/webhooks", web::get().to(list_webhooks))
+        .route("/accounts/{address}/webhooks", web::post().to(create_webhook))
+        .route("/accounts/{address}/webhooks/{id}", web::delete().to(delete_webhook))
+        .route("/accounts/{address}/webhooks/{id}/enable", web::post().to(enable_webhook))
+        .route("/accounts/{address}/webhooks/{id}/test", web::post().to(test_webhook))
+        .route("/accounts/{address}/webhooks/{id}/deliveries", web::get().to(webhook_deliveries))
 }

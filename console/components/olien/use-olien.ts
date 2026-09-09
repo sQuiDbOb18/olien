@@ -10,6 +10,8 @@ import {
   getAddressBook,
   getApiKeys,
   getPayrolls,
+  getWebhookDeliveries,
+  getWebhooks,
   getLedger,
   getProposal,
   getProposals,
@@ -39,6 +41,8 @@ export const olienKeys = {
   addressBook: (address: string) => ["olien", "address-book", address] as const,
   apiKeys: (address: string) => ["olien", "api-keys", address] as const,
   payrolls: (address: string) => ["olien", "payrolls", address] as const,
+  webhooks: (address: string) => ["olien", "webhooks", address] as const,
+  deliveries: (address: string, id: number) => ["olien", "webhook-deliveries", address, id] as const,
   nativeBalance: (address: string) => ["olien", "native-balance", address] as const,
 };
 
@@ -103,6 +107,14 @@ export function useAddressBook(address: string) {
 
 export function useApiKeys(address: string) {
   return useQuery({ queryKey: olienKeys.apiKeys(address), queryFn: () => getApiKeys(address) });
+}
+
+export function useWebhooks(address: string) {
+  return useQuery({ queryKey: olienKeys.webhooks(address), queryFn: () => getWebhooks(address), refetchInterval: POLL_MS });
+}
+
+export function useWebhookDeliveries(address: string, id: number, enabled: boolean) {
+  return useQuery({ queryKey: olienKeys.deliveries(address, id), queryFn: () => getWebhookDeliveries(address, id), refetchInterval: POLL_MS, enabled });
 }
 
 export function usePayrolls(address: string) {

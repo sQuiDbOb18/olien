@@ -433,6 +433,50 @@ the key's last four characters. The `POST` response is the only one that carries
 `key`; the service keeps a hash and cannot show it again. Session only: a key
 cannot reach these three routes.
 
+## Webhooks
+
+The other half of API keys: a key lets a system act, a webhook tells it what
+happened. The service posts a signed JSON delivery to the hook's URL when a
+ledger row lands (`ledger` topic) or a proposal changes (`proposals` topic), so
+an accounting system reconciles as it happens instead of polling.
+
+```
+GET    /api/treasury/accounts/{address}/webhooks                     -> [Webhook]
+POST   /api/treasury/accounts/{address}/webhooks  { url, events }    -> Webhook plus `secret`
+DELETE /api/treasury/accounts/{address}/webhooks/{id}                -> 204
+POST   /api/treasury/accounts/{address}/webhooks/{id}/enable         -> Webhook
+POST   /api/treasury/accounts/{address}/webhooks/{id}/test           -> Delivery   (queues a `ping`)
+GET    /api/treasury/accounts/{address}/webhooks/{id}/deliveries     -> [Delivery]  (the last fifty)
+```
+
+`Webhook`: `{ id, url, events, disabledReason, lastDeliveryAt, lastStatus,
+pending, createdAt }`. `events` is a list of `"ledger"` and `"proposals"`. The
+URL must be https with a public host name. The `POST` response is the only one
+that carries `secret`. All six routes are session only.
+
+A delivery is `POST` with `content-type: application/json` and the headers
+`x-olien-event`, `x-olien-delivery` (its id) and `x-olien-signature`. The body:
+
+```json
+{ "id": 42, "event": "ledger.entry", "account": "0x…", "createdAt": 1757400000, "data": { ...LedgerEntry } }
+```
+
+`event` is `ledger.entry` with a `LedgerEntry` as `data`, `proposal.<status>`
+with a `ProposalView` as `data` (one delivery per change of the row, so a
+proposal that is approved twice then executed sends three), or `ping`. The
+signature header is `t=<unix>,v1=<hex>`, where `v1` is HMAC-SHA256 under the
+secret of the string `<t>.<body>`, `body` being the exact bytes received. Check
+it in constant time and refuse a `t` older than a few minutes; the timestamp is
+inside the signed text so a captured delivery cannot be replayed as new.
+
+A hook starts from now, not from history. Deliveries are made from the indexer's
+cycle, oldest first; a non-2xx answer or a timeout (ten seconds) is retried with
+a growing wait, thirty seconds doubling to about an hour, eight times, then the
+delivery is given up and shows so in `deliveries`. Twenty deliveries in a row
+that never get through switch the hook off with the reason in `disabledReason`;
+`enable` switches it back on. Deliveries are at least once: a receiver should
+treat `id` as the key to ignore a repeat.
+
 ## Push tokens
 
 `PUT /api/me/push-token` with `{ "token": "<hex>", "environment": "sandbox" | "production" }`

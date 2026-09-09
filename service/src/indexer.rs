@@ -16,6 +16,7 @@ use tracing::{info, warn};
 use crate::services::olien::{IEntryPointView, IOlien, OlienClient, IERC20, PATH_RECOVERY, PATH_SINGLE, SCHEDULE_WINDOW};
 use crate::services::push::{self, Push};
 use crate::services::payroll;
+use crate::services::webhooks;
 use crate::services::treasury::{self, AccountRow, RelayerStatus, Treasury};
 
 // drpc caps a getLogs answer at 10k entries; a fresh account has few logs, so a large
@@ -35,6 +36,7 @@ pub async fn run(treasury: Treasury, pool: PgPool, interval_secs: u64) {
     let push = treasury.push.clone();
     let mut ticker = tokio::time::interval(Duration::from_secs(interval_secs.max(5)));
     let mut cycles: u64 = 0;
+    let http = reqwest::Client::new();
     loop {
         ticker.tick().await;
         // Every sixth cycle, about a minute: the relayer pays for every creation and
@@ -50,6 +52,10 @@ pub async fn run(treasury: Treasury, pool: PgPool, interval_secs: u64) {
         }
         if let Err(e) = index_once(&client, &pool, push.as_deref()).await {
             warn!("olien index cycle failed: {e:#}");
+        }
+        // What the chain just said goes out to whoever asked to hear it.
+        if let Err(e) = webhooks::dispatch(&pool, &treasury, &http).await {
+            warn!("webhook cycle failed: {e:#}");
         }
     }
 }

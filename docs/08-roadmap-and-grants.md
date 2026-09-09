@@ -330,8 +330,11 @@ one machine; what is left is listed under each item.
   path as a payment; the indexer's cycle opens scheduled ones on the day as the
   member who saved them, collapsing missed dates into one run and writing a
   failure on the template rather than losing it. The CSV export and API keys are
-  done. Not yet: the payroll sub-account and limit path (`spend` per recipient
-  needs the relayer's `handleOps`), cheques and invoices from the treasury.
+  done. Webhooks too (`services/webhooks.rs`, migration 0023): signed
+  deliveries for ledger rows and proposal changes from an outbox the indexer's
+  cycle fills and drains with retries, and the console shows deliveries. Not
+  yet: the payroll sub-account and limit path (`spend` per recipient), cheques
+  and invoices from the treasury.
 - Exit: a monthly run pays five recipients from the payroll sub-account under a
   limit; one is paid by cheque and cashes it from the consumer app.
 
