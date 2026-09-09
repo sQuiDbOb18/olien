@@ -77,6 +77,7 @@ export interface AccountSummary {
   threshold: number;
   signerCount: number;
   usdcBalance: string;
+  eurcBalance: string;
   openProposals: number;
   scheduledChanges: number;
   createdAt: number;
@@ -128,6 +129,7 @@ export interface AccountView {
   recoveryCoSignDelay: number;
   signers: SignerView[];
   usdcBalance: string;
+  eurcBalance: string;
   entryPointDeposit: string;
   lanes: Lane[];
   limits: SpendingLimit[];
@@ -407,6 +409,11 @@ export function linkMessage(address: string, accountId: number): string {
 /// The same number with a dollar sign, for a balance that stands alone.
 export function formatDollars(raw: string | bigint): string {
   return `$${formatUsdc(raw).replace(/ USDC$/, "")}`;
+}
+
+/// Euros a treasury holds, shown only when it has some. Six decimals like USDC.
+export function formatEuros(raw: string | bigint): string {
+  return `\u20ac${formatUsdc(raw).replace(/ USDC$/, "")}`;
 }
 
 export function formatUsdc(raw: string | bigint): string {

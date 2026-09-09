@@ -6,7 +6,7 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { erc20Abi } from "viem";
 import { explorerAddressUrl, publicClient, usdcAddress } from "@/lib/contracts";
-import { formatDollars, formatUsdc, shortAddress, type AccountView, type LedgerEntry, type SignerView } from "@/lib/treasury";
+import { formatEuros, formatDollars, formatUsdc, shortAddress, type AccountView, type LedgerEntry, type SignerView } from "@/lib/treasury";
 import { DepositDialog } from "./deposit-dialog";
 import { InlineError, Loading, Note } from "./ui";
 import { accountError, useLedger, useOlienAccount } from "./use-olien";
@@ -59,6 +59,13 @@ function BalanceCard({ view, entries, approvers, onDeposit }: { view: AccountVie
         <span className="olien-dash-chip">
           Threshold <b>{view.threshold}/{approvers}</b>
         </span>
+        {/* Only when there are euros. A permanent zero would read as a second
+            account this treasury does not have. */}
+        {BigInt(view.eurcBalance || "0") > 0n ? (
+          <span className="olien-dash-chip">
+            Also <b>{formatEuros(view.eurcBalance)}</b>
+          </span>
+        ) : null}
       </div>
       <div className="olien-dash-actions">
         <Link href={`/olien/${view.address}/transactions/new`} className="olien-dash-action">

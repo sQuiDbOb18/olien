@@ -132,11 +132,13 @@ async fn index_account(client: &OlienClient, pool: &PgPool, push: Option<&Push>,
 async fn refresh_balances_and_lanes(client: &OlienClient, pool: &PgPool, account: &AccountRow) -> anyhow::Result<()> {
     let address = account.address();
     let balance = client.usdc_balance(address).await?;
+    let euros = client.eurc_balance(address).await?;
     let deposit = client.entry_point_deposit(address).await?;
-    sqlx::query("UPDATE olien_accounts SET usdc_balance = $2, entry_point_deposit = $3 WHERE id = $1")
+    sqlx::query("UPDATE olien_accounts SET usdc_balance = $2, entry_point_deposit = $3, eurc_balance = $4 WHERE id = $1")
         .bind(account.id)
         .bind(balance.to_string())
         .bind(deposit.to_string())
+        .bind(euros.to_string())
         .execute(pool)
         .await?;
     let lanes: Vec<(String,)> = sqlx::query_as("SELECT nonce_key FROM olien_lanes WHERE olien_id = $1").bind(account.id).fetch_all(pool).await?;
@@ -179,10 +181,12 @@ async fn apply(client: &OlienClient, pool: &PgPool, push: Option<&Push>, account
     let block = log.block_number.unwrap_or_default();
     let address = account.address();
 
-    if log.address() == client.usdc {
+    // Any token the treasury can hold, not just dollars: the ledger row carries which.
+    if client.tokens().contains(&log.address()) {
         if topic0 != IERC20::Transfer::SIGNATURE_HASH {
             return Ok(false);
         }
+        let token = log.address();
         let event = IERC20::Transfer::decode_log(&log.inner)?;
         let (direction, counterparty) = if event.to == address { ("in", event.from) } else { ("out", event.to) };
         let time = block_time(client, timestamps, block).await?;
@@ -195,7 +199,7 @@ async fn apply(client: &OlienClient, pool: &PgPool, push: Option<&Push>, account
         .bind(account.id)
         .bind(&tx)
         .bind(log.log_index.unwrap_or_default() as i32)
-        .bind(addr(client.usdc))
+        .bind(addr(token))
         .bind(direction)
         .bind(addr(counterparty))
         .bind(event.value.to_string())

@@ -77,8 +77,12 @@ one machine; what is left is listed under each item.
   cancel, delete, scheduled changes with the veto calldata and `executeScheduled`,
   ledger, address book. Done. Not yet: sub-account creation, API keys.
 - Indexer: the spec §14 events, USDC transfers, lanes from `getNonce`, replaced and
-  stale proposals, limits and sub-accounts mirrored from events. Done. Not yet:
-  EURC, `UserOperationEvent`, discovery of accounts the service did not create.
+  stale proposals, limits and sub-accounts mirrored from events. Done. EURC too
+  since 2026-09-09: the ledger already carried the token that moved, so movements
+  only needed the filter widened, and the balance grew a second column beside the
+  dollars. The console shows euros beside the balance only when there are any, and
+  a ledger row names its own token. Not yet: `UserOperationEvent`, discovery of
+  accounts the service did not create.
 - Relayer: `createAccount`, `execute` and `executeScheduled` paid by us, one key
   shared with the Safe deployer (`RELAYER_PK` falls back to `ATTESTOR_PK`), the
   pending nonce read at every send. Done. The balance alarm: the indexer reads
@@ -97,7 +101,7 @@ one machine; what is left is listed under each item.
   it; the service takes `p256` and `webauthn` signers in every signer body and
   accepts their signatures as proof of control without a linked address
   (`11-service-api.md`). Done, late 2026-09-04. Renaming an account: done. Not
-  yet: a light theme; a passkey cannot veto from the console, since a veto is a
+  yet: a passkey cannot veto from the console, since a veto is a
   transaction and a passkey holds no gas (the user-operation path in Phase 3).
 - Sign-in: `POST /api/auth/wallet/challenge` and `POST /api/auth/wallet`
   (`11-service-api.md`); the address is the identity and is linked as a treasury

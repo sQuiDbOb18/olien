@@ -138,6 +138,7 @@ pub struct AccountRow {
     pub create_tx: Option<String>,
     pub indexed_block: i64,
     pub usdc_balance: String,
+    pub eurc_balance: String,
     pub entry_point_deposit: String,
     pub created_at: DateTime<Utc>,
 }
@@ -260,6 +261,7 @@ pub struct AccountSummary {
     pub threshold: i32,
     pub signer_count: i64,
     pub usdc_balance: String,
+    pub eurc_balance: String,
     pub open_proposals: i64,
     pub scheduled_changes: i64,
     pub created_at: i64,
@@ -337,6 +339,7 @@ pub struct AccountView {
     pub recovery_co_sign_delay: i64,
     pub signers: Vec<SignerJson>,
     pub usdc_balance: String,
+    pub eurc_balance: String,
     pub entry_point_deposit: String,
     pub lanes: Vec<LaneJson>,
     pub limits: Vec<LimitJson>,
@@ -771,6 +774,7 @@ pub async fn list_accounts(pool: &PgPool, user: i64) -> Res<Vec<AccountSummary>>
             threshold: row.threshold,
             signer_count,
             usdc_balance: row.usdc_balance.clone(),
+            eurc_balance: row.eurc_balance.clone(),
             open_proposals: open,
             scheduled_changes: scheduled,
             created_at: row.created_at.timestamp(),
@@ -1103,11 +1107,13 @@ pub async fn refresh_account_from_chain(pool: &PgPool, client: &OlienClient, row
     }
 
     let balance = client.usdc_balance(account).await.context("reading the USDC balance")?;
+    let euros = client.eurc_balance(account).await.context("reading the EURC balance")?;
     let deposit = client.entry_point_deposit(account).await.context("reading the EntryPoint deposit")?;
-    sqlx::query("UPDATE olien_accounts SET usdc_balance = $2, entry_point_deposit = $3 WHERE id = $1")
+    sqlx::query("UPDATE olien_accounts SET usdc_balance = $2, entry_point_deposit = $3, eurc_balance = $4 WHERE id = $1")
         .bind(row.id)
         .bind(balance.to_string())
         .bind(deposit.to_string())
+        .bind(euros.to_string())
         .execute(pool)
         .await?;
 
@@ -1192,6 +1198,7 @@ pub async fn account_view(pool: &PgPool, treasury: &Treasury, user: i64, address
             })
             .collect(),
         usdc_balance: row.usdc_balance.clone(),
+        eurc_balance: row.eurc_balance.clone(),
         entry_point_deposit: row.entry_point_deposit.clone(),
         lanes: lanes.into_iter().map(|l| LaneJson { nonce_key: l.nonce_key, chain_sequence: l.chain_sequence }).collect(),
         limits: limits
@@ -1882,6 +1889,18 @@ fn book_usdc() -> Address {
     "0x3600000000000000000000000000000000000000".parse().unwrap_or(Address::ZERO)
 }
 
+/// The ledger stores the token that moved, so a row can name itself. Anything we do
+/// not know is called a token rather than guessed at.
+fn symbol_for(token: &str) -> String {
+    if token == addr(book_usdc()) {
+        "USDC".into()
+    } else if token.eq_ignore_ascii_case("0x89b50855aa3be2f677cd6303cec089b5f319d72a") {
+        "EURC".into()
+    } else {
+        "token".into()
+    }
+}
+
 pub async fn list_proposals(pool: &PgPool, treasury: &Treasury, user: i64, address: &str, statuses: Option<&str>) -> Res<Vec<ProposalView>> {
     let ctx = context_for(pool, user, address).await?;
     refresh_statuses(pool, &ctx.row).await?;
@@ -2215,7 +2234,7 @@ pub async fn ledger(pool: &PgPool, user: i64, address: &str, limit: i64, before:
                 id: r.id,
                 tx: r.tx,
                 log_index: r.log_index,
-                symbol: if r.token == addr(book_usdc()) { "USDC".into() } else { "token".into() },
+                symbol: symbol_for(&r.token),
                 token: r.token,
                 direction: r.direction,
                 counterparty_label: book.get(&r.counterparty).cloned(),
@@ -2303,5 +2322,22 @@ mod tests {
         let (input, key) = signer_input(&ecdsa).unwrap();
         assert_eq!(input.key.len(), 20);
         assert_eq!(key.handle(), "0x12808a601475b87ce7b343a18f11062cc74eae81");
+    }
+}
+
+#[cfg(test)]
+mod token_symbol_tests {
+    use super::*;
+
+    #[test]
+    fn a_ledger_row_names_its_own_token() {
+        assert_eq!(symbol_for(&addr(book_usdc())), "USDC");
+        assert_eq!(symbol_for("0x89B50855Aa3bE2F677cD6303Cec089B5F319D72a"), "EURC");
+        assert_eq!(symbol_for("0x89b50855aa3be2f677cd6303cec089b5f319d72a"), "EURC");
+    }
+
+    #[test]
+    fn an_unknown_token_is_called_a_token_rather_than_guessed_at() {
+        assert_eq!(symbol_for("0x0000000000000000000000000000000000000001"), "token");
     }
 }

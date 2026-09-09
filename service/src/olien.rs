@@ -560,13 +560,22 @@ pub struct OlienClient {
     relayer: Address,
     pub deployment: OlienDeployment,
     pub usdc: Address,
+    /// EURC where the chain has it. A treasury that converted into euros should be
+    /// able to see them, and Convert on the phone means some will.
+    pub eurc: Option<Address>,
     // The relayer's nonce is filled by the provider per transaction, so two sends in
     // flight at once would collide; every send takes this lock first.
     send_lock: Arc<tokio::sync::Mutex<()>>,
 }
 
 impl OlienClient {
-    pub fn new(rpc_url: &str, private_key: &str, deployment: OlienDeployment, usdc: Address) -> Result<Self> {
+    pub fn new(
+        rpc_url: &str,
+        private_key: &str,
+        deployment: OlienDeployment,
+        usdc: Address,
+        eurc: Option<Address>,
+    ) -> Result<Self> {
         let signer: PrivateKeySigner = private_key.trim().parse().context("parsing the relayer key")?;
         let relayer = signer.address();
         let url = rpc_url.parse().context("parsing the RPC URL for the relayer")?;
@@ -586,6 +595,7 @@ impl OlienClient {
             relayer,
             deployment,
             usdc,
+            eurc,
             send_lock: Arc::new(tokio::sync::Mutex::new(())),
         })
     }
@@ -689,8 +699,27 @@ impl OlienClient {
         Ok((out.remaining, out.resetAt.to::<u64>(), out.generation, out.epoch))
     }
 
+    /// Every token this treasury can hold, so a caller loops rather than naming coins.
+    pub fn tokens(&self) -> Vec<Address> {
+        match self.eurc {
+            Some(eurc) => vec![self.usdc, eurc],
+            None => vec![self.usdc],
+        }
+    }
+
+    pub async fn eurc_balance(&self, account: Address) -> Result<U256> {
+        match self.eurc {
+            Some(eurc) => self.token_balance(eurc, account).await,
+            None => Ok(U256::ZERO),
+        }
+    }
+
     pub async fn usdc_balance(&self, account: Address) -> Result<U256> {
-        IERC20::new(self.usdc, &self.provider).balanceOf(account).call().await.map_err(describe)
+        self.token_balance(self.usdc, account).await
+    }
+
+    async fn token_balance(&self, token: Address, account: Address) -> Result<U256> {
+        IERC20::new(token, &self.provider).balanceOf(account).call().await.map_err(describe)
     }
 
     pub async fn entry_point_deposit(&self, account: Address) -> Result<U256> {
@@ -792,15 +821,16 @@ impl OlienClient {
         let own = Filter::new().address(account).from_block(from_block).to_block(to_block);
         let mut logs = self.provider.get_logs(&own).await.context("reading account logs")?;
         let topic: B256 = signer_id_of_address(account);
+        let tokens = self.tokens();
         let incoming = Filter::new()
-            .address(self.usdc)
+            .address(tokens.clone())
             .event_signature(IERC20::Transfer::SIGNATURE_HASH)
             .topic2(topic)
             .from_block(from_block)
             .to_block(to_block);
         logs.extend(self.provider.get_logs(&incoming).await.context("reading incoming transfers")?);
         let outgoing = Filter::new()
-            .address(self.usdc)
+            .address(tokens)
             .event_signature(IERC20::Transfer::SIGNATURE_HASH)
             .topic1(topic)
             .from_block(from_block)
