@@ -17,6 +17,8 @@ import {
   formatTime,
   formatUsdc,
   getProposal,
+  prepareVetoOperation,
+  submitOperation,
   hashMatches,
   kindLabel,
   proposalHash,
@@ -31,7 +33,7 @@ import {
 } from "@/lib/treasury";
 import { AddressChip, Button, CopyButton, Countdown, cx, Disclosure, InlineError, KeyValue, Loading, Note, Panel, plural, proposerLabel, Spinner, StatusPill, Tag, TxChip } from "./ui";
 import { accountError, applyProposal, olienKeys, useNow, useOlienAccount, useProposal, useVetoCall } from "./use-olien";
-import { friendlyPasskeyError, passkeySupported, signWithPasskey } from "@/lib/passkey";
+import { friendlyPasskeyError, knownPasskeys, passkeySupported, signWithPasskey } from "@/lib/passkey";
 import { friendlyWalletError, useArcChain, useWalletSession, walletSigner } from "./wallet";
 
 const SIGNABLE = ["open", "ready", "blocked", "failed"];
@@ -119,6 +121,13 @@ function VetoControls({ address, view, account }: { address: string; view: Propo
   const ids = (vetoCall.data?.signerIds ?? []).map((id) => id.toLowerCase());
   const canVeto = Boolean(wallet.matches && wallet.address && ids.includes(signerIdFor(wallet.address)));
   const isVetoer = Boolean(mySigner?.permissions.includes("veto"));
+  // A passkey this browser holds that may still veto: it signs a user operation the
+  // relayer submits, since a passkey has no wallet to send from. The assertion itself
+  // proves which one answered, so this needs no wallet match.
+  const operationIds = new Set((vetoCall.data?.operationSignerIds ?? []).map((id) => id.toLowerCase()));
+  const mine = new Set(knownPasskeys().map((record) => record.signerId.toLowerCase()));
+  const passkeyVetoers = account.signers.filter((signer) => signer.kind === "webauthn" && operationIds.has(signer.signerId.toLowerCase()) && mine.has(signer.signerId.toLowerCase()));
+  const canPasskeyVeto = passkeyVetoers.length > 0 && passkeySupported();
 
   // The indexer turns the Vetoed event into a veto within one interval; give it a
   // minute before handing back to the page's own polling.
@@ -157,6 +166,26 @@ function VetoControls({ address, view, account }: { address: string; view: Propo
     }
   }
 
+  async function vetoWithPasskey() {
+    const first = passkeyVetoers[0];
+    if (!first) return;
+    setError(null);
+    setBusy("sending");
+    try {
+      // The hash does not depend on which signer answers, so prepare for one and let
+      // any of them sign; the submit names the one that did.
+      const prepared = await prepareVetoOperation(address, view.txHash, first.signerId);
+      const signed = await signWithPasskey(prepared.hash as Hex, passkeyVetoers.map((signer) => ({ signerId: signer.signerId, x: signer.x, y: signer.y })));
+      const receipt = await submitOperation(address, { operation: prepared.operation, signerId: signed.signerId, signature: signed.signature });
+      setSent(receipt.txHash);
+      await waitForVeto();
+    } catch (cause) {
+      setError(friendlyPasskeyError(cause));
+    } finally {
+      setBusy(null);
+    }
+  }
+
   return (
     <div className="olien-veto">
       {busy === "waiting" ? (
@@ -174,12 +203,21 @@ function VetoControls({ address, view, account }: { address: string; view: Propo
         </p>
       ) : vetoCall.error ? (
         <InlineError message={errorMessage(vetoCall.error)} />
-      ) : canVeto ? (
+      ) : canVeto || canPasskeyVeto ? (
         <div className="olien-actions">
-          <Button variant="danger" icon={<Ban size={14} />} busy={busy !== null} onClick={() => void veto()}>
-            {busy === "sending" ? "Confirm in wallet" : "Veto"}
-          </Button>
-          <span className="olien-field-hint">A veto is a transaction from your own wallet; it pays the gas in USDC.</span>
+          {canVeto ? (
+            <Button variant="danger" icon={<Ban size={14} />} busy={busy !== null} onClick={() => void veto()}>
+              {busy === "sending" ? "Confirm in wallet" : "Veto"}
+            </Button>
+          ) : null}
+          {canPasskeyVeto ? (
+            <Button variant="danger" icon={<KeyRound size={14} />} busy={busy !== null} onClick={() => void vetoWithPasskey()}>
+              {busy === "sending" ? "Touch ID" : "Veto with passkey"}
+            </Button>
+          ) : null}
+          <span className="olien-field-hint">
+            {canVeto ? "A veto from your wallet is a transaction of its own; it pays the gas in USDC." : "The Olien pays the gas for a passkey veto from its own balance."}
+          </span>
         </div>
       ) : (
         <p className="olien-muted">

@@ -18,8 +18,8 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::services::handles;
 use crate::services::olien::{
-    self, address_of_signer_id, calldata, signer_id_of_address, signer_id_of_key, Call, IOlien, Init, OlienClient, SignerInput,
-    SpendingLimitInput, Transaction, FLAG_UV_REQUIRED, KIND_CONTRACT, KIND_ECDSA, KIND_P256, KIND_WEBAUTHN,
+    self, address_of_signer_id, calldata, signer_id_of_address, signer_id_of_key, Call, IOlien, Init, OlienClient, PackedUserOperation,
+    SignerInput, SpendingLimitInput, Transaction, FLAG_UV_REQUIRED, KIND_CONTRACT, KIND_ECDSA, KIND_P256, KIND_WEBAUTHN,
     MAX_VALIDITY, PERM_APPROVE, PERM_RECOVER, PERM_VETO, SCHEDULE_WINDOW,
 };
 
@@ -489,6 +489,49 @@ pub struct VetoCall {
     pub to: String,
     pub data: String,
     pub signer_ids: Vec<String>,
+    /// Passkey and P-256 signers that may veto: they cannot send a transaction of
+    /// their own, so they sign a user operation the relayer submits instead.
+    pub operation_signer_ids: Vec<String>,
+}
+
+/// A user operation the service prepared and the member signs. Every field comes
+/// back in `submit` and the hash is recomputed there, so nothing is held between.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct OperationJson {
+    pub sender: String,
+    pub nonce: String,
+    pub call_data: String,
+    pub account_gas_limits: String,
+    pub pre_verification_gas: String,
+    pub gas_fees: String,
+    pub valid_after: u64,
+    pub valid_until: u64,
+    pub epoch: u64,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PreparedOperation {
+    pub operation: OperationJson,
+    /// What the signer signs: the account's own hash of the operation (spec §10).
+    pub hash: String,
+    pub signer_id: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SubmitOperationBody {
+    pub operation: OperationJson,
+    pub signer_id: String,
+    pub signature: String,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct OperationReceipt {
+    pub tx_hash: String,
+    pub hash: String,
 }
 
 // ---------------------------------------------------------------------------
@@ -2275,7 +2318,135 @@ pub async fn veto_call(pool: &PgPool, user: i64, address: &str, tx_hash: &str) -
         .filter(|id| !vetoed.iter().any(|(v,)| v == *id))
         .cloned()
         .collect();
-    Ok(VetoCall { to: ctx.row.address.clone(), data: hex(&calldata::veto(parse_hash(tx_hash)?)), signer_ids })
+    let operation_signer_ids = ctx
+        .signers
+        .iter()
+        .filter(|s| s.status == "active" && s.vetoes() && matches!(s.kind.as_str(), "p256" | "webauthn"))
+        .filter(|s| row.scheduled_excluded.as_ref() != Some(&s.signer_id) || row.path == "recovery")
+        .filter(|s| !vetoed.iter().any(|(v,)| v == &s.signer_id))
+        .map(|s| s.signer_id.clone())
+        .collect();
+    Ok(VetoCall { to: ctx.row.address.clone(), data: hex(&calldata::veto(parse_hash(tx_hash)?)), signer_ids, operation_signer_ids })
+}
+
+/// Gas a veto operation may use. The measured device veto was 250k for the whole
+/// bundle; the unused part of these limits is refunded to the account's deposit.
+const OP_VERIFICATION_GAS: u128 = 500_000;
+const OP_CALL_GAS: u128 = 300_000;
+const OP_PRE_VERIFICATION_GAS: u64 = 60_000;
+/// An operation is signed and sent within minutes; an hour leaves room and no more.
+const OP_VALIDITY: u64 = 3_600;
+
+fn operation_from_json(json: &OperationJson) -> Res<PackedUserOperation> {
+    Ok(PackedUserOperation {
+        sender: parse_address(&json.sender)?,
+        nonce: parse_amount(&json.nonce)?,
+        initCode: Bytes::new(),
+        callData: parse_hex_bytes(&json.call_data)?.into(),
+        accountGasLimits: parse_hash(&json.account_gas_limits)?,
+        preVerificationGas: parse_amount(&json.pre_verification_gas)?,
+        gasFees: parse_hash(&json.gas_fees)?,
+        paymasterAndData: Bytes::new(),
+        signature: Bytes::new(),
+    })
+}
+
+/// A veto as a user operation for a passkey or P-256 signer (spec §11): one self call
+/// to `veto(hash)`, validated for that signer, paid from the account's deposit.
+pub async fn veto_operation(pool: &PgPool, treasury: &Treasury, user: i64, address: &str, tx_hash: &str, signer_id: &str) -> Res<PreparedOperation> {
+    let client = treasury.client.as_ref().ok_or(TreasuryError::Off)?;
+    let ctx = context_for(pool, user, address).await?;
+    let row = load_proposal(pool, ctx.row.id, tx_hash).await?;
+    if row.status != "scheduled" {
+        return Err(TreasuryError::Conflict("only a scheduled change can be vetoed".into()));
+    }
+    let signer_id = hex(parse_hash(signer_id)?.as_slice());
+    let signer = ctx.signers.iter().find(|s| s.signer_id == signer_id && s.status == "active").ok_or_else(|| bad("no such signer"))?;
+    if !matches!(signer.kind.as_str(), "p256" | "webauthn") {
+        return Err(bad("this signer vetoes from its own wallet, not through an operation"));
+    }
+    if !signer.vetoes() {
+        return Err(bad("this signer does not hold veto"));
+    }
+    let account = ctx.row.address();
+    let calls = vec![Call { to: account, value: U256::ZERO, data: calldata::veto(parse_hash(tx_hash)?) }];
+    let nonce = client.entry_point_nonce(account, 0).await.map_err(|e| TreasuryError::Chain(format!("{e:#}")))?;
+    let (priority, max_fee) = client.fee_estimate().await.map_err(|e| TreasuryError::Chain(format!("{e:#}")))?;
+    let valid_until = now() + OP_VALIDITY;
+    let op = PackedUserOperation {
+        sender: account,
+        nonce,
+        initCode: Bytes::new(),
+        callData: olien::user_operation_calldata(&calls),
+        accountGasLimits: olien::packed_pair(OP_VERIFICATION_GAS, OP_CALL_GAS),
+        preVerificationGas: U256::from(OP_PRE_VERIFICATION_GAS),
+        gasFees: olien::packed_pair(priority, max_fee),
+        paymasterAndData: Bytes::new(),
+        signature: Bytes::new(),
+    };
+    let epoch = ctx.row.epoch as u64;
+    let hash = olien::user_operation_hash(treasury.chain_id, account, &op, 0, valid_until, epoch, client.deployment.entry_point);
+    Ok(PreparedOperation {
+        operation: OperationJson {
+            sender: addr(account),
+            nonce: nonce.to_string(),
+            call_data: hex(&op.callData),
+            account_gas_limits: hex(op.accountGasLimits.as_slice()),
+            pre_verification_gas: op.preVerificationGas.to_string(),
+            gas_fees: hex(op.gasFees.as_slice()),
+            valid_after: 0,
+            valid_until,
+            epoch,
+        },
+        hash: hex(hash.as_slice()),
+        signer_id,
+    })
+}
+
+/// Submit a signed operation through the relayer. The hash is recomputed from the
+/// fields sent back and the signature checked against the signer's key before any
+/// gas is spent, and the calls are held to the one shape this route serves: a single
+/// self call to `veto`. Anything else is refused rather than sent.
+pub async fn submit_operation(pool: &PgPool, treasury: &Treasury, user: i64, address: &str, body: SubmitOperationBody) -> Res<OperationReceipt> {
+    let client = treasury.client.as_ref().ok_or(TreasuryError::Off)?;
+    let ctx = context_for(pool, user, address).await?;
+    require_live(&ctx.row)?;
+    let account = ctx.row.address();
+    let json = &body.operation;
+    let mut op = operation_from_json(json)?;
+    if op.sender != account {
+        return Err(bad("the operation is for another account"));
+    }
+    if json.epoch != ctx.row.epoch as u64 {
+        return Err(TreasuryError::Conflict("the account's rules changed since this was prepared; prepare it again".into()));
+    }
+    if json.valid_until <= now() {
+        return Err(TreasuryError::Conflict("this operation has expired; prepare it again".into()));
+    }
+    let calls = olien::user_operation_calls(&op.callData).ok_or_else(|| bad("the operation's callData is not an executeUserOp batch"))?;
+    let veto_selector = &calldata::veto(B256::ZERO)[..4];
+    let single_veto = calls.len() == 1 && calls[0].to == account && calls[0].value.is_zero() && calls[0].data.get(..4) == Some(veto_selector);
+    if !single_veto {
+        return Err(bad("only a veto may be submitted this way"));
+    }
+    let signer_id = hex(parse_hash(&body.signer_id)?.as_slice());
+    let signer = ctx.signers.iter().find(|s| s.signer_id == signer_id && s.status == "active").ok_or_else(|| bad("no such signer"))?;
+    if !signer.vetoes() {
+        return Err(bad("this signer does not hold veto"));
+    }
+    let hash = olien::user_operation_hash(treasury.chain_id, account, &op, json.valid_after, json.valid_until, json.epoch, client.deployment.entry_point);
+    let signature = parse_hex_bytes(&body.signature)?;
+    // A P-256 or passkey signature over this very hash is its own proof of control.
+    let check = match signer.kind.as_str() {
+        "p256" => olien::verify_p256_raw(hash, &signature, key_part(signer.x.as_deref())?, key_part(signer.y.as_deref())?),
+        "webauthn" => olien::verify_webauthn(hash, &signature, key_part(signer.x.as_deref())?, key_part(signer.y.as_deref())?, signer.flags & FLAG_UV_REQUIRED as i32 != 0),
+        other => Err(anyhow!("a {other} signer does not act through an operation")),
+    };
+    check.map_err(|e| bad(format!("signature refused: {e:#}")))?;
+    let packed = olien::pack(&[(parse_hash(&signer_id)?, signature)])?;
+    op.signature = olien::user_operation_signature(json.valid_after, json.valid_until, &packed);
+    let sent = client.handle_ops(op).await.map_err(|e| TreasuryError::Chain(format!("{e:#}")))?;
+    Ok(OperationReceipt { tx_hash: hex(sent.tx_hash.as_slice()), hash: hex(hash.as_slice()) })
 }
 
 pub async fn execute_scheduled(pool: &PgPool, treasury: &Treasury, user: i64, address: &str, tx_hash: &str) -> Res<ProposalView> {

@@ -287,17 +287,38 @@ is one of the account's (`Stale`, `Dead`, `Expired`, `InvalidSignatures`,
 
 ```
 GET  /api/treasury/accounts/{address}/scheduled                       -> [ScheduledView]
-GET  /api/treasury/accounts/{address}/scheduled/{hash}/veto-call      -> { to, data, signerIds: ["0x…"] }
+GET  /api/treasury/accounts/{address}/scheduled/{hash}/veto-call      -> { to, data, signerIds: ["0x…"], operationSignerIds: ["0x…"] }
+GET  /api/treasury/accounts/{address}/scheduled/{hash}/veto-operation?signerId=0x…
+                                                                       -> { operation, hash, signerId }
+POST /api/treasury/accounts/{address}/operations  { operation, signerId, signature }
+                                                                       -> { txHash, hash }   (relayer calls handleOps)
 POST /api/treasury/accounts/{address}/scheduled/{hash}/execute        -> ProposalView   (relayer calls executeScheduled)
 ```
 
 `ScheduledView` is a `ProposalView` with `status: "scheduled"`; `vetoes` lists
 `{ signerId, label, tx, at }` and `effectiveVetoThreshold` says how many end it.
-A veto is sent by the signer's own wallet, not the relayer: `veto-call` answers
-the calldata (`veto(bytes32)` to the account) and the caller's signer ids that
-may still veto (holding VETO, not `scheduledExcluded`, not already counted). The
-wallet pays the gas in USDC. The indexer turns `Vetoed` and `Cancelled` into
-`vetoes` and `status: "vetoed"` within one indexing interval.
+A veto from an ECDSA signer is sent by that signer's own wallet, not the relayer:
+`veto-call` answers the calldata (`veto(bytes32)` to the account) and the
+caller's signer ids that may still veto (holding VETO, not `scheduledExcluded`,
+not already counted). The wallet pays the gas in USDC.
+
+A passkey or P-256 signer has no wallet to send from, so it vetoes through a user
+operation (spec §10 and §11) that the relayer submits with `handleOps`, the
+account paying the gas from its own balance and deposit. `veto-call` lists those
+signers in `operationSignerIds`. `veto-operation` prepares the operation: one
+self call to `veto(hash)`, the EntryPoint nonce in key 0, fixed gas limits, the
+RPC's fee estimate, and a one-hour validity; `hash` is the account's own EIP-712
+hash of it, which the signer signs the way it signs a confirmation (a passkey
+signs the hash as its challenge). `operation` carries every field the hash
+covers plus `validAfter`, `validUntil` and `epoch`, and comes back verbatim in
+`POST /operations` with the signer id and signature. The service holds nothing
+in between: it recomputes the hash from what came back, checks the signature
+against the signer's key, refuses any calldata that is not a single self call to
+`veto`, an operation for another account, a stale epoch or an expired window,
+and only then spends relayer gas. The indexer turns the resulting `Vetoed` into
+`vetoes` within one interval, and the EntryPoint's `UserOperationEvent` into a
+ledger row in gas. The hash is pinned to the contract's own library by a printed
+vector (`contracts/test/olien/OlienVectors.t.sol`).
 
 ## Ledger and address book
 

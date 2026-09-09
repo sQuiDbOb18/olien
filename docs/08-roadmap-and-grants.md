@@ -97,7 +97,11 @@ one machine; what is left is listed under each item.
   shared with the Safe deployer (`RELAYER_PK` falls back to `ATTESTOR_PK`), the
   pending nonce read at every send. Done. The balance alarm: the indexer reads
   the relayer's USDC every minute, warns under 5 USDC and reports it in
-  `/health`. Done. Not yet: `handleOps`.
+  `/health`. Done. `handleOps` since 2026-09-09, for one shape: a passkey or
+  P-256 signer's veto as a user operation, prepared by the service, signed in
+  the console with Touch ID, checked and submitted by the relayer, with the hash
+  pinned to `OlienHash.userOperation` by a printed vector. Not yet: `spend` and
+  threshold batches as operations, and a run on chain against a real passkey.
 - Web: the console at `/olien`, rebuilt late on 2026-09-04 in the Squads app's
   layout and flow (the founder's call: Squads' UI, typography and UX, for Olien
   and Arc): sign in with a wallet, the account switcher, Home with balance and

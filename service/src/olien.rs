@@ -36,6 +36,26 @@ sol! {
         uint48 validUntil;
     }
 
+    /// EntryPoint v0.7's operation, the packed shape.
+    #[derive(Debug)]
+    struct PackedUserOperation {
+        address sender;
+        uint256 nonce;
+        bytes initCode;
+        bytes callData;
+        bytes32 accountGasLimits;
+        uint256 preVerificationGas;
+        bytes32 gasFees;
+        bytes paymasterAndData;
+        bytes signature;
+    }
+
+    /// The account's own callData shape: the EntryPoint hands the whole operation
+    /// back to `executeUserOp` when callData starts with this selector.
+    interface IAccountExecute {
+        function executeUserOp(PackedUserOperation op, bytes32 userOpHash) external;
+    }
+
     #[derive(Debug)]
     struct SignerInput {
         uint8 kind;
@@ -210,6 +230,8 @@ sol! {
     #[sol(rpc)]
     interface IEntryPointView {
         function balanceOf(address account) external view returns (uint256);
+        function getNonce(address sender, uint192 key) external view returns (uint256 nonce);
+        function handleOps(PackedUserOperation[] ops, address beneficiary) external;
 
         /// EntryPoint v0.7: one per operation, success or not; gas came off the deposit either way.
         event UserOperationEvent(
@@ -323,6 +345,83 @@ pub fn transaction_hash(
             .abi_encode(),
     );
     typed(domain_separator(chain_id, account), struct_hash)
+}
+
+/// The hash the account checks for a user operation (spec §10): its own EIP-712 hash
+/// over the operation's fields plus the validity window, the epoch and the EntryPoint,
+/// so a signature is good for exactly this operation on exactly this account. Mirrors
+/// `OlienHash.userOperation`; pinned by a vector the contract's test printed.
+pub fn user_operation_hash(
+    chain_id: u64,
+    account: Address,
+    op: &PackedUserOperation,
+    valid_after: u64,
+    valid_until: u64,
+    epoch: u64,
+    entry_point: Address,
+) -> B256 {
+    let limits = U256::from_be_bytes(op.accountGasLimits.0);
+    let fees = U256::from_be_bytes(op.gasFees.0);
+    let low = U256::from(u128::MAX);
+    // Two encodes joined, exactly as the contract does it (one call with fifteen
+    // arguments runs out of stack there; the bytes are the same either way).
+    let head = (
+        typehash(USER_OPERATION_TYPE),
+        op.sender,
+        op.nonce,
+        keccak256(&op.initCode),
+        keccak256(&op.callData),
+        limits >> 128,
+        limits & low,
+        op.preVerificationGas,
+    )
+        .abi_encode();
+    let tail = (
+        fees >> 128,
+        fees & low,
+        keccak256(&op.paymasterAndData),
+        U256::from(valid_after),
+        U256::from(valid_until),
+        U256::from(epoch),
+        entry_point,
+    )
+        .abi_encode();
+    let mut joined = head;
+    joined.extend_from_slice(&tail);
+    typed(domain_separator(chain_id, account), keccak256(joined))
+}
+
+const USER_OPERATION_TYPE: &str = "UserOperation(address sender,uint256 nonce,bytes initCode,bytes callData,uint128 verificationGasLimit,uint128 callGasLimit,uint256 preVerificationGas,uint128 maxPriorityFeePerGas,uint128 maxFeePerGas,bytes paymasterAndData,uint48 validAfter,uint48 validUntil,uint64 epoch,address entryPoint)";
+
+/// `executeUserOp.selector ‖ abi.encode(Call[])`: the only callData the account serves.
+pub fn user_operation_calldata(calls: &[Call]) -> Bytes {
+    let mut out = IAccountExecute::executeUserOpCall::SELECTOR.to_vec();
+    out.extend_from_slice(&calls.to_vec().abi_encode());
+    out.into()
+}
+
+/// The calls back out of `user_operation_calldata`, or None for any other shape.
+pub fn user_operation_calls(call_data: &[u8]) -> Option<Vec<Call>> {
+    let body = call_data.strip_prefix(IAccountExecute::executeUserOpCall::SELECTOR.as_slice())?;
+    <Vec<Call>>::abi_decode(body).ok()
+}
+
+/// verificationGasLimit ‖ callGasLimit, and maxPriorityFeePerGas ‖ maxFeePerGas,
+/// each two uint128 in one word, high half first.
+pub fn packed_pair(high: u128, low: u128) -> B256 {
+    let mut out = [0u8; 32];
+    out[..16].copy_from_slice(&high.to_be_bytes());
+    out[16..].copy_from_slice(&low.to_be_bytes());
+    B256::from(out)
+}
+
+/// `op.signature = validAfter (6 bytes) ‖ validUntil (6 bytes) ‖ packed signatures`.
+pub fn user_operation_signature(valid_after: u64, valid_until: u64, packed: &[u8]) -> Bytes {
+    let mut out = Vec::with_capacity(12 + packed.len());
+    out.extend_from_slice(&valid_after.to_be_bytes()[2..]);
+    out.extend_from_slice(&valid_until.to_be_bytes()[2..]);
+    out.extend_from_slice(packed);
+    out.into()
 }
 
 // What a member account signs to confirm another account's transaction (spec §9); the
@@ -734,6 +833,43 @@ impl OlienClient {
         IERC20::new(token, &self.provider).balanceOf(account).call().await.map_err(describe)
     }
 
+    /// The EntryPoint's nonce for the account in a key, the whole `key << 64 | seq`.
+    pub async fn entry_point_nonce(&self, account: Address, key: u64) -> Result<U256> {
+        IEntryPointView::new(self.deployment.entry_point, &self.provider)
+            .getNonce(account, alloy::primitives::Uint::<192, 3>::from(key))
+            .call()
+            .await
+            .map_err(describe)
+    }
+
+    /// The RPC's view of a fair fee, as the two halves of `gasFees`.
+    pub async fn fee_estimate(&self) -> Result<(u128, u128)> {
+        let fees = self.provider.estimate_eip1559_fees().await.context("estimating fees")?;
+        Ok((fees.max_priority_fee_per_gas, fees.max_fee_per_gas))
+    }
+
+    /// The project's own bundler: the relayer calls `handleOps` with one operation and
+    /// is the beneficiary, so the account's deposit repays it for the gas (spec §9).
+    pub async fn handle_ops(&self, op: PackedUserOperation) -> Result<Sent> {
+        let _guard = self.send_lock.lock().await;
+        let entry = IEntryPointView::new(self.deployment.entry_point, &self.provider);
+        let beneficiary = self.relayer();
+        let receipt = retry_nonce(|| async { entry.handleOps(vec![op.clone()], beneficiary).send().await.map_err(describe) })
+            .await
+            .context("sending handleOps")?
+            .get_receipt()
+            .await
+            .context("waiting for handleOps")?;
+        if !receipt.status() {
+            bail!("handleOps reverted in {:#x}", receipt.transaction_hash);
+        }
+        Ok(Sent {
+            tx_hash: receipt.transaction_hash,
+            block: receipt.block_number.unwrap_or_default(),
+            gas_used: receipt.gas_used,
+        })
+    }
+
     pub async fn entry_point_deposit(&self, account: Address) -> Result<U256> {
         IEntryPointView::new(self.deployment.entry_point, &self.provider)
             .balanceOf(account)
@@ -949,6 +1085,53 @@ mod tests {
     use super::*;
     use alloy::primitives::address;
     use alloy::sol_types::SolEvent;
+
+    /// The vector `contracts/test/olien/OlienVectors.t.sol` printed from the contract's
+    /// own library: the same inputs must hash the same here, or a signature the console
+    /// produces is over something the account will not accept.
+    #[test]
+    fn a_user_operation_hashes_as_the_contract_hashes_it() {
+        let account = address!("00000000000000000000000000000000000000AB");
+        let entry_point = address!("0000000071727De22E5E9d8BAf0edAc6f37da032");
+        let hash = keccak256(b"proposal");
+        let calls = vec![Call { to: account, value: U256::ZERO, data: calldata::veto(hash) }];
+        let call_data = user_operation_calldata(&calls);
+        assert_eq!(
+            format!("0x{}", alloy::hex::encode(&call_data)),
+            "0x8dd7712f00000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000000ab000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000600000000000000000000000000000000000000000000000000000000000000024fb6f93f9b6d2dc83590271a7c0a5ab5fbf6a2dad418bbfd533c253e3d69a6772712809c700000000000000000000000000000000000000000000000000000000"
+        );
+        assert_eq!(user_operation_calls(&call_data).unwrap().len(), 1, "and it decodes back");
+        assert!(user_operation_calls(&call_data[1..]).is_none(), "a different selector is not served");
+
+        assert_eq!(
+            format!("{:#x}", domain_separator(5042002, account)),
+            "0x47a50668a7d7f3f8c0be30000cae4046cbe6855b1b64611edfc868173063bee5"
+        );
+        let op = PackedUserOperation {
+            sender: account,
+            nonce: U256::from(7),
+            initCode: Bytes::new(),
+            callData: call_data,
+            accountGasLimits: packed_pair(500_000, 300_000),
+            preVerificationGas: U256::from(60_000),
+            gasFees: packed_pair(1_000_000_000, 2_000_000_000),
+            paymasterAndData: Bytes::new(),
+            signature: Bytes::new(),
+        };
+        assert_eq!(
+            format!("{:#x}", user_operation_hash(5042002, account, &op, 0, 1_800_000_000, 3, entry_point)),
+            "0xdc99dbfd7bb1e9bda0d7b9bb8c2175acc00edc39f4a0fadf106a08a11526d994"
+        );
+    }
+
+    #[test]
+    fn a_user_operation_signature_starts_with_its_window() {
+        let sig = user_operation_signature(0, 1_800_000_000, &[0xaa, 0xbb]);
+        assert_eq!(sig.len(), 14);
+        assert_eq!(&sig[..6], &[0, 0, 0, 0, 0, 0]);
+        assert_eq!(u64::from_be_bytes([0, 0, sig[6], sig[7], sig[8], sig[9], sig[10], sig[11]]), 1_800_000_000);
+        assert_eq!(&sig[12..], &[0xaa, 0xbb]);
+    }
 
     /// The topic the indexer filters on is EntryPoint v0.7's, not a retyped one.
     #[test]

@@ -285,6 +285,38 @@ pub async fn veto_call(pool: web::Data<PgPool>, req: HttpRequest, path: web::Pat
     reply(treasury::veto_call(pool.get_ref(), user, &address, &hash).await)
 }
 
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct VetoOperationQuery {
+    pub signer_id: String,
+}
+
+/// GET /api/treasury/accounts/{address}/scheduled/{hash}/veto-operation?signerId= - a
+/// veto as a user operation for a passkey signer to sign.
+pub async fn veto_operation(
+    pool: web::Data<PgPool>,
+    service: web::Data<Treasury>,
+    req: HttpRequest,
+    path: web::Path<(String, String)>,
+    query: web::Query<VetoOperationQuery>,
+) -> HttpResponse {
+    let user = who!(pool, req);
+    let (address, hash) = path.into_inner();
+    reply(treasury::veto_operation(pool.get_ref(), service.get_ref(), user, &address, &hash, &query.signer_id).await)
+}
+
+/// POST /api/treasury/accounts/{address}/operations - the signed operation, sent by the relayer.
+pub async fn submit_operation(
+    pool: web::Data<PgPool>,
+    service: web::Data<Treasury>,
+    req: HttpRequest,
+    path: web::Path<String>,
+    body: web::Json<treasury::SubmitOperationBody>,
+) -> HttpResponse {
+    let user = who!(pool, req);
+    reply(treasury::submit_operation(pool.get_ref(), service.get_ref(), user, &path, body.into_inner()).await)
+}
+
 pub async fn execute_scheduled(
     pool: web::Data<PgPool>,
     service: web::Data<Treasury>,
@@ -411,6 +443,8 @@ pub fn routes(scope: actix_web::Scope) -> actix_web::Scope {
         .route("/accounts/{address}/scheduled", web::get().to(list_scheduled))
         .route("/accounts/{address}/scheduled/{hash}/veto-call", web::get().to(veto_call))
         .route("/accounts/{address}/scheduled/{hash}/execute", web::post().to(execute_scheduled))
+        .route("/accounts/{address}/scheduled/{hash}/veto-operation", web::get().to(veto_operation))
+        .route("/accounts/{address}/operations", web::post().to(submit_operation))
         .route("/accounts/{address}/ledger", web::get().to(ledger))
         .route("/accounts/{address}/address-book", web::get().to(address_book))
         .route("/accounts/{address}/address-book", web::post().to(add_address))

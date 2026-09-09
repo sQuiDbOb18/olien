@@ -261,6 +261,34 @@ export interface VetoCall {
   to: string;
   data: string;
   signerIds: string[];
+  // Passkey and P-256 signers that may veto; they sign a user operation the relayer
+  // submits, since they have no wallet to send a transaction from.
+  operationSignerIds: string[];
+}
+
+// A user operation the service prepared (spec §10). Every field goes back with the
+// signature so the service can recompute the hash; it holds nothing in between.
+export interface OperationJson {
+  sender: string;
+  nonce: string;
+  callData: string;
+  accountGasLimits: string;
+  preVerificationGas: string;
+  gasFees: string;
+  validAfter: number;
+  validUntil: number;
+  epoch: number;
+}
+
+export interface PreparedOperation {
+  operation: OperationJson;
+  hash: string;
+  signerId: string;
+}
+
+export interface OperationReceipt {
+  txHash: string;
+  hash: string;
 }
 
 export interface LedgerEntry {
@@ -394,6 +422,10 @@ export const proposeSigners = (address: string, body: SignersProposalBody) =>
 export const getScheduled = (address: string) => request<ProposalView[]>(`/accounts/${address}/scheduled`);
 export const getVetoCall = (address: string, hash: string) =>
   request<VetoCall>(`/accounts/${address}/scheduled/${hash}/veto-call`);
+export const prepareVetoOperation = (address: string, hash: string, signerId: string) =>
+  request<PreparedOperation>(`/accounts/${address}/scheduled/${hash}/veto-operation?signerId=${encodeURIComponent(signerId)}`);
+export const submitOperation = (address: string, body: { operation: OperationJson; signerId: string; signature: string }) =>
+  request<OperationReceipt>(`/accounts/${address}/operations`, post(body));
 export const executeScheduled = (address: string, hash: string) =>
   request<ProposalView>(`/accounts/${address}/scheduled/${hash}/execute`, { method: "POST" });
 
