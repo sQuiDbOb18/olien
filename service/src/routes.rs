@@ -305,6 +305,20 @@ pub async fn veto_operation(
     reply(treasury::veto_operation(pool.get_ref(), service.get_ref(), user, &address, &hash, &query.signer_id).await)
 }
 
+/// POST /api/treasury/accounts/{address}/limits/{id}/spend - how the caller's signer
+/// pays from a limit: a call for a wallet, or an operation for a passkey.
+pub async fn spend_plan(
+    pool: web::Data<PgPool>,
+    service: web::Data<Treasury>,
+    req: HttpRequest,
+    path: web::Path<(String, i64)>,
+    body: web::Json<treasury::SpendBody>,
+) -> HttpResponse {
+    let user = who!(pool, req);
+    let (address, id) = path.into_inner();
+    reply(treasury::spend_plan(pool.get_ref(), service.get_ref(), user, &address, id, body.into_inner()).await)
+}
+
 /// POST /api/treasury/accounts/{address}/operations - the signed operation, sent by the relayer.
 pub async fn submit_operation(
     pool: web::Data<PgPool>,
@@ -445,6 +459,7 @@ pub fn routes(scope: actix_web::Scope) -> actix_web::Scope {
         .route("/accounts/{address}/scheduled/{hash}/execute", web::post().to(execute_scheduled))
         .route("/accounts/{address}/scheduled/{hash}/veto-operation", web::get().to(veto_operation))
         .route("/accounts/{address}/operations", web::post().to(submit_operation))
+        .route("/accounts/{address}/limits/{id}/spend", web::post().to(spend_plan))
         .route("/accounts/{address}/ledger", web::get().to(ledger))
         .route("/accounts/{address}/address-book", web::get().to(address_book))
         .route("/accounts/{address}/address-book", web::post().to(add_address))

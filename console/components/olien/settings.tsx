@@ -1,7 +1,8 @@
 "use client";
 
 import { useQueryClient } from "@tanstack/react-query";
-import { ArrowDownLeft, ArrowUpRight, Download, KeyRound, Lock, Plus, Trash2 } from "lucide-react";
+import { ArrowDownLeft, ArrowUpRight, Download, KeyRound, Lock, Plus, Send, Trash2 } from "lucide-react";
+import { useSendTransaction } from "wagmi";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -27,6 +28,9 @@ import {
   type SpendingLimit,
   renameAccount,
   createSubAccount,
+  planSpend,
+  submitOperation,
+  type Hex,
   mintApiKey,
   revokeApiKey,
   type ApiKey,
@@ -35,6 +39,9 @@ import {
 } from "@/lib/treasury";
 import { AddressChip, Button, CopyButton, cx, DurationInput, EmptyState, Field, InlineError, KeyValue, Loading, Note, Panel, Pill, plural, Table, TxChip } from "./ui";
 import { accountError, applyProposal, olienKeys, useAddressBook, useApiKeys, useLedger, useOlienAccount } from "./use-olien";
+import { AddressInput } from "./recipients";
+import { friendlyWalletError, useArcChain, useWalletSession, walletSigner } from "./wallet";
+import { friendlyPasskeyError, knownPasskeys, passkeySupported, signWithPasskey } from "@/lib/passkey";
 
 const HOUR = 3_600;
 const DAY = 86_400;
@@ -269,11 +276,149 @@ function LimitForm({ address, account, onClose }: { address: string; account: Ac
   );
 }
 
+// Paying from a limit without the threshold. A wallet signer sends the call itself
+// and pays its own gas; a passkey signs an operation the relayer submits and the
+// Olien pays. Either way the service has already checked the limit would allow it.
+function SpendForm({ address, account, limit, onClose }: { address: string; account: AccountView; limit: SpendingLimit; onClose: () => void }) {
+  const queryClient = useQueryClient();
+  const wallet = useWalletSession();
+  const ensureArc = useArcChain();
+  const { sendTransactionAsync } = useSendTransaction();
+  const book = useAddressBook(address);
+  const [to, setTo] = useState(limit.anyDestination ? "" : (limit.destinations[0] ?? ""));
+  const [amount, setAmount] = useState("");
+  const [busy, setBusy] = useState<"wallet" | "passkey" | null>(null);
+  const [sent, setSent] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const named = new Set(limit.signers.map((id) => id.toLowerCase()));
+  const mySigner = walletSigner(account, wallet.address);
+  const byWallet = Boolean(wallet.matches && mySigner && named.has(mySigner.signerId.toLowerCase()));
+  const mine = new Set(knownPasskeys().map((record) => record.signerId.toLowerCase()));
+  const passkeys = account.signers.filter((signer) => signer.kind === "webauthn" && named.has(signer.signerId.toLowerCase()) && mine.has(signer.signerId.toLowerCase()));
+  const byPasskey = passkeys.length > 0 && passkeySupported();
+
+  function checked(): { to: string; amount: string } | string {
+    if (!isValidAddress(to)) return "The recipient needs a valid address.";
+    const units = parseUsdc(amount);
+    if (!units) return "The amount is in USDC with at most 6 decimals.";
+    if (BigInt(units) > BigInt(limit.remaining)) return `Only ${formatUsdc(limit.remaining)} is left on this limit.`;
+    return { to: to.toLowerCase(), amount: units };
+  }
+
+  async function finish(tx: string) {
+    setSent(tx);
+    // The indexer sees the Spent event within an interval; the balance and the
+    // ledger follow it.
+    await queryClient.invalidateQueries({ queryKey: olienKeys.all });
+  }
+
+  async function payWithWallet() {
+    const input = checked();
+    if (typeof input === "string" || !mySigner) return setError(typeof input === "string" ? input : null);
+    setError(null);
+    setBusy("wallet");
+    try {
+      const plan = await planSpend(address, limit.id, { ...input, signerId: mySigner.signerId });
+      await ensureArc();
+      const tx = await sendTransactionAsync({ to: plan.call.to as Hex, data: plan.call.data as Hex });
+      await finish(tx);
+    } catch (cause) {
+      setError(friendlyWalletError(cause));
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function payWithPasskey() {
+    const input = checked();
+    const first = passkeys[0];
+    if (typeof input === "string" || !first) return setError(typeof input === "string" ? input : null);
+    setError(null);
+    setBusy("passkey");
+    try {
+      const plan = await planSpend(address, limit.id, { ...input, signerId: first.signerId });
+      if (!plan.operation) throw new Error("The service did not prepare an operation for this signer.");
+      const signed = await signWithPasskey(plan.operation.hash as Hex, passkeys.map((signer) => ({ signerId: signer.signerId, x: signer.x, y: signer.y })));
+      const receipt = await submitOperation(address, { operation: plan.operation.operation, signerId: signed.signerId, signature: signed.signature });
+      await finish(receipt.txHash);
+    } catch (cause) {
+      setError(friendlyPasskeyError(cause));
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  if (sent) {
+    return (
+      <div className="olien-confirm">
+        <span className="olien-ok">
+          Paid. <TxChip hash={sent} />
+        </span>
+        <Button variant="ghost" size="sm" onClick={onClose}>
+          Done
+        </Button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="olien-spend-form">
+      <div className="olien-form-grid">
+        <Field label="To" className="olien-field--wide">
+          {limit.anyDestination ? (
+            <AddressInput value={to} book={book.data ?? []} disabled={busy != null} onChange={(value) => setTo(value.trim())} onPick={(entry) => setTo(entry.address)} />
+          ) : (
+            <select className="olien-input" value={to} disabled={busy != null} onChange={(event) => setTo(event.target.value)}>
+              {limit.destinations.map((destination) => (
+                <option key={destination} value={destination}>
+                  {book.data?.find((entry) => entry.address.toLowerCase() === destination.toLowerCase())?.label ?? shortAddress(destination)}
+                </option>
+              ))}
+            </select>
+          )}
+        </Field>
+        <Field label="Amount (USDC)">
+          <input className="olien-input num" value={amount} inputMode="decimal" placeholder="250.00" disabled={busy != null} onChange={(event) => setAmount(event.target.value)} />
+        </Field>
+      </div>
+      <InlineError message={error} />
+      <div className="olien-actions">
+        {byWallet ? (
+          <Button variant="primary" size="sm" icon={<Send size={12} />} busy={busy === "wallet"} disabled={busy != null} onClick={() => void payWithWallet()}>
+            {busy === "wallet" ? "Confirm in wallet" : "Pay from wallet"}
+          </Button>
+        ) : null}
+        {byPasskey ? (
+          <Button variant="primary" size="sm" icon={<KeyRound size={12} />} busy={busy === "passkey"} disabled={busy != null} onClick={() => void payWithPasskey()}>
+            {busy === "passkey" ? "Touch ID" : "Pay with passkey"}
+          </Button>
+        ) : null}
+        <Button variant="ghost" size="sm" disabled={busy != null} onClick={onClose}>
+          Cancel
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 function LimitRow({ address, account, limit }: { address: string; account: AccountView; limit: SpendingLimit }) {
   const go = useRouteToProposal(address);
+  const wallet = useWalletSession();
   const [confirm, setConfirm] = useState(false);
+  const [paying, setPaying] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Whether this browser can pay from the limit: its wallet is a named spender, or it
+  // holds a passkey that is.
+  const named = new Set(limit.signers.map((id) => id.toLowerCase()));
+  const mySigner = walletSigner(account, wallet.address);
+  const mine = new Set(knownPasskeys().map((record) => record.signerId.toLowerCase()));
+  const canPay =
+    account.status === "live" &&
+    BigInt(limit.remaining || "0") > 0n &&
+    (Boolean(wallet.matches && mySigner && named.has(mySigner.signerId.toLowerCase())) ||
+      account.signers.some((signer) => signer.kind === "webauthn" && named.has(signer.signerId.toLowerCase()) && mine.has(signer.signerId.toLowerCase())));
   const labelOf = (signerId: string) => account.signers.find((signer) => signer.signerId.toLowerCase() === signerId.toLowerCase())?.label ?? shortAddress(signerId);
   const from = limit.from && limit.from !== "0x0000000000000000000000000000000000000000" && limit.from.toLowerCase() !== account.address.toLowerCase() ? account.subAccounts.find((sub) => sub.address.toLowerCase() === limit.from.toLowerCase())?.label ?? shortAddress(limit.from) : null;
 
@@ -306,10 +451,16 @@ function LimitRow({ address, account, limit }: { address: string; account: Accou
         </span>
         <small className="olien-muted">Limit {limit.id}, generation {limit.generation}</small>
         <InlineError message={error} />
+        {paying ? <SpendForm address={address} account={account} limit={limit} onClose={() => setPaying(false)} /> : null}
       </div>
       <div className="olien-limit-actions">
+        {canPay && !paying && !confirm ? (
+          <Button size="sm" icon={<Send size={13} />} onClick={() => setPaying(true)}>
+            Pay
+          </Button>
+        ) : null}
         {!confirm ? (
-          <Button variant="ghost" size="sm" icon={<Trash2 size={13} />} disabled={account.status !== "live"} onClick={() => setConfirm(true)}>
+          <Button variant="ghost" size="sm" icon={<Trash2 size={13} />} disabled={account.status !== "live" || paying} onClick={() => setConfirm(true)}>
             Remove
           </Button>
         ) : (

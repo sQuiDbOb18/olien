@@ -283,6 +283,28 @@ configuration batch). A revert answers 502 with the decoded error name when it
 is one of the account's (`Stale`, `Dead`, `Expired`, `InvalidSignatures`,
 `SelfCallRefused`…) and marks the proposal `failed`.
 
+## Spending from a limit
+
+A member named on a spending limit pays from it alone, without the threshold
+(spec §11). The route answers how this caller's signer does that.
+
+```
+POST /api/treasury/accounts/{address}/limits/{id}/spend  { to, amount, signerId }
+     -> { call: { to, data }, operation: PreparedOperation | null }
+```
+
+The service checks first what the contract's `spend` would check, so a refusal
+costs no gas and comes with a reason: the limit exists and is active, the signer
+is named on its current generation, the destination is allowed, and the amount is
+within what the chain says is left right now. A wallet signer (which the caller
+must have linked) sends `call` from its own wallet, `spend(id, to, amount)` to
+the account, paying its own gas; `operation` is null. A passkey or P-256 signer
+gets `operation`, the same shape as a veto's, signs its `hash`, and sends it to
+`POST /operations`, which accepts a single self call to `spend` as it accepts one
+to `veto` and checks the signer is named on the limit before the relayer submits
+it. The indexer turns `Spent` into the limit's new `remaining` and a ledger row
+tagged with the limit within one interval.
+
 ## Scheduled changes
 
 ```

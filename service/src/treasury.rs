@@ -2351,25 +2351,11 @@ fn operation_from_json(json: &OperationJson) -> Res<PackedUserOperation> {
     })
 }
 
-/// A veto as a user operation for a passkey or P-256 signer (spec §11): one self call
-/// to `veto(hash)`, validated for that signer, paid from the account's deposit.
-pub async fn veto_operation(pool: &PgPool, treasury: &Treasury, user: i64, address: &str, tx_hash: &str, signer_id: &str) -> Res<PreparedOperation> {
-    let client = treasury.client.as_ref().ok_or(TreasuryError::Off)?;
-    let ctx = context_for(pool, user, address).await?;
-    let row = load_proposal(pool, ctx.row.id, tx_hash).await?;
-    if row.status != "scheduled" {
-        return Err(TreasuryError::Conflict("only a scheduled change can be vetoed".into()));
-    }
-    let signer_id = hex(parse_hash(signer_id)?.as_slice());
-    let signer = ctx.signers.iter().find(|s| s.signer_id == signer_id && s.status == "active").ok_or_else(|| bad("no such signer"))?;
-    if !matches!(signer.kind.as_str(), "p256" | "webauthn") {
-        return Err(bad("this signer vetoes from its own wallet, not through an operation"));
-    }
-    if !signer.vetoes() {
-        return Err(bad("this signer does not hold veto"));
-    }
+/// One self call as a user operation for a key-based signer (spec §11): the EntryPoint
+/// nonce in key 0, fixed gas limits, the RPC's fee, an hour of validity, and the
+/// account's own hash of it for the signer to sign.
+async fn single_operation(treasury: &Treasury, client: &OlienClient, ctx: &AccountContext, call: Call, signer_id: String) -> Res<PreparedOperation> {
     let account = ctx.row.address();
-    let calls = vec![Call { to: account, value: U256::ZERO, data: calldata::veto(parse_hash(tx_hash)?) }];
     let nonce = client.entry_point_nonce(account, 0).await.map_err(|e| TreasuryError::Chain(format!("{e:#}")))?;
     let (priority, max_fee) = client.fee_estimate().await.map_err(|e| TreasuryError::Chain(format!("{e:#}")))?;
     let valid_until = now() + OP_VALIDITY;
@@ -2377,7 +2363,7 @@ pub async fn veto_operation(pool: &PgPool, treasury: &Treasury, user: i64, addre
         sender: account,
         nonce,
         initCode: Bytes::new(),
-        callData: olien::user_operation_calldata(&calls),
+        callData: olien::user_operation_calldata(&[call]),
         accountGasLimits: olien::packed_pair(OP_VERIFICATION_GAS, OP_CALL_GAS),
         preVerificationGas: U256::from(OP_PRE_VERIFICATION_GAS),
         gasFees: olien::packed_pair(priority, max_fee),
@@ -2403,6 +2389,107 @@ pub async fn veto_operation(pool: &PgPool, treasury: &Treasury, user: i64, addre
     })
 }
 
+fn key_based(signer: &SignerRow) -> bool {
+    matches!(signer.kind.as_str(), "p256" | "webauthn")
+}
+
+/// A veto as a user operation for a passkey or P-256 signer: one self call to
+/// `veto(hash)`, validated for that signer, paid from the account's deposit.
+pub async fn veto_operation(pool: &PgPool, treasury: &Treasury, user: i64, address: &str, tx_hash: &str, signer_id: &str) -> Res<PreparedOperation> {
+    let client = treasury.client.as_ref().ok_or(TreasuryError::Off)?;
+    let ctx = context_for(pool, user, address).await?;
+    let row = load_proposal(pool, ctx.row.id, tx_hash).await?;
+    if row.status != "scheduled" {
+        return Err(TreasuryError::Conflict("only a scheduled change can be vetoed".into()));
+    }
+    let signer_id = hex(parse_hash(signer_id)?.as_slice());
+    let signer = ctx.signers.iter().find(|s| s.signer_id == signer_id && s.status == "active").ok_or_else(|| bad("no such signer"))?;
+    if !key_based(signer) {
+        return Err(bad("this signer vetoes from its own wallet, not through an operation"));
+    }
+    if !signer.vetoes() {
+        return Err(bad("this signer does not hold veto"));
+    }
+    let call = Call { to: ctx.row.address(), value: U256::ZERO, data: calldata::veto(parse_hash(tx_hash)?) };
+    single_operation(treasury, client, &ctx, call, signer_id).await
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SpendBody {
+    pub to: String,
+    pub amount: String,
+    pub signer_id: String,
+}
+
+/// How a named spender pays from a limit: a wallet signer sends `call` itself; a
+/// passkey or P-256 signer signs `operation` and the relayer submits it.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SpendPlan {
+    pub call: CallJson,
+    pub operation: Option<PreparedOperation>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct CallJson {
+    pub to: String,
+    pub data: String,
+}
+
+async fn load_limit(pool: &PgPool, olien_id: i64, limit_id: i64) -> Res<LimitRow> {
+    sqlx::query_as::<_, LimitRow>(
+        "SELECT limit_id, generation, token, from_address, amount, remaining, period, reset_at, any_destination,
+            signers, destinations FROM olien_spending_limits WHERE olien_id = $1 AND limit_id = $2 AND status = 'active'",
+    )
+    .bind(olien_id)
+    .bind(limit_id)
+    .fetch_optional(pool)
+    .await?
+    .ok_or_else(|| TreasuryError::NotFound("no such spending limit".into()))
+}
+
+fn names(value: &Value, wanted: &str) -> bool {
+    value.as_array().is_some_and(|list| list.iter().any(|v| v.as_str().is_some_and(|s| s.eq_ignore_ascii_case(wanted))))
+}
+
+/// Everything the contract's `spend` will check, checked here first so a refusal
+/// costs no gas and comes with a reason: the limit exists, the signer is named on
+/// its current generation, the destination is allowed, and the amount is within
+/// what is left right now on chain.
+pub async fn spend_plan(pool: &PgPool, treasury: &Treasury, user: i64, address: &str, limit_id: i64, body: SpendBody) -> Res<SpendPlan> {
+    let client = treasury.client.as_ref().ok_or(TreasuryError::Off)?;
+    let ctx = context_for(pool, user, address).await?;
+    require_live(&ctx.row)?;
+    let limit = load_limit(pool, ctx.row.id, limit_id).await?;
+    let signer_id = hex(parse_hash(&body.signer_id)?.as_slice());
+    let signer = ctx.signers.iter().find(|s| s.signer_id == signer_id && s.status == "active").ok_or_else(|| bad("no such signer"))?;
+    if !names(&limit.signers, &signer_id) {
+        return Err(bad("this signer is not named on the limit"));
+    }
+    // A wallet signer must be one the caller has linked; a key-based one proves itself
+    // when it signs the operation.
+    if !key_based(signer) && !ctx.membership.signer_ids.contains(&signer_id) {
+        return Err(TreasuryError::Forbidden);
+    }
+    let to = parse_address(&body.to)?;
+    if !limit.any_destination && !names(&limit.destinations, &addr(to)) {
+        return Err(bad("the limit does not allow that destination"));
+    }
+    let amount = parse_amount(&body.amount)?;
+    if amount.is_zero() {
+        return Err(bad("an amount must be positive"));
+    }
+    let (remaining, _, _, _) = client.limit_budget(ctx.row.address(), limit_id as u64).await.map_err(|e| TreasuryError::Chain(format!("{e:#}")))?;
+    if amount > U256::from(remaining) {
+        return Err(TreasuryError::Conflict(format!("only {remaining} is left on this limit until it resets")));
+    }
+    let data = calldata::spend(limit_id as u64, to, amount);
+    let call = Call { to: ctx.row.address(), value: U256::ZERO, data: data.clone() };
+    let operation = if key_based(signer) { Some(single_operation(treasury, client, &ctx, call, signer_id).await?) } else { None };
+    Ok(SpendPlan { call: CallJson { to: ctx.row.address.clone(), data: hex(&data) }, operation })
+}
+
 /// Submit a signed operation through the relayer. The hash is recomputed from the
 /// fields sent back and the signature checked against the signer's key before any
 /// gas is spent, and the calls are held to the one shape this route serves: a single
@@ -2424,15 +2511,24 @@ pub async fn submit_operation(pool: &PgPool, treasury: &Treasury, user: i64, add
         return Err(TreasuryError::Conflict("this operation has expired; prepare it again".into()));
     }
     let calls = olien::user_operation_calls(&op.callData).ok_or_else(|| bad("the operation's callData is not an executeUserOp batch"))?;
-    let veto_selector = &calldata::veto(B256::ZERO)[..4];
-    let single_veto = calls.len() == 1 && calls[0].to == account && calls[0].value.is_zero() && calls[0].data.get(..4) == Some(veto_selector);
-    if !single_veto {
-        return Err(bad("only a veto may be submitted this way"));
+    let self_call = calls.len() == 1 && calls[0].to == account && calls[0].value.is_zero();
+    let selector = calls.first().and_then(|c| c.data.get(..4));
+    let is_veto = self_call && selector == Some(&calldata::veto(B256::ZERO)[..4]);
+    let is_spend = self_call && selector == Some(&calldata::spend(0, Address::ZERO, U256::ZERO)[..4]);
+    if !is_veto && !is_spend {
+        return Err(bad("only a veto or a spend may be submitted this way"));
     }
     let signer_id = hex(parse_hash(&body.signer_id)?.as_slice());
     let signer = ctx.signers.iter().find(|s| s.signer_id == signer_id && s.status == "active").ok_or_else(|| bad("no such signer"))?;
-    if !signer.vetoes() {
+    if is_veto && !signer.vetoes() {
         return Err(bad("this signer does not hold veto"));
+    }
+    if is_spend {
+        let limit_id = calls[0].data.get(4..36).map(U256::from_be_slice).ok_or_else(|| bad("a spend names its limit"))?;
+        let limit = load_limit(pool, ctx.row.id, limit_id.to::<u64>() as i64).await?;
+        if !names(&limit.signers, &signer_id) {
+            return Err(bad("this signer is not named on the limit"));
+        }
     }
     let hash = olien::user_operation_hash(treasury.chain_id, account, &op, json.valid_after, json.valid_until, json.epoch, client.deployment.entry_point);
     let signature = parse_hex_bytes(&body.signature)?;

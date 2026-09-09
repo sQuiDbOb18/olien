@@ -1074,6 +1074,9 @@ pub mod calldata {
     pub fn veto(hash: B256) -> Bytes {
         IOlien::vetoCall { hash }.abi_encode().into()
     }
+    pub fn spend(id: u64, to: Address, amount: U256) -> Bytes {
+        IOlien::spendCall { id: U256::from(id), to, amount }.abi_encode().into()
+    }
 }
 
 pub fn u48(value: u64) -> alloy::primitives::Uint<48, 1> {

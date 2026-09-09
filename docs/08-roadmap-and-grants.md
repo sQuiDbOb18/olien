@@ -100,8 +100,10 @@ one machine; what is left is listed under each item.
   `/health`. Done. `handleOps` since 2026-09-09, for one shape: a passkey or
   P-256 signer's veto as a user operation, prepared by the service, signed in
   the console with Touch ID, checked and submitted by the relayer, with the hash
-  pinned to `OlienHash.userOperation` by a printed vector. Not yet: `spend` and
-  threshold batches as operations, and a run on chain against a real passkey.
+  pinned to `OlienHash.userOperation` by a printed vector. `spend` the same way,
+  so a passkey named on a limit pays from it in the console and a wallet signer
+  gets the call to send itself. Not yet: threshold batches as operations, and a
+  run on chain against a real passkey.
 - Web: the console at `/olien`, rebuilt late on 2026-09-04 in the Squads app's
   layout and flow (the founder's call: Squads' UI, typography and UX, for Olien
   and Arc): sign in with a wallet, the account switcher, Home with balance and

@@ -422,6 +422,16 @@ export const proposeSigners = (address: string, body: SignersProposalBody) =>
 export const getScheduled = (address: string) => request<ProposalView[]>(`/accounts/${address}/scheduled`);
 export const getVetoCall = (address: string, hash: string) =>
   request<VetoCall>(`/accounts/${address}/scheduled/${hash}/veto-call`);
+// Paying from a spending limit: a wallet signer sends `call` itself; a passkey signs
+// `operation` and the relayer submits it. The service checks the limit first either way.
+export interface SpendPlan {
+  call: { to: string; data: string };
+  operation: PreparedOperation | null;
+}
+
+export const planSpend = (address: string, limitId: number, body: { to: string; amount: string; signerId: string }) =>
+  request<SpendPlan>(`/accounts/${address}/limits/${limitId}/spend`, post(body));
+
 export const prepareVetoOperation = (address: string, hash: string, signerId: string) =>
   request<PreparedOperation>(`/accounts/${address}/scheduled/${hash}/veto-operation?signerId=${encodeURIComponent(signerId)}`);
 export const submitOperation = (address: string, body: { operation: OperationJson; signerId: string; signature: string }) =>
