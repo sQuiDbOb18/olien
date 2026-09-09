@@ -323,6 +323,40 @@ address book.
 empty string when none was given. Posting an address that exists replaces its
 label and category.
 
+## Payroll runs
+
+A run is a template: a name, a token, the people and amounts, and maybe a
+schedule. Running it opens a batch proposal of kind `payroll` in lane 1, the
+payroll lane, through the same path a hand-typed payment takes, so it needs the
+threshold's signatures like anything else and nothing here moves money by itself.
+The proposal's `intent` carries `payroll: { id, name }` beside the recipients, and
+the console names the transaction after the run.
+
+```
+GET    /api/treasury/accounts/{address}/payrolls              -> [PayrollRun]
+POST   /api/treasury/accounts/{address}/payrolls              -> PayrollRun
+PUT    /api/treasury/accounts/{address}/payrolls/{id}         -> PayrollRun
+DELETE /api/treasury/accounts/{address}/payrolls/{id}         -> 204
+POST   /api/treasury/accounts/{address}/payrolls/{id}/run     -> ProposalView
+```
+
+Body for `POST` and `PUT`: `{ name, token?, recipients: [{ to, amount, label?,
+memo? }], period: "none" | "weekly" | "fortnightly" | "monthly", nextRunAt? }`.
+Recipients are checked on save the way a run would check them, so a bad address
+fails now rather than on payday. `nextRunAt` (unix seconds) is required when
+`period` is not `none` and is the first scheduled run; it may not be in the past.
+
+`PayrollRun`: `{ id, name, token, recipients, total, period, nextRunAt, lastRunAt,
+lastRunTxHash, lastError, createdAt }`.
+
+A scheduled run is opened by the service on the day, once, as the member who
+saved it (`PUT` makes the editor that member). Dates missed while the service was
+down collapse into one run, not a pile. If opening fails, the reason is written
+to `lastError` and the run waits for its next date; if that member is no longer
+one, `lastError` says so and nothing opens. `POST /run` opens it now, as the
+caller, without moving the schedule; a `propose` API key may call it. The three
+writing routes are session only.
+
 ## API keys
 
 For finance tooling: a payroll run that puts the month's payouts in the queue, an

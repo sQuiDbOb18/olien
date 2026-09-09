@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeftRight, ArrowUpRight, Check, ChevronDown, Copy, Home, LogOut, Menu, Moon, Plus, Send, Settings, Sun, Users, X } from "lucide-react";
+import { ArrowLeftRight, ArrowUpRight, CalendarClock, Check, ChevronDown, Copy, Home, LogOut, Menu, Moon, Plus, Send, Settings, Sun, Users, X } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter, useSelectedLayoutSegments } from "next/navigation";
 import { useEffect, useRef, useState, type ReactNode } from "react";
@@ -22,6 +22,8 @@ function titleFor(segments: string[], address: string | null, name: string | und
       return segments[2] ? "Transaction" : "Transactions";
     case "members":
       return "Members";
+    case "payroll":
+      return "Payroll";
     case "settings":
       return "Settings";
     default:
@@ -220,6 +222,7 @@ export function OlienShell({ children }: { children: ReactNode }) {
         { href: `/olien/${address}`, label: "Home", icon: <Home size={16} />, active: section === "" },
         { href: `/olien/${address}/transactions`, label: "Transactions", icon: <ArrowLeftRight size={16} />, active: section === "transactions" },
         { href: `/olien/${address}/members`, label: "Members", icon: <Users size={16} />, active: section === "members" },
+        { href: `/olien/${address}/payroll`, label: "Payroll", icon: <CalendarClock size={16} />, active: section === "payroll" },
         { href: `/olien/${address}/settings`, label: "Settings", icon: <Settings size={16} />, active: section === "settings" },
       ]
     : [];

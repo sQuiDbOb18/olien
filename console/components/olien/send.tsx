@@ -1,63 +1,14 @@
 "use client";
 
 import { useQueryClient } from "@tanstack/react-query";
-import { Plus, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { errorMessage, formatDay, formatUsdc, isValidAddress, nowSeconds, parseUsdc, proposeTransfer, shortAddress, type AddressBookEntry, type RecipientInput } from "@/lib/treasury";
-import { Button, cx, Disclosure, Field, InlineError, Loading, Note, Panel } from "./ui";
+import { errorMessage, formatDay, formatUsdc, nowSeconds, proposeTransfer } from "@/lib/treasury";
+import { AddRecipientButton, newRecipient, recipientsTotal, RecipientsEditor, validateRecipients, type RecipientDraft } from "./recipients";
+import { Button, Disclosure, Field, InlineError, Loading, Note, Panel } from "./ui";
 import { accountError, applyProposal, useAddressBook, useOlienAccount } from "./use-olien";
 
-interface RecipientDraft {
-  key: number;
-  to: string;
-  amount: string;
-  label: string;
-  memo: string;
-}
-
-let sequence = 0;
-function newRecipient(): RecipientDraft {
-  sequence += 1;
-  return { key: sequence, to: "", amount: "", label: "", memo: "" };
-}
-
 const DAY = 86_400;
-
-// An address input that offers the address book as you type, Squads style.
-function AddressInput({ value, book, onChange, onPick, disabled }: { value: string; book: AddressBookEntry[]; onChange: (value: string) => void; onPick: (entry: AddressBookEntry) => void; disabled?: boolean }) {
-  const [focused, setFocused] = useState(false);
-  const query = value.trim().toLowerCase();
-  const matches = book.filter((entry) => !query || entry.label.toLowerCase().includes(query) || entry.address.toLowerCase().startsWith(query)).slice(0, 6);
-  const show = focused && matches.length > 0 && !(matches.length === 1 && matches[0].address.toLowerCase() === query);
-  return (
-    <span className="olien-suggest">
-      <input
-        className="olien-input olien-input--mono"
-        value={value}
-        placeholder="0x or a saved name"
-        spellCheck={false}
-        disabled={disabled}
-        onChange={(event) => onChange(event.target.value)}
-        onFocus={() => setFocused(true)}
-        onBlur={() => window.setTimeout(() => setFocused(false), 120)}
-      />
-      {show ? (
-        <ul className="olien-suggest-list" role="listbox">
-          {matches.map((entry) => (
-            <li key={entry.address}>
-              <button type="button" role="option" aria-selected={false} onMouseDown={(event) => event.preventDefault()} onClick={() => onPick(entry)}>
-                <strong>{entry.label}</strong>
-                <code>{shortAddress(entry.address)}</code>
-                {entry.category ? <small>{entry.category}</small> : null}
-              </button>
-            </li>
-          ))}
-        </ul>
-      ) : null}
-    </span>
-  );
-}
 
 export function OlienSend({ address }: { address: string }) {
   const router = useRouter();
@@ -75,35 +26,21 @@ export function OlienSend({ address }: { address: string }) {
 
   const view = account.data;
   const approvers = view.signers.filter((signer) => signer.permissions.includes("approve"));
-  const parsed = recipients.map((row) => parseUsdc(row.amount));
-  const total = parsed.reduce((sum, units) => sum + (units ? BigInt(units) : 0n), 0n);
+  const total = recipientsTotal(recipients);
   const balance = BigInt(view.usdcBalance || "0");
   const overBalance = total > balance;
   const entries = book.data ?? [];
 
-  function patch(key: number, change: Partial<RecipientDraft>) {
-    setRecipients((current) => current.map((row) => (row.key === key ? { ...row, ...change } : row)));
-  }
-
-  function validate(): RecipientInput[] | string {
-    if (recipients.length === 0) return "Add at least one recipient.";
-    if (!/^\d+$/.test(lane)) return "The lane is a whole number, 0 by default.";
-    if (validDays < 1 || validDays > 30) return "A transaction can stay valid for 1 to 30 days.";
-    const list: RecipientInput[] = [];
-    for (const [index, row] of recipients.entries()) {
-      if (!isValidAddress(row.to)) return `Recipient ${index + 1} needs a valid address.`;
-      const units = parsed[index];
-      if (!units) return `Recipient ${index + 1} needs an amount in USDC with at most 6 decimals.`;
-      const entry: RecipientInput = { to: row.to.toLowerCase(), amount: units };
-      if (row.label.trim()) entry.label = row.label.trim();
-      if (row.memo.trim()) entry.memo = row.memo.trim();
-      list.push(entry);
-    }
-    return list;
-  }
-
   async function submit() {
-    const list = validate();
+    if (!/^\d+$/.test(lane)) {
+      setError("The lane is a whole number, 0 by default.");
+      return;
+    }
+    if (validDays < 1 || validDays > 30) {
+      setError("A transaction can stay valid for 1 to 30 days.");
+      return;
+    }
+    const list = validateRecipients(recipients);
     if (typeof list === "string") {
       setError(list);
       return;
@@ -124,46 +61,8 @@ export function OlienSend({ address }: { address: string }) {
     <div className="olien-page">
       <div className="olien-split">
         <div className="olien-col">
-          <Panel
-            title="Recipients"
-            action={
-              <Button size="sm" icon={<Plus size={13} />} disabled={submitting} onClick={() => setRecipients((current) => [...current, newRecipient()])}>
-                Add another recipient
-              </Button>
-            }
-          >
-            <div className="olien-recipients">
-              {recipients.map((row, index) => (
-                <div key={row.key} className={cx("olien-recipient", recipients.length > 1 && "has-index")}>
-                  {recipients.length > 1 ? <span className="olien-call-index">{index + 1}</span> : null}
-                  <div className="olien-recipient-grid">
-                    <Field label="Recipient" className="olien-field--wide">
-                      <AddressInput
-                        value={row.to}
-                        book={entries}
-                        disabled={submitting}
-                        onChange={(value) => patch(row.key, { to: value.trim() })}
-                        onPick={(entry) => patch(row.key, { to: entry.address, label: entry.label })}
-                      />
-                    </Field>
-                    <Field label="Amount (USDC)">
-                      <input className="olien-input num" value={row.amount} inputMode="decimal" placeholder="250.00" disabled={submitting} onChange={(event) => patch(row.key, { amount: event.target.value })} />
-                    </Field>
-                    <Field label="Label (optional)">
-                      <input className="olien-input" value={row.label} placeholder="Acme Ltd" disabled={submitting} onChange={(event) => patch(row.key, { label: event.target.value })} />
-                    </Field>
-                    <Field label="Memo (optional)" className="olien-field--wide">
-                      <input className="olien-input" value={row.memo} placeholder="Invoice 1042" disabled={submitting} onChange={(event) => patch(row.key, { memo: event.target.value })} />
-                    </Field>
-                  </div>
-                  {recipients.length > 1 ? (
-                    <button type="button" className="olien-icon-btn olien-recipient-remove" aria-label={`Remove recipient ${index + 1}`} disabled={submitting} onClick={() => setRecipients((current) => current.filter((item) => item.key !== row.key))}>
-                      <Trash2 size={14} />
-                    </button>
-                  ) : null}
-                </div>
-              ))}
-            </div>
+          <Panel title="Recipients" action={<AddRecipientButton recipients={recipients} onChange={setRecipients} disabled={submitting} />}>
+            <RecipientsEditor recipients={recipients} onChange={setRecipients} book={entries} disabled={submitting} />
           </Panel>
 
           <Panel>

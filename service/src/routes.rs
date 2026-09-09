@@ -7,6 +7,7 @@ use sqlx::PgPool;
 
 use crate::handlers::auth::{account_error_response, bearer_token, error_response};
 use crate::services::account_sessions;
+use crate::services::payroll::{self, PayrollBody};
 use crate::services::treasury::{self, Treasury, TreasuryError};
 use crate::services::treasury_keys::{self, Need};
 
@@ -347,6 +348,45 @@ pub async fn revoke_key(pool: web::Data<PgPool>, req: HttpRequest, path: web::Pa
     }
 }
 
+pub async fn list_payrolls(pool: web::Data<PgPool>, req: HttpRequest, path: web::Path<String>) -> HttpResponse {
+    let user = who_on!(pool, req, Need::Read, &path).user;
+    reply(payroll::list(pool.get_ref(), user, &path).await)
+}
+
+pub async fn create_payroll(pool: web::Data<PgPool>, service: web::Data<Treasury>, req: HttpRequest, path: web::Path<String>, body: web::Json<PayrollBody>) -> HttpResponse {
+    let user = who!(pool, req);
+    reply(payroll::create(pool.get_ref(), service.get_ref(), user, &path, body.into_inner()).await)
+}
+
+pub async fn update_payroll(
+    pool: web::Data<PgPool>,
+    service: web::Data<Treasury>,
+    req: HttpRequest,
+    path: web::Path<(String, i64)>,
+    body: web::Json<PayrollBody>,
+) -> HttpResponse {
+    let user = who!(pool, req);
+    let (address, id) = path.into_inner();
+    reply(payroll::update(pool.get_ref(), service.get_ref(), user, &address, id, body.into_inner()).await)
+}
+
+pub async fn delete_payroll(pool: web::Data<PgPool>, req: HttpRequest, path: web::Path<(String, i64)>) -> HttpResponse {
+    let user = who!(pool, req);
+    let (address, id) = path.into_inner();
+    match payroll::delete(pool.get_ref(), user, &address, id).await {
+        Ok(()) => HttpResponse::NoContent().finish(),
+        Err(error) => failed(error),
+    }
+}
+
+/// POST /api/treasury/accounts/{address}/payrolls/{id}/run - open the run's proposal now.
+/// A propose key may do this: it is the same thing as posting the batch itself.
+pub async fn run_payroll(pool: web::Data<PgPool>, service: web::Data<Treasury>, req: HttpRequest, path: web::Path<(String, i64)>) -> HttpResponse {
+    let caller = who_on!(pool, req, Need::Propose, &path.0);
+    let (address, id) = path.into_inner();
+    reply(payroll::run(pool.get_ref(), service.get_ref(), caller.user, &address, id, caller.key).await)
+}
+
 /// The route table, mounted under /api/treasury.
 pub fn routes(scope: actix_web::Scope) -> actix_web::Scope {
     scope
@@ -377,4 +417,9 @@ pub fn routes(scope: actix_web::Scope) -> actix_web::Scope {
         .route("/accounts/{address}/api-keys", web::get().to(list_keys))
         .route("/accounts/{address}/api-keys", web::post().to(mint_key))
         .route("/accounts/{address}/api-keys/{id}", web::delete().to(revoke_key))
+        .route("/accounts/{address}/payrolls", web::get().to(list_payrolls))
+        .route("/accounts/{address}/payrolls", web::post().to(create_payroll))
+        .route("/accounts/{address}/payrolls/{id}", web::put().to(update_payroll))
+        .route("/accounts/{address}/payrolls/{id}", web::delete().to(delete_payroll))
+        .route("/accounts/{address}/payrolls/{id}/run", web::post().to(run_payroll))
 }

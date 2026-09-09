@@ -15,7 +15,8 @@ use tracing::{info, warn};
 
 use crate::services::olien::{IEntryPointView, IOlien, OlienClient, IERC20, PATH_RECOVERY, PATH_SINGLE, SCHEDULE_WINDOW};
 use crate::services::push::{self, Push};
-use crate::services::treasury::{self, AccountRow, RelayerStatus};
+use crate::services::payroll;
+use crate::services::treasury::{self, AccountRow, RelayerStatus, Treasury};
 
 // drpc caps a getLogs answer at 10k entries; a fresh account has few logs, so a large
 // block window is safe and catches up fast.
@@ -28,7 +29,10 @@ pub const RELAYER_LOW_USDC: u128 = 5_000_000;
 const GAS_NOTE: &str = "Gas for a user operation";
 const REVERTED_NOTE: &str = "The user operation ran but the account's call reverted; the gas was still paid";
 
-pub async fn run(client: OlienClient, pool: PgPool, interval_secs: u64, relayer: Arc<Mutex<Option<RelayerStatus>>>, push: Option<Arc<Push>>) {
+pub async fn run(treasury: Treasury, pool: PgPool, interval_secs: u64) {
+    let Some(client) = treasury.client.clone() else { return };
+    let relayer = treasury.relayer.clone();
+    let push = treasury.push.clone();
     let mut ticker = tokio::time::interval(Duration::from_secs(interval_secs.max(5)));
     let mut cycles: u64 = 0;
     loop {
@@ -39,6 +43,11 @@ pub async fn run(client: OlienClient, pool: PgPool, interval_secs: u64, relayer:
             watch_relayer(&client, &relayer).await;
         }
         cycles += 1;
+        // Payday: a scheduled run whose date has come is opened here, once, as the
+        // member who scheduled it.
+        if let Err(e) = payroll::run_due(&pool, &treasury).await {
+            warn!("scheduled payroll runs failed: {e:#}");
+        }
         if let Err(e) = index_once(&client, &pool, push.as_deref()).await {
             warn!("olien index cycle failed: {e:#}");
         }

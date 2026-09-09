@@ -15,6 +15,7 @@ export type AccountStatus = "deploying" | "live" | "disabled";
 export type ProposalKind =
   | "transfer"
   | "batch"
+  | "payroll"
   | "signer_change"
   | "rule_change"
   | "limit_change"
@@ -553,6 +554,7 @@ export function statusLabel(status: ProposalStatus): string {
 export const KIND_LABELS: Record<ProposalKind, string> = {
   transfer: "Payment",
   batch: "Batch",
+  payroll: "Payroll",
   signer_change: "Signer change",
   rule_change: "Rule change",
   limit_change: "Spending limit",
@@ -633,6 +635,12 @@ export function hashParam(value: string): string | null {
 }
 
 export function proposalSummary(proposal: ProposalView): string {
+  // A payroll run is known by its name, not by its dozen transfer calls.
+  const payroll = proposal.intent?.payroll as { name?: string } | undefined;
+  const recipients = proposal.intent?.recipients;
+  if (payroll?.name && Array.isArray(recipients)) {
+    return `${payroll.name}: ${recipients.length} ${recipients.length === 1 ? "person" : "people"}`;
+  }
   const first = proposal.decoded[0];
   if (proposal.decoded.length === 1 && first) return first.summary;
   if (proposal.decoded.length > 1) return `${proposal.decoded.length} calls: ${proposal.decoded.map((call) => call.summary).join("; ")}`;
@@ -711,6 +719,40 @@ export interface ApiKey {
 export interface MintedApiKey extends ApiKey {
   key: string;
 }
+
+// Payroll runs: a saved list of people and amounts. Running one opens a batch in
+// the payroll lane that needs the same signatures as any payment; a schedule has the
+// service open it on the day.
+export type PayrollPeriod = "none" | "weekly" | "fortnightly" | "monthly";
+
+export interface PayrollRun {
+  id: number;
+  name: string;
+  token: string;
+  recipients: RecipientInput[];
+  total: string;
+  period: PayrollPeriod;
+  nextRunAt: number | null;
+  lastRunAt: number | null;
+  lastRunTxHash: string | null;
+  lastError: string | null;
+  createdAt: number;
+}
+
+export interface PayrollBody {
+  name: string;
+  token?: string;
+  recipients: RecipientInput[];
+  period: PayrollPeriod;
+  nextRunAt?: number | null;
+}
+
+export const getPayrolls = (address: string) => request<PayrollRun[]>(`/accounts/${address}/payrolls`);
+export const createPayroll = (address: string, body: PayrollBody) => request<PayrollRun>(`/accounts/${address}/payrolls`, post(body));
+export const updatePayroll = (address: string, id: number, body: PayrollBody) =>
+  request<PayrollRun>(`/accounts/${address}/payrolls/${id}`, { ...post(body), method: "PUT" });
+export const deletePayroll = (address: string, id: number) => request<void>(`/accounts/${address}/payrolls/${id}`, { method: "DELETE" });
+export const runPayroll = (address: string, id: number) => request<ProposalView>(`/accounts/${address}/payrolls/${id}/run`, post({}));
 
 export const getApiKeys = (address: string) => request<ApiKey[]>(`/accounts/${address}/api-keys`);
 export const mintApiKey = (address: string, name: string, scope: ApiKeyScope) =>

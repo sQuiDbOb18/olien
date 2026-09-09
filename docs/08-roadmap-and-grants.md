@@ -318,6 +318,14 @@ one machine; what is left is listed under each item.
   tools reconcile by event.
 - Exports (value-only CSV, full ledger with labels), API keys with `read` and
   `propose` scopes.
+  Status, 2026-09-09: payroll runs exist as templates with a weekly, fortnightly
+  or monthly schedule (`services/payroll.rs`, migration 0022, the console's
+  Payroll page). Running one opens a `payroll` batch in lane 1 through the same
+  path as a payment; the indexer's cycle opens scheduled ones on the day as the
+  member who saved them, collapsing missed dates into one run and writing a
+  failure on the template rather than losing it. The CSV export and API keys are
+  done. Not yet: the payroll sub-account and limit path (`spend` per recipient
+  needs the relayer's `handleOps`), cheques and invoices from the treasury.
 - Exit: a monthly run pays five recipients from the payroll sub-account under a
   limit; one is paid by cheque and cashes it from the consumer app.
 

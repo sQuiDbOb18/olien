@@ -24,6 +24,9 @@ use crate::services::olien::{
 };
 
 pub const DEFAULT_VALIDITY: u64 = 7 * 86_400;
+/// Payroll runs queue in their own lane, so a run waiting on signatures never holds
+/// up an ordinary payment and an ordinary payment never holds up payday.
+pub const PAYROLL_LANE: &str = "1";
 
 #[derive(Clone)]
 pub struct Treasury {
@@ -539,7 +542,7 @@ pub struct NewProposalBody {
     pub valid_until: Option<u64>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RecipientBody {
     pub to: String,
@@ -1548,21 +1551,20 @@ async fn insert_proposal(
     Ok(view)
 }
 
-pub async fn propose_transfer(pool: &PgPool, treasury: &Treasury, user: i64, address: &str, body: TransferBody, via_key: Option<i64>) -> Res<ProposalView> {
-    let client = treasury.client.as_ref().ok_or(TreasuryError::Off)?;
-    let ctx = context_for(pool, user, address).await?;
-    require_live(&ctx.row)?;
-    if body.recipients.is_empty() || body.recipients.len() > 200 {
+/// The calls and the intent for paying a list of people, shared by a one-off transfer
+/// and a payroll run. Returns the calls, the intent rows, the total and the token.
+pub(crate) fn transfer_batch(client: &OlienClient, recipients: &[RecipientBody], token: Option<&str>) -> Res<(Vec<Call>, Vec<Value>, U256, Address)> {
+    if recipients.is_empty() || recipients.len() > 200 {
         return Err(bad("1 to 200 recipients"));
     }
-    let token = match &body.token {
+    let token = match token {
         Some(t) => parse_address(t)?,
         None => client.usdc,
     };
-    let mut calls = Vec::with_capacity(body.recipients.len());
+    let mut calls = Vec::with_capacity(recipients.len());
     let mut intent_rows = Vec::new();
     let mut total = U256::ZERO;
-    for r in &body.recipients {
+    for r in recipients {
         let to = parse_address(&r.to)?;
         let amount = parse_amount(&r.amount)?;
         if amount.is_zero() {
@@ -1572,9 +1574,44 @@ pub async fn propose_transfer(pool: &PgPool, treasury: &Treasury, user: i64, add
         calls.push(Call { to: token, value: U256::ZERO, data: calldata::usdc_transfer(to, amount) });
         intent_rows.push(json!({ "to": addr(to), "amount": amount.to_string(), "label": r.label, "memo": r.memo }));
     }
+    Ok((calls, intent_rows, total, token))
+}
+
+pub async fn propose_transfer(pool: &PgPool, treasury: &Treasury, user: i64, address: &str, body: TransferBody, via_key: Option<i64>) -> Res<ProposalView> {
+    let client = treasury.client.as_ref().ok_or(TreasuryError::Off)?;
+    let ctx = context_for(pool, user, address).await?;
+    require_live(&ctx.row)?;
+    let (calls, intent_rows, total, token) = transfer_batch(client, &body.recipients, body.token.as_deref())?;
     let intent = json!({ "recipients": intent_rows, "token": addr(token), "total": total.to_string() });
     let kind = if body.recipients.len() == 1 { "transfer" } else { "batch" };
     insert_proposal(pool, client, treasury.chain_id, treasury.push.as_deref(), &ctx, user, kind.into(), intent, calls, body.nonce_key, None, None, body.valid_until, via_key).await
+}
+
+/// A payroll run as a proposal: the template's recipients as one batch, kind
+/// `payroll`, in the payroll lane, named after the run so the queue reads "September
+/// payroll" rather than "12 calls". Needs the same signatures as anything else.
+pub async fn propose_payroll(
+    pool: &PgPool,
+    treasury: &Treasury,
+    user: i64,
+    address: &str,
+    payroll_id: i64,
+    name: &str,
+    recipients: &[RecipientBody],
+    token: Option<&str>,
+    via_key: Option<i64>,
+) -> Res<ProposalView> {
+    let client = treasury.client.as_ref().ok_or(TreasuryError::Off)?;
+    let ctx = context_for(pool, user, address).await?;
+    require_live(&ctx.row)?;
+    let (calls, intent_rows, total, token) = transfer_batch(client, recipients, token)?;
+    let intent = json!({
+        "recipients": intent_rows,
+        "token": addr(token),
+        "total": total.to_string(),
+        "payroll": { "id": payroll_id, "name": name },
+    });
+    insert_proposal(pool, client, treasury.chain_id, treasury.push.as_deref(), &ctx, user, "payroll".into(), intent, calls, Some(PAYROLL_LANE.into()), None, None, None, via_key).await
 }
 
 pub async fn propose_signers(pool: &PgPool, treasury: &Treasury, user: i64, address: &str, body: SignersProposalBody) -> Res<ProposalView> {

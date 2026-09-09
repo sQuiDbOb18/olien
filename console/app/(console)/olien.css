@@ -3690,3 +3690,19 @@ strong > .olien-tag {
 .olien-secret .olien-btn {
   justify-self: start;
 }
+
+.olien-payroll-people {
+  display: grid;
+  gap: 12px;
+}
+
+.olien-payroll-people-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.olien-payroll-people-head .olien-btn {
+  margin-left: auto;
+}
+
