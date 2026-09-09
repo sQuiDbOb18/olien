@@ -24,6 +24,7 @@ import {
   proposeSigners,
   shortAddress,
   type AccountView,
+  type LedgerEntry,
   type ProposalView,
   type SpendingLimit,
   renameAccount,
@@ -44,7 +45,7 @@ import {
   type ApiKeyScope,
   type MintedApiKey,
 } from "@/lib/treasury";
-import { AddressChip, Button, CopyButton, cx, DurationInput, EmptyState, Field, InlineError, KeyValue, Loading, Note, Panel, Pill, plural, Table, TxChip } from "./ui";
+import { AddressChip, Button, CopyButton, cx, DurationInput, EmptyState, Field, InlineError, KeyValue, Loading, Note, Panel, Pill, plural, Table, Tabs, TxChip } from "./ui";
 import { accountError, applyProposal, olienKeys, useAddressBook, useApiKeys, useLedger, useOlienAccount, useWebhookDeliveries, useWebhooks } from "./use-olien";
 import { AddressInput } from "./recipients";
 import { friendlyWalletError, useArcChain, useWalletSession, walletSigner } from "./wallet";
@@ -668,16 +669,32 @@ function SubAccountsSection({ account }: { account: AccountView }) {
   );
 }
 
+type Direction = "all" | "in" | "out";
+
+// Filters narrow what is shown and what is exported alike, so the file matches the
+// table a person was looking at when they pressed Export.
+function matches(entry: LedgerEntry, direction: Direction, token: string, query: string): boolean {
+  if (direction !== "all" && entry.direction !== direction) return false;
+  if (token !== "all" && entry.symbol !== token) return false;
+  if (!query) return true;
+  const hay = [entry.counterparty, entry.counterpartyLabel ?? "", entry.memo ?? "", entry.tx, entry.symbol].join(" ").toLowerCase();
+  return hay.includes(query);
+}
+
 function LedgerSection({ address }: { address: string }) {
   const ledger = useLedger(address, 100);
   const [exporting, setExporting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [direction, setDirection] = useState<Direction>("all");
+  const [token, setToken] = useState("all");
+  const [search, setSearch] = useState("");
+  const query = search.trim().toLowerCase();
 
   async function exportCsv() {
     setError(null);
     setExporting(true);
     try {
-      const rows = await getLedger(address, 1000);
+      const rows = (await getLedger(address, 1000)).filter((entry) => matches(entry, direction, token, query));
       const blob = new Blob([ledgerCsv(rows)], { type: "text/csv;charset=utf-8" });
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
@@ -694,7 +711,10 @@ function LedgerSection({ address }: { address: string }) {
     }
   }
 
-  const entries = ledger.data ?? [];
+  const all = ledger.data ?? [];
+  const tokens = Array.from(new Set(all.map((entry) => entry.symbol)));
+  const entries = all.filter((entry) => matches(entry, direction, token, query));
+  const filtered = direction !== "all" || token !== "all" || query !== "";
 
   return (
     <Panel
@@ -702,10 +722,34 @@ function LedgerSection({ address }: { address: string }) {
       flush
       action={
         <Button size="sm" icon={<Download size={13} />} busy={exporting} disabled={entries.length === 0} onClick={() => void exportCsv()}>
-          Export CSV
+          {filtered ? "Export these" : "Export CSV"}
         </Button>
       }
     >
+      {all.length > 0 ? (
+        <div className="olien-panel-pad olien-ledger-filters">
+          <Tabs<Direction>
+            items={[
+              { id: "all", label: "All" },
+              { id: "in", label: "In" },
+              { id: "out", label: "Out" },
+            ]}
+            value={direction}
+            onChange={setDirection}
+          />
+          {tokens.length > 1 ? (
+            <select className="olien-input olien-input--short" value={token} onChange={(event) => setToken(event.target.value)} aria-label="Token">
+              <option value="all">Every token</option>
+              {tokens.map((symbol) => (
+                <option key={symbol} value={symbol}>
+                  {symbol}
+                </option>
+              ))}
+            </select>
+          ) : null}
+          <input className="olien-input" placeholder="Search a name, memo, address or tx" value={search} onChange={(event) => setSearch(event.target.value)} aria-label="Search the ledger" />
+        </div>
+      ) : null}
       {error ? (
         <div className="olien-panel-pad">
           <InlineError message={error} />
@@ -715,8 +759,10 @@ function LedgerSection({ address }: { address: string }) {
         <Loading label="Loading the ledger" />
       ) : ledger.error ? (
         <InlineError message={errorMessage(ledger.error)} />
-      ) : entries.length === 0 ? (
+      ) : all.length === 0 ? (
         <EmptyState title="No movements yet" hint="Deposit USDC to the Olien address to fund it." />
+      ) : entries.length === 0 ? (
+        <EmptyState title="Nothing matches" hint="Clear a filter to see the rest." />
       ) : (
         <Table head={["Time", "", "Counterparty", "Amount", "Memo", "Tx"]}>
           {entries.map((entry) => (

@@ -3691,6 +3691,23 @@ strong > .olien-tag {
   justify-self: start;
 }
 
+.olien-ledger-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  border-bottom: 1px solid var(--border);
+}
+
+.olien-ledger-filters .olien-input {
+  flex: 1 1 220px;
+  max-width: 360px;
+}
+
+.olien-ledger-filters .olien-input--short {
+  flex: 0 1 150px;
+}
+
 .olien-topics {
   gap: 16px;
   margin: 0 0 14px;
