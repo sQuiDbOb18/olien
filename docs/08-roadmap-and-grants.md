@@ -157,6 +157,19 @@ one machine; what is left is listed under each item.
 
 ## Phase 3: members that are people (about 2 weeks)
 
+- Recovery waits, and a lost iCloud has a way back, 2026-09-09. Swapping the
+  Device Key needs Cloud plus Recovery, the pair someone holds who has taken an
+  Apple ID and an inbox, and it used to execute the moment it was asked for;
+  `keys-and-recovery.md` said so and said the copy should admit it. It now waits
+  an hour, the account is pushed and told which key is moving, and any surviving
+  key stops it from a red banner above the balance on Home. Losing the iCloud key
+  had no path at all without a recovery PIN; it now has one, Device plus
+  Recovery, prepared by the service and submitted by the phone, so nothing here
+  packs a contract signature because the app already does that for every payment.
+  That one waits a day, since the phone is the harder thing to steal. Six backend
+  tests and four on the phone, 71 and 204. Not yet: run against a real inbox, and
+  the emailed stop for someone whose phone is the thing that was taken.
+
 - Earn pays a real rate, 2026-09-07: the settlement vault holds Circle's USYC for
   its idle float instead of a simulated share price. The teller is an ERC-4626
   vault whose asset is Arc USDC, verified on chain rather than from a page, and
