@@ -2038,6 +2038,62 @@ pub async fn rename_account(pool: &PgPool, treasury: &Treasury, user: i64, addre
     account_view(pool, treasury, user, address).await
 }
 
+/// Bring one of this Olien's sub-accounts into being, and name it.
+///
+/// The contract lets anyone deploy it, because the address is a deterministic clone
+/// only this Olien can operate: creating it grants nothing. What it does cost is gas,
+/// so the relayer pays and the caller has to be a signer, which is also the only way
+/// we know whose treasury it is. The index is chosen here rather than asked for, so
+/// two people pressing the button do not fight over the same one.
+pub async fn create_sub_account(
+    pool: &PgPool,
+    treasury: &Treasury,
+    user: i64,
+    address: &str,
+    label: &str,
+) -> Res<AccountView> {
+    let client = treasury.client.as_ref().ok_or(TreasuryError::Off)?;
+    let ctx = context_for(pool, user, address).await?;
+    require_live(&ctx.row)?;
+    let label = label.trim();
+    if label.chars().count() > 80 {
+        return Err(bad("a label is at most 80 characters"));
+    }
+
+    let next: Option<(i64,)> = sqlx::query_as("SELECT MAX(index) FROM olien_sub_accounts WHERE olien_id = $1")
+        .bind(ctx.row.id)
+        .fetch_optional(pool)
+        .await?;
+    let index = next.map(|(max,)| max + 1).unwrap_or(0);
+    let account = parse_address(address)?;
+    let index_u = U256::from(index as u64);
+
+    // Ask the chain where it will land before deploying, so the row we write is the
+    // address the contract will actually use rather than one we worked out ourselves.
+    let predicted = client
+        .sub_account_address(account, index_u)
+        .await
+        .map_err(|e| TreasuryError::Chain(format!("{e:#}")))?;
+    let sent = client
+        .create_sub_account(account, index_u)
+        .await
+        .map_err(|e| TreasuryError::Chain(format!("{e:#}")))?;
+
+    sqlx::query(
+        "INSERT INTO olien_sub_accounts (olien_id, index, address, label, created_tx) VALUES ($1, $2, $3, $4, $5)
+         ON CONFLICT (olien_id, index) DO UPDATE SET label = EXCLUDED.label, created_tx = EXCLUDED.created_tx",
+    )
+    .bind(ctx.row.id)
+    .bind(index)
+    .bind(addr(predicted))
+    .bind(label)
+    .bind(format!("{:#x}", sent.tx_hash))
+    .execute(pool)
+    .await?;
+
+    account_view(pool, treasury, user, address).await
+}
+
 pub async fn execute(pool: &PgPool, treasury: &Treasury, user: i64, address: &str, tx_hash: &str) -> Res<ProposalView> {
     let client = treasury.client.as_ref().ok_or(TreasuryError::Off)?;
     let ctx = context_for(pool, user, address).await?;

@@ -678,3 +678,6 @@ export function ledgerCsv(entries: LedgerEntry[]): string {
 
 export const renameAccount = (address: string, name: string) =>
   request<AccountView>(`/accounts/${address}/name`, { ...post({ name }), method: "PUT" });
+
+export const createSubAccount = (address: string, label: string) =>
+  request<AccountView>(`/accounts/${address}/sub-accounts`, post({ label }));

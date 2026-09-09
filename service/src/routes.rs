@@ -65,6 +65,25 @@ pub async fn rename_account(
     reply(treasury::rename_account(pool.get_ref(), service.get_ref(), user, &path.into_inner(), &body.name).await)
 }
 
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SubAccountBody {
+    #[serde(default)]
+    pub label: String,
+}
+
+/// POST /api/treasury/accounts/{address}/sub-accounts - deploy the next one.
+pub async fn create_sub_account(
+    pool: web::Data<PgPool>,
+    service: web::Data<Treasury>,
+    req: HttpRequest,
+    path: web::Path<String>,
+    body: web::Json<SubAccountBody>,
+) -> HttpResponse {
+    let user = who!(pool, req);
+    reply(treasury::create_sub_account(pool.get_ref(), service.get_ref(), user, &path.into_inner(), &body.label).await)
+}
+
 pub async fn linked_addresses(pool: web::Data<PgPool>, req: HttpRequest) -> HttpResponse {
     let user = who!(pool, req);
     reply(treasury::linked_addresses(pool.get_ref(), user).await)
@@ -277,6 +296,7 @@ pub fn routes(scope: actix_web::Scope) -> actix_web::Scope {
         .route("/accounts", web::post().to(create_account))
         .route("/accounts/{address}", web::get().to(get_account))
         .route("/accounts/{address}/name", web::put().to(rename_account))
+        .route("/accounts/{address}/sub-accounts", web::post().to(create_sub_account))
         .route("/accounts/{address}/proposals", web::get().to(list_proposals))
         .route("/accounts/{address}/proposals", web::post().to(create_proposal))
         .route("/accounts/{address}/proposals/transfer", web::post().to(propose_transfer))

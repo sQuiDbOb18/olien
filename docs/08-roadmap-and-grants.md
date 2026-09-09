@@ -75,7 +75,13 @@ one machine; what is left is listed under each item.
 - Routes (`11-service-api.md`): link an address, create account, propose (raw calls
   and the transfer, signers, limit and remove-limit builders), confirm, execute,
   cancel, delete, scheduled changes with the veto calldata and `executeScheduled`,
-  ledger, address book. Done. Not yet: sub-account creation, API keys.
+  ledger, address book. Done. Sub-account creation too since 2026-09-09: the
+  contract lets anyone deploy one, because the address is a deterministic clone
+  only that Olien can operate, so creating it grants nothing and costs only gas.
+  The relayer pays, the caller has to be a signer, and the index is chosen by the
+  service rather than asked for so two people pressing the button do not fight
+  over the same one. The address is read back from the chain before the row is
+  written. Not yet: API keys.
 - Indexer: the spec §14 events, USDC transfers, lanes from `getNonce`, replaced and
   stale proposals, limits and sub-accounts mirrored from events. Done. EURC too
   since 2026-09-09: the ledger already carried the token that moved, so movements

@@ -161,6 +161,7 @@ sol! {
         function executeScheduled(bytes32 hash, Call[] calls) external;
         function approve(bytes32 hash) external;
         function veto(bytes32 hash) external;
+        function createSubAccount(uint256 index) external returns (address);
         function spend(uint256 id, address to, uint256 amount) external;
         function addSigner(SignerInput input) external;
         function removeSigner(bytes32 id) external;
@@ -759,6 +760,32 @@ impl OlienClient {
             }
         }
         Ok(())
+    }
+
+    /// Deploy one of this account's sub-accounts. Permissionless on the contract: the
+    /// address is a deterministic clone this Olien alone can operate, so bringing it
+    /// into being takes nobody's approval, only somebody's gas.
+    pub async fn create_sub_account(&self, account: Address, index: U256) -> Result<Sent> {
+        let _guard = self.send_lock.lock().await;
+        let contract = IOlien::new(account, &self.provider);
+        let receipt = retry_nonce(|| async { contract.createSubAccount(index).send().await.map_err(describe) })
+            .await
+            .context("sending createSubAccount")?
+            .get_receipt()
+            .await
+            .context("waiting for createSubAccount")?;
+        if !receipt.status() {
+            bail!("createSubAccount reverted in {:#x}", receipt.transaction_hash);
+        }
+        Ok(Sent {
+            tx_hash: receipt.transaction_hash,
+            block: receipt.block_number.unwrap_or_default(),
+            gas_used: receipt.gas_used,
+        })
+    }
+
+    pub async fn sub_account_address(&self, account: Address, index: U256) -> Result<Address> {
+        IOlien::new(account, &self.provider).subAccount(index).call().await.map_err(describe)
     }
 
     pub async fn execute(&self, account: Address, txn: &Transaction, signatures: Bytes) -> Result<Sent> {

@@ -3631,3 +3631,16 @@ strong > .olien-tag {
     display: none;
   }
 }
+
+/* A field and its button on one line, for the small creations that need a name and
+   nothing else. Wraps rather than squeezing the button on a narrow window. */
+.olien-inline-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.olien-inline-form .olien-input {
+  flex: 1 1 240px;
+}

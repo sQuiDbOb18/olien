@@ -25,6 +25,7 @@ import {
   type ProposalView,
   type SpendingLimit,
   renameAccount,
+  createSubAccount,
 } from "@/lib/treasury";
 import { AddressChip, Button, cx, DurationInput, EmptyState, Field, InlineError, KeyValue, Loading, Note, Panel, Pill, plural, Table, TxChip } from "./ui";
 import { accountError, applyProposal, olienKeys, useAddressBook, useLedger, useOlienAccount } from "./use-olien";
@@ -441,8 +442,49 @@ function AddressBookSection({ address }: { address: string }) {
 }
 
 function SubAccountsSection({ account }: { account: AccountView }) {
+  const queryClient = useQueryClient();
+  const [label, setLabel] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function create() {
+    setBusy(true);
+    setError(null);
+    try {
+      await createSubAccount(account.address, label.trim());
+      await queryClient.invalidateQueries({ queryKey: olienKeys.all });
+      setLabel("");
+    } catch (cause) {
+      setError(errorMessage(cause));
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <Panel title="Sub-accounts">
+      {/* The index is the contract's, chosen by the service, so the only thing to
+          ask for is what this one is for. */}
+      <form
+        className="olien-inline-form"
+        onSubmit={(event) => {
+          event.preventDefault();
+          void create();
+        }}
+      >
+        <input
+          className="olien-input"
+          placeholder="What is it for? Payroll, contractors, travel"
+          value={label}
+          onChange={(event) => setLabel(event.target.value)}
+          maxLength={80}
+          disabled={busy}
+        />
+        <Button type="submit" variant="primary" disabled={busy}>
+          {busy ? "Creating" : "Create sub-account"}
+        </Button>
+      </form>
+      {error ? <InlineError message={error} /> : null}
       {account.subAccounts.length === 0 ? (
         <EmptyState title="None yet" hint="A sub-account is a separate address only this Olien can operate; a spending limit can draw from one." />
       ) : (
