@@ -3644,3 +3644,49 @@ strong > .olien-tag {
 .olien-inline-form .olien-input {
   flex: 1 1 240px;
 }
+
+.olien-inline-form .olien-input--short {
+  flex: 0 1 180px;
+}
+
+.olien-section-lede {
+  margin: 0 0 14px;
+  max-width: 62ch;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+/* The one place the console shows a secret: wide enough to read, one line to copy. */
+.olien-mono {
+  font-family: var(--mono);
+  font-size: 12.5px;
+}
+
+.olien-secret {
+  display: grid;
+  gap: 8px;
+}
+
+.olien-secret-value {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.olien-secret-value code {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow-x: auto;
+  white-space: nowrap;
+  font-family: var(--mono);
+  font-size: 13px;
+  padding: 6px 8px;
+  background: var(--panel-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+
+.olien-secret .olien-btn {
+  justify-self: start;
+}

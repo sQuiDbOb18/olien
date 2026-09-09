@@ -8,6 +8,7 @@ import {
   getAccount,
   getAccounts,
   getAddressBook,
+  getApiKeys,
   getLedger,
   getProposal,
   getProposals,
@@ -35,6 +36,7 @@ export const olienKeys = {
   vetoCall: (address: string, hash: string) => ["olien", "veto-call", address, hash] as const,
   ledger: (address: string, limit: number) => ["olien", "ledger", address, limit] as const,
   addressBook: (address: string) => ["olien", "address-book", address] as const,
+  apiKeys: (address: string) => ["olien", "api-keys", address] as const,
   nativeBalance: (address: string) => ["olien", "native-balance", address] as const,
 };
 
@@ -95,6 +97,10 @@ export function useLedger(address: string, limit = 100) {
 
 export function useAddressBook(address: string) {
   return useQuery({ queryKey: olienKeys.addressBook(address), queryFn: () => getAddressBook(address) });
+}
+
+export function useApiKeys(address: string) {
+  return useQuery({ queryKey: olienKeys.apiKeys(address), queryFn: () => getApiKeys(address) });
 }
 
 // On Arc the native balance is USDC (18 decimals); it is what a member's own wallet

@@ -408,6 +408,12 @@ export function personLabel(name: string | null | undefined): string {
   return /^0x[0-9a-f]{40}$/i.test(name) ? shortAddress(name) : name;
 }
 
+// "Payroll key, as Ada": the other signers should know a machine opened it before they sign.
+export function proposerLabel(proposer: { name: string; via?: string | null } | null | undefined): string {
+  if (!proposer) return "Unknown";
+  return proposer.via ? `${proposer.via} key, as ${personLabel(proposer.name)}` : personLabel(proposer.name);
+}
+
 export function plural(count: number, one: string, many = `${one}s`): string {
   return `${count} ${count === 1 ? one : many}`;
 }

@@ -29,7 +29,7 @@ import {
   type ProposalView,
   type RecipientInput,
 } from "@/lib/treasury";
-import { AddressChip, Button, CopyButton, Countdown, cx, Disclosure, InlineError, KeyValue, Loading, Note, Panel, personLabel, plural, Spinner, StatusPill, Tag, TxChip } from "./ui";
+import { AddressChip, Button, CopyButton, Countdown, cx, Disclosure, InlineError, KeyValue, Loading, Note, Panel, plural, proposerLabel, Spinner, StatusPill, Tag, TxChip } from "./ui";
 import { accountError, applyProposal, olienKeys, useNow, useOlienAccount, useProposal, useVetoCall } from "./use-olien";
 import { friendlyPasskeyError, passkeySupported, signWithPasskey } from "@/lib/passkey";
 import { friendlyWalletError, useArcChain, useWalletSession, walletSigner } from "./wallet";
@@ -299,7 +299,7 @@ export function OlienTransaction({ address, txHash }: { address: string; txHash:
           <span className="olien-panel-title">{kindLabel(view.kind)}</span>
           <h2 className="olien-tx-summary">{proposalSummary(view)}</h2>
           <p className="olien-muted">
-            Proposed by {personLabel(view.proposer?.name)} on {formatTime(view.createdAt)}. Lane {view.nonceKey}, sequence {view.sequence}.
+            Proposed by {proposerLabel(view.proposer)} on {formatTime(view.createdAt)}. Lane {view.nonceKey}, sequence {view.sequence}.
           </p>
         </div>
         <StatusPill status={view.status} />
@@ -553,7 +553,7 @@ export function OlienTransaction({ address, txHash }: { address: string; txHash:
           <Panel title="Details">
             <KeyValue
               items={[
-                { label: "Proposer", value: personLabel(view.proposer?.name) },
+                { label: "Proposer", value: proposerLabel(view.proposer) },
                 { label: "Created", value: formatTime(view.createdAt) },
                 { label: "Olien", value: <AddressChip address={view.account} /> },
                 ...(view.executedTx ? [{ label: "Executed tx", value: <TxChip hash={view.executedTx} /> }] : []),

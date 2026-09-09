@@ -1,7 +1,7 @@
 "use client";
 
 import { useQueryClient } from "@tanstack/react-query";
-import { ArrowDownLeft, ArrowUpRight, Download, Lock, Plus, Trash2 } from "lucide-react";
+import { ArrowDownLeft, ArrowUpRight, Download, KeyRound, Lock, Plus, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -26,9 +26,14 @@ import {
   type SpendingLimit,
   renameAccount,
   createSubAccount,
+  mintApiKey,
+  revokeApiKey,
+  type ApiKey,
+  type ApiKeyScope,
+  type MintedApiKey,
 } from "@/lib/treasury";
-import { AddressChip, Button, cx, DurationInput, EmptyState, Field, InlineError, KeyValue, Loading, Note, Panel, Pill, plural, Table, TxChip } from "./ui";
-import { accountError, applyProposal, olienKeys, useAddressBook, useLedger, useOlienAccount } from "./use-olien";
+import { AddressChip, Button, CopyButton, cx, DurationInput, EmptyState, Field, InlineError, KeyValue, Loading, Note, Panel, Pill, plural, Table, TxChip } from "./ui";
+import { accountError, applyProposal, olienKeys, useAddressBook, useApiKeys, useLedger, useOlienAccount } from "./use-olien";
 
 const HOUR = 3_600;
 const DAY = 86_400;
@@ -591,6 +596,142 @@ function LedgerSection({ address }: { address: string }) {
   );
 }
 
+function scopeLabel(scope: ApiKeyScope): string {
+  return scope === "propose" ? "Read and propose" : "Read only";
+}
+
+function ApiKeyRow({ address, item }: { address: string; item: ApiKey }) {
+  const queryClient = useQueryClient();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function revoke() {
+    if (!window.confirm(`Revoke "${item.name}"? Anything using it stops working now.`)) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await revokeApiKey(address, item.id);
+      await queryClient.invalidateQueries({ queryKey: olienKeys.apiKeys(address) });
+    } catch (cause) {
+      setError(errorMessage(cause));
+      setBusy(false);
+    }
+  }
+
+  return (
+    <tr>
+      <td>
+        <strong>{item.name}</strong>
+        {error ? <InlineError message={error} /> : null}
+      </td>
+      <td>
+        <Pill tone={item.scope === "propose" ? "amber" : "gray"}>{scopeLabel(item.scope)}</Pill>
+      </td>
+      <td className="olien-mono olien-muted">olk_…{item.hint}</td>
+      <td className="olien-muted">{item.createdBy}</td>
+      <td className="olien-muted">{item.lastUsedAt ? formatTime(item.lastUsedAt) : "Never"}</td>
+      <td className="num">
+        <Button size="sm" onClick={() => void revoke()} busy={busy} disabled={busy} icon={<Trash2 size={13} />}>
+          Revoke
+        </Button>
+      </td>
+    </tr>
+  );
+}
+
+// A key acts as the member who made it and needs the same signatures as they would,
+// so the console can offer it to any member without a second permission system.
+function ApiKeysSection({ address }: { address: string }) {
+  const queryClient = useQueryClient();
+  const keys = useApiKeys(address);
+  const [name, setName] = useState("");
+  const [scope, setScope] = useState<ApiKeyScope>("read");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [minted, setMinted] = useState<MintedApiKey | null>(null);
+
+  async function create() {
+    setBusy(true);
+    setError(null);
+    try {
+      const fresh = await mintApiKey(address, name.trim(), scope);
+      setMinted(fresh);
+      setName("");
+      await queryClient.invalidateQueries({ queryKey: olienKeys.apiKeys(address) });
+    } catch (cause) {
+      setError(errorMessage(cause));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Panel title="API keys">
+      <p className="olien-muted olien-section-lede">
+        For payroll and accounting tools. A read key sees what you see. A propose key can also put transfers in the queue, where they need the same
+        signatures as any other. No key can sign, execute, or change who the members are.
+      </p>
+      <form
+        className="olien-inline-form"
+        onSubmit={(event) => {
+          event.preventDefault();
+          void create();
+        }}
+      >
+        <input
+          className="olien-input"
+          placeholder="What will use it? Payroll, Xero, the CLI"
+          value={name}
+          onChange={(event) => setName(event.target.value)}
+          maxLength={80}
+          disabled={busy}
+          required
+        />
+        <select className="olien-input olien-input--short" value={scope} disabled={busy} onChange={(event) => setScope(event.target.value as ApiKeyScope)}>
+          <option value="read">Read only</option>
+          <option value="propose">Read and propose</option>
+        </select>
+        <Button type="submit" variant="primary" disabled={busy || !name.trim()} icon={<KeyRound size={14} />}>
+          {busy ? "Creating" : "Create key"}
+        </Button>
+      </form>
+      {error ? <InlineError message={error} /> : null}
+      {minted ? (
+        <Note tone="warn" icon={<KeyRound size={14} />}>
+          <div className="olien-secret">
+            <div>
+              <strong>{minted.name}</strong> is ready. Copy it now: this is the only time it is shown.
+            </div>
+            <div className="olien-secret-value">
+              <code>{minted.key}</code>
+              <CopyButton value={minted.key} title="Copy key" />
+            </div>
+            <div className="olien-muted">
+              Send it as <code>Authorization: Bearer {"<key>"}</code> to <code>/api/treasury/accounts/{address}/…</code>.
+            </div>
+            <Button size="sm" onClick={() => setMinted(null)}>
+              I have copied it
+            </Button>
+          </div>
+        </Note>
+      ) : null}
+      {keys.isLoading ? (
+        <Loading label="Loading keys" />
+      ) : keys.error ? (
+        <InlineError message={errorMessage(keys.error)} />
+      ) : !keys.data || keys.data.length === 0 ? (
+        <EmptyState title="No keys" hint="A key lets a system read this account, or put payouts in the queue for the members to sign." />
+      ) : (
+        <Table head={["Name", "Can", "Key", "Made by", "Last used", ""]}>
+          {keys.data.map((item) => (
+            <ApiKeyRow key={item.id} address={address} item={item} />
+          ))}
+        </Table>
+      )}
+    </Panel>
+  );
+}
+
 export function OlienSettings({ address }: { address: string }) {
   const account = useOlienAccount(address);
   if (account.isLoading) return <Loading label="Loading settings" />;
@@ -603,6 +744,7 @@ export function OlienSettings({ address }: { address: string }) {
       <LimitsSection address={address} account={view} />
       <AddressBookSection address={address} />
       <SubAccountsSection account={view} />
+      <ApiKeysSection address={address} />
       <LedgerSection address={address} />
     </div>
   );

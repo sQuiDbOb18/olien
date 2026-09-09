@@ -8,7 +8,8 @@ signer ids `0x` plus 64 hex digits, amounts as decimal strings in the token's
 smallest unit (USDC has 6 decimals), times as unix seconds.
 
 All routes sit under `/api/treasury` and need the bearer session the rest of the
-API uses (`Authorization: Bearer <accessToken>`; `lib/session.ts` refreshes it).
+API uses (`Authorization: Bearer <accessToken>`; `lib/session.ts` refreshes it),
+or an API key in the same header for the routes the "API keys" section lists.
 Errors are `{ "error": "<message>" }` with the usual status codes: 400 for a
 request the service cannot use, 401 without a session, 403 for an account the
 caller is not a member of, 404 for a missing thing, 409 for a state conflict
@@ -315,6 +316,39 @@ come from the proposal's intent and the address book.
 `AddressBookEntry`: `{ address, label, category, createdAt }`; `category` is an
 empty string when none was given. Posting an address that exists replaces its
 label and category.
+
+## API keys
+
+For finance tooling: a payroll run that puts the month's payouts in the queue, an
+accounting system that reads the ledger. A key is a bearer token in the same
+`Authorization` header a session uses, told apart by its `olk_` prefix, and it is
+scoped to one account and one of two things:
+
+- `read`: everything a member can `GET` on that account: the account view,
+  proposals, scheduled changes, the ledger, the address book.
+- `propose`: `read` plus `POST /proposals` and `POST /proposals/transfer`.
+
+A key never signs, executes, cancels, confirms, changes signers or limits, or
+mints another key; those answer 403 `this API key cannot do that`. A key used on
+another account's route answers 403 `this API key belongs to a different account`,
+before the service checks anything else, and a revoked or unknown key answers 401.
+
+A key acts as the member who minted it: the proposals it opens carry that member
+as proposer, with the key's name beside them in `proposer.via`, and they need the
+same signatures as any proposal. If that member stops being one, every key they
+minted stops working with them. Any member can mint a key and any member can
+revoke any key, since a leaked key is the whole team's problem.
+
+```
+GET    /api/treasury/accounts/{address}/api-keys              -> [ApiKey]
+POST   /api/treasury/accounts/{address}/api-keys  { name, scope }   -> ApiKey plus `key`
+DELETE /api/treasury/accounts/{address}/api-keys/{id}         -> 204
+```
+
+`ApiKey`: `{ id, name, scope, hint, createdBy, createdAt, lastUsedAt }`. `hint` is
+the key's last four characters. The `POST` response is the only one that carries
+`key`; the service keeps a hash and cannot show it again. Session only: a key
+cannot reach these three routes.
 
 ## Push tokens
 

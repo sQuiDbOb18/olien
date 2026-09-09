@@ -6,16 +6,39 @@ use serde::Deserialize;
 use sqlx::PgPool;
 
 use crate::handlers::auth::{account_error_response, bearer_token, error_response};
-use crate::services::account_sessions::{self, AccountProfile};
+use crate::services::account_sessions;
 use crate::services::treasury::{self, Treasury, TreasuryError};
+use crate::services::treasury_keys::{self, Need};
 
-async fn caller(pool: &PgPool, req: &HttpRequest) -> Result<AccountProfile, HttpResponse> {
+/// Who is asking: a person with a session, or an API key standing in for the member
+/// who minted it. The key id rides along so a proposal can say a key opened it.
+struct Caller {
+    user: i64,
+    key: Option<i64>,
+}
+
+/// A session may do anything its membership allows. An API key is held to its scope
+/// and to the account in the path before the service ever checks membership, so a key
+/// for one treasury learns nothing about another.
+async fn caller(pool: &PgPool, req: &HttpRequest, need: Need, address: Option<&str>) -> Result<Caller, HttpResponse> {
     let token = match bearer_token(req) {
         Ok(token) => token,
         Err((status, message)) => return Err(error_response(status, &message)),
     };
+    if treasury_keys::looks_like_key(token) {
+        let grant = match treasury_keys::resolve(pool, token).await {
+            Ok(Some(grant)) => grant,
+            Ok(None) => return Err(error_response(401, "this API key is not valid")),
+            Err(error) => return Err(failed(error)),
+        };
+        if let Err((status, message)) = treasury_keys::permit(&grant, need, address) {
+            return Err(error_response(status, message));
+        }
+        return Ok(Caller { user: grant.user, key: Some(grant.key_id) });
+    }
     account_sessions::account_for_access_token(pool, token)
         .await
+        .map(|profile| Caller { user: profile.account_id, key: None })
         .map_err(|error| account_error_response("reading account session", error))
 }
 
@@ -34,10 +57,21 @@ fn reply<T: serde::Serialize>(result: Result<T, TreasuryError>) -> HttpResponse 
     }
 }
 
+/// A person's route: no key reaches it.
 macro_rules! who {
     ($pool:expr, $req:expr) => {
-        match caller($pool.get_ref(), &$req).await {
-            Ok(profile) => profile.account_id,
+        match caller($pool.get_ref(), &$req, Need::Person, None).await {
+            Ok(caller) => caller.user,
+            Err(response) => return response,
+        }
+    };
+}
+
+/// A route on one account that a key may reach with the given need.
+macro_rules! who_on {
+    ($pool:expr, $req:expr, $need:expr, $address:expr) => {
+        match caller($pool.get_ref(), &$req, $need, Some($address)).await {
+            Ok(caller) => caller,
             Err(response) => return response,
         }
     };
@@ -110,7 +144,7 @@ pub async fn create_account(
 }
 
 pub async fn get_account(pool: web::Data<PgPool>, service: web::Data<Treasury>, req: HttpRequest, path: web::Path<String>) -> HttpResponse {
-    let user = who!(pool, req);
+    let user = who_on!(pool, req, Need::Read, &path).user;
     reply(treasury::account_view(pool.get_ref(), service.get_ref(), user, &path).await)
 }
 
@@ -126,7 +160,7 @@ pub async fn list_proposals(
     path: web::Path<String>,
     query: web::Query<ListQuery>,
 ) -> HttpResponse {
-    let user = who!(pool, req);
+    let user = who_on!(pool, req, Need::Read, &path).user;
     reply(treasury::list_proposals(pool.get_ref(), service.get_ref(), user, &path, query.status.as_deref()).await)
 }
 
@@ -137,8 +171,8 @@ pub async fn create_proposal(
     path: web::Path<String>,
     body: web::Json<treasury::NewProposalBody>,
 ) -> HttpResponse {
-    let user = who!(pool, req);
-    reply(treasury::create_proposal(pool.get_ref(), service.get_ref(), user, &path, body.into_inner()).await)
+    let caller = who_on!(pool, req, Need::Propose, &path);
+    reply(treasury::create_proposal(pool.get_ref(), service.get_ref(), caller.user, &path, body.into_inner(), caller.key).await)
 }
 
 pub async fn propose_transfer(
@@ -148,8 +182,8 @@ pub async fn propose_transfer(
     path: web::Path<String>,
     body: web::Json<treasury::TransferBody>,
 ) -> HttpResponse {
-    let user = who!(pool, req);
-    reply(treasury::propose_transfer(pool.get_ref(), service.get_ref(), user, &path, body.into_inner()).await)
+    let caller = who_on!(pool, req, Need::Propose, &path);
+    reply(treasury::propose_transfer(pool.get_ref(), service.get_ref(), caller.user, &path, body.into_inner(), caller.key).await)
 }
 
 pub async fn propose_signers(
@@ -191,7 +225,7 @@ pub async fn get_proposal(
     req: HttpRequest,
     path: web::Path<(String, String)>,
 ) -> HttpResponse {
-    let user = who!(pool, req);
+    let user = who_on!(pool, req, Need::Read, &path.0).user;
     let (address, hash) = path.into_inner();
     reply(treasury::get_proposal(pool.get_ref(), service.get_ref(), user, &address, &hash).await)
 }
@@ -240,7 +274,7 @@ pub async fn cancel(
 }
 
 pub async fn list_scheduled(pool: web::Data<PgPool>, service: web::Data<Treasury>, req: HttpRequest, path: web::Path<String>) -> HttpResponse {
-    let user = who!(pool, req);
+    let user = who_on!(pool, req, Need::Read, &path).user;
     reply(treasury::list_scheduled(pool.get_ref(), service.get_ref(), user, &path).await)
 }
 
@@ -268,12 +302,12 @@ pub struct LedgerQuery {
 }
 
 pub async fn ledger(pool: web::Data<PgPool>, req: HttpRequest, path: web::Path<String>, query: web::Query<LedgerQuery>) -> HttpResponse {
-    let user = who!(pool, req);
+    let user = who_on!(pool, req, Need::Read, &path).user;
     reply(treasury::ledger(pool.get_ref(), user, &path, query.limit.unwrap_or(100), query.before).await)
 }
 
 pub async fn address_book(pool: web::Data<PgPool>, req: HttpRequest, path: web::Path<String>) -> HttpResponse {
-    let user = who!(pool, req);
+    let user = who_on!(pool, req, Need::Read, &path).user;
     reply(treasury::address_book(pool.get_ref(), user, &path).await)
 }
 
@@ -285,6 +319,32 @@ pub async fn add_address(
 ) -> HttpResponse {
     let user = who!(pool, req);
     reply(treasury::add_address(pool.get_ref(), user, &path, body.into_inner()).await)
+}
+
+#[derive(Deserialize)]
+pub struct NewKeyBody {
+    pub name: String,
+    pub scope: String,
+}
+
+pub async fn list_keys(pool: web::Data<PgPool>, req: HttpRequest, path: web::Path<String>) -> HttpResponse {
+    let user = who!(pool, req);
+    reply(treasury_keys::list_keys(pool.get_ref(), user, &path).await)
+}
+
+/// POST /api/treasury/accounts/{address}/api-keys - the only response that carries the key.
+pub async fn mint_key(pool: web::Data<PgPool>, req: HttpRequest, path: web::Path<String>, body: web::Json<NewKeyBody>) -> HttpResponse {
+    let user = who!(pool, req);
+    reply(treasury_keys::mint_key(pool.get_ref(), user, &path, &body.name, &body.scope).await)
+}
+
+pub async fn revoke_key(pool: web::Data<PgPool>, req: HttpRequest, path: web::Path<(String, i64)>) -> HttpResponse {
+    let user = who!(pool, req);
+    let (address, id) = path.into_inner();
+    match treasury_keys::revoke_key(pool.get_ref(), user, &address, id).await {
+        Ok(()) => HttpResponse::NoContent().finish(),
+        Err(error) => failed(error),
+    }
 }
 
 /// The route table, mounted under /api/treasury.
@@ -314,4 +374,7 @@ pub fn routes(scope: actix_web::Scope) -> actix_web::Scope {
         .route("/accounts/{address}/ledger", web::get().to(ledger))
         .route("/accounts/{address}/address-book", web::get().to(address_book))
         .route("/accounts/{address}/address-book", web::post().to(add_address))
+        .route("/accounts/{address}/api-keys", web::get().to(list_keys))
+        .route("/accounts/{address}/api-keys", web::post().to(mint_key))
+        .route("/accounts/{address}/api-keys/{id}", web::delete().to(revoke_key))
 }

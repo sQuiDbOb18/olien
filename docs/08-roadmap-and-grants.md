@@ -81,7 +81,9 @@ one machine; what is left is listed under each item.
   The relayer pays, the caller has to be a signer, and the index is chosen by the
   service rather than asked for so two people pressing the button do not fight
   over the same one. The address is read back from the chain before the row is
-  written. Not yet: API keys.
+  written. API keys since 2026-09-09: `read` and `propose` scopes, scoped to one
+  account, acting as the member who minted them and dying with that membership;
+  a key never signs (11-service-api.md, "API keys").
 - Indexer: the spec §14 events, USDC transfers, lanes from `getNonce`, replaced and
   stale proposals, limits and sub-accounts mirrored from events. Done. EURC too
   since 2026-09-09: the ledger already carried the token that moved, so movements

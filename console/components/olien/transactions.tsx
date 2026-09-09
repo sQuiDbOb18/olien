@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, type ReactNode } from "react";
 import { errorMessage, formatTime, kindLabel, proposalSummary, type ProposalStatus, type ProposalView } from "@/lib/treasury";
-import { EmptyState, InlineError, Initials, Loading, Panel, personLabel, StatusPill, Table, Tabs } from "./ui";
+import { EmptyState, InlineError, Initials, Loading, Panel, proposerLabel, StatusPill, Table, Tabs } from "./ui";
 import { ACTIVE_STATUSES, CLOSED_STATUSES, useProposals } from "./use-olien";
 
 export function TransactionsTable({
@@ -52,7 +52,7 @@ export function TransactionsTable({
               </span>
             </td>
             <td className="num olien-muted">{formatTime(row.createdAt)}</td>
-            <td className="olien-muted">{personLabel(row.proposer?.name)}</td>
+            <td className="olien-muted">{proposerLabel(row.proposer)}</td>
           </tr>
         );
       })}

@@ -250,7 +250,8 @@ export interface ProposalView {
   effectiveVetoThreshold: number;
   executedTx: string | null;
   executedAt: number | null;
-  proposer: { accountId: number; name: string } | null;
+  // `via` names the API key that opened it, when one did.
+  proposer: { accountId: number; name: string; via?: string | null } | null;
   createdAt: number;
   typedData: TypedDataView;
 }
@@ -681,3 +682,29 @@ export const renameAccount = (address: string, name: string) =>
 
 export const createSubAccount = (address: string, label: string) =>
   request<AccountView>(`/accounts/${address}/sub-accounts`, post({ label }));
+
+// API keys: a bearer for finance tooling, scoped to one account. `read` sees what a
+// member sees; `propose` can also put transfers in the queue. Neither signs.
+export type ApiKeyScope = "read" | "propose";
+
+export interface ApiKey {
+  id: number;
+  name: string;
+  scope: ApiKeyScope;
+  // The key's last four characters, for telling two keys apart.
+  hint: string;
+  createdBy: string;
+  createdAt: number;
+  lastUsedAt: number | null;
+}
+
+// The key itself is in this response and in no other.
+export interface MintedApiKey extends ApiKey {
+  key: string;
+}
+
+export const getApiKeys = (address: string) => request<ApiKey[]>(`/accounts/${address}/api-keys`);
+export const mintApiKey = (address: string, name: string, scope: ApiKeyScope) =>
+  request<MintedApiKey>(`/accounts/${address}/api-keys`, post({ name, scope }));
+export const revokeApiKey = (address: string, id: number) =>
+  request<void>(`/accounts/${address}/api-keys/${id}`, { method: "DELETE" });
