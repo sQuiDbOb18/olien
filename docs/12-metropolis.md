@@ -53,15 +53,58 @@ are MON; the relayer alarm reads MON. Every place the code or the copy says the
 account pays gas in USDC is a place to change. Earn (USYC) and Convert (EURC via
 StableFX) are Arc things and are not part of this entry.
 
+## Two decisions taken on 2026-09-10
+
+**Arc stays.** The pitch is: Olien is the account protocol, Recourse is the first
+app on it, Monad is the second chain. A Recourse user approves a treasury
+payment from their phone with Face ID, which is true today through the Safe as
+a contract signer; "Recourse runs on Olien" is not true yet and is not said.
+
+**The repos split on the 17th, first task of the Monad week.** A public `olien`
+repo takes the contracts, tests and deploy scripts, the spec and these docs,
+the console, the treasury service and the deployment files, extracted with
+`git filter-repo` so every commit keeps its date, which is the proof of the
+build window. The consumer app, its backend and the phone's Olien signer stay
+private. Two couplings get cut on the way: the treasury keeps its own cheque
+table and the consumer backend reads issued cheques over the API, and
+membership by @handle or by Safe becomes an optional integration the service
+calls when configured. Railway gets a second service, Vercel a second project,
+the console its own domain.
+
+**A second project for Agora's mobile trading bounty ($10k, single prize, under
+track 1).** Mera passkey login, an AUSD balance, a trade on Perpl, judged on
+implementation quality, user experience and creative use of the three together.
+Verified 2026-09-10: Mera derives an EVM account and an Ed25519 key from one
+passkey (TypeScript; web, extensions, React Native on iOS 18+; a native app
+"can reuse passkeys created with mera by using the platform's WebAuthn APIs");
+Perpl authenticates every REST and websocket request with an Ed25519 API key
+enrolled by one EIP-712 wallet signature, withdrawals need the wallet on the
+Exchange contract, collateral is AUSD; AUSD is an ERC-20 with 6 decimals at
+`0x00000000eFE302BEAA2b3e6e1b18d08D69a9012a` on mainnet and
+`0xa9012a055bd4e0eDfF8Ce09f960291C09D5322dC` on testnet; Perpl testnet Exchange
+`0x1964C32f0bE608E7D29302AFF5E61268E72080cc`, API `https://testnet.perpl.xyz/api`,
+mainnet Exchange `0x34B6552d57a35a1D042CcAe1951BD1C370112a6F`, API
+`https://app.perpl.xyz/api`. The angle: the trading key is Face ID. The same
+passkey holds the AUSD, derives the Ed25519 key Perpl trades with, and signs
+the withdrawal; nothing is stored. Goes ahead only if a day-one spike passes:
+PRF bytes from a passkey on the phone, derived to the same address mera's demo
+derives, and one order placed on Perpl testnet from a script. Fails either, and
+it is React Native or nothing.
+
 ## The calendar
 
 Six days of Arc mainnet first, because it is built and it is also a money story.
 Then four weeks on Monad, each with one thing that has to be true at its end.
 
-**10 to 16 September, Arc mainnet.** Verify the deployer and EntryPoint on chain
-5042, deploy nothing that holds money, submit the Circle grant. Light week by
-design. In the gaps: the backend becomes properly multi-chain (a deployment
-file per chain, gas unit per chain), which touches nothing on Arc.
+**10 to 16 September, Arc mainnet.** Frank: register on the platform (team of
+one, two projects), the physical testing owed on Arc testnet (phone rebuilt,
+deposit end to end on Base Sepolia, vault redeployed with the USYC teller,
+factory on the other seven chains), the Circle grant, the PRF spike on the
+phone, and on the 16th the deployer and EntryPoint verified on chain 5042 with
+nothing deployed that holds money. The service: the backend becomes properly
+multi-chain (a deployment file per chain, gas unit per chain), which touches
+nothing on Arc; the Perpl testnet enrolment and one order from a script; the
+file list and cut points for the split, ready for the 17th.
 
 **17 to 23 September, live on Monad.** Contracts to Monad testnet and mainnet
 via CREATE2, relayer funded with MON, console pointed at Monad, an Olien
