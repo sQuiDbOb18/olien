@@ -3,7 +3,7 @@
 import { ArrowUpRight, Check, ChevronDown, Copy, Loader2, TriangleAlert, X } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useRef, useState, type ButtonHTMLAttributes, type ReactNode } from "react";
-import { explorerAddressUrl, explorerTxUrl } from "@/lib/contracts";
+import { explorerAddressUrl, explorerName, explorerTxUrl } from "@/lib/chain";
 import { countdownLabel, shortAddress, shortHash, statusLabel, type Permission, type ProposalStatus } from "@/lib/treasury";
 import { useNow } from "./use-olien";
 
@@ -170,8 +170,8 @@ export function AddressChip({ address, label, full }: { address: string; label?:
         href={explorerAddressUrl(address)}
         target="_blank"
         rel="noreferrer"
-        title="Open in ArcScan"
-        aria-label="Open in ArcScan"
+        title={`Open in ${explorerName}`}
+        aria-label={`Open in ${explorerName}`}
         onClick={(event) => event.stopPropagation()}
       >
         <ArrowUpRight size={13} />
@@ -190,8 +190,8 @@ export function TxChip({ hash }: { hash: string }) {
         href={explorerTxUrl(hash)}
         target="_blank"
         rel="noreferrer"
-        title="Open in ArcScan"
-        aria-label="Open in ArcScan"
+        title={`Open in ${explorerName}`}
+        aria-label={`Open in ${explorerName}`}
         onClick={(event) => event.stopPropagation()}
       >
         <ArrowUpRight size={13} />

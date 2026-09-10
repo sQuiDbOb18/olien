@@ -32,6 +32,7 @@ pub const PAYROLL_LANE: &str = "1";
 pub struct Treasury {
     pub client: Option<OlienClient>,
     pub chain_id: u64,
+    pub chain: ChainInfo,
     // The indexer keeps this current; /health reports it, so an emptying relayer key is
     // seen by whoever watches the service rather than by the first failed execute.
     pub relayer: Arc<Mutex<Option<RelayerStatus>>>,
@@ -43,9 +44,28 @@ pub struct Treasury {
 #[serde(rename_all = "camelCase")]
 pub struct RelayerStatus {
     pub address: String,
-    pub usdc_balance: String,
+    /// In the chain's gas token, raw units; `symbol` and `decimals` say which.
+    pub balance: String,
+    pub symbol: String,
+    pub decimals: u8,
     pub low: bool,
     pub checked_at: i64,
+}
+
+/// The chain this service runs against, for a console that must not assume Arc:
+/// which token pays gas, where links go, which contracts are the protocol.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ChainInfo {
+    pub chain_id: u64,
+    pub name: String,
+    pub native: super::NativeToken,
+    pub explorer_url: String,
+    pub usdc: String,
+    pub eurc: Option<String>,
+    pub entry_point: Option<String>,
+    pub factory: Option<String>,
+    pub implementation: Option<String>,
 }
 
 #[derive(Debug)]

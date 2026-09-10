@@ -121,6 +121,12 @@ pub async fn create_sub_account(
     reply(treasury::create_sub_account(pool.get_ref(), service.get_ref(), user, &path.into_inner(), &body.label).await)
 }
 
+/// GET /api/treasury/chain - which chain this service runs against. Public: nothing in
+/// it is secret, and the console needs it before anyone signs in.
+pub async fn chain(service: web::Data<Treasury>) -> HttpResponse {
+    HttpResponse::Ok().json(&service.chain)
+}
+
 pub async fn linked_addresses(pool: web::Data<PgPool>, req: HttpRequest) -> HttpResponse {
     let user = who!(pool, req);
     reply(treasury::linked_addresses(pool.get_ref(), user).await)
@@ -514,6 +520,7 @@ pub async fn void_cheque(pool: web::Data<PgPool>, service: web::Data<Treasury>, 
 /// The route table, mounted under /api/treasury.
 pub fn routes(scope: actix_web::Scope) -> actix_web::Scope {
     scope
+        .route("/chain", web::get().to(chain))
         .route("/linked-addresses", web::get().to(linked_addresses))
         .route("/link-address", web::post().to(link_address))
         .route("/accounts", web::get().to(list_accounts))

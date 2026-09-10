@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter, useSelectedLayoutSegments } from "next/navigation";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useDisconnect } from "wagmi";
-import { explorerAddressUrl } from "@/lib/contracts";
+import { chainName, explorerAddressUrl, explorerName } from "@/lib/chain";
 import { accountParam, formatDollars, formatUsdc, shortAddress, type AccountView } from "@/lib/treasury";
 import { DepositDialog } from "./deposit-dialog";
 import { useOlienTheme } from "./theme";
@@ -69,7 +69,7 @@ function AccountSwitcher({ address, name, view }: { address: string | null; name
           ) : (
             <>
               <strong>{address ? (name ?? shortAddress(address)) : "Select an Olien"}</strong>
-              <small>{address ? shortAddress(address) : "Arc Testnet"}</small>
+              <small>{address ? shortAddress(address) : chainName}</small>
             </>
           )}
         </span>
@@ -88,7 +88,7 @@ function AccountSwitcher({ address, name, view }: { address: string | null; name
           >
             <Copy size={12} />
           </button>
-          <a className="olien-icon-btn olien-icon-btn--small" href={explorerAddressUrl(view.address)} target="_blank" rel="noreferrer" aria-label="Open in ArcScan">
+          <a className="olien-icon-btn olien-icon-btn--small" href={explorerAddressUrl(view.address)} target="_blank" rel="noreferrer" aria-label={`Open in ${explorerName}`}>
             <ArrowUpRight size={12} />
           </a>
         </div>

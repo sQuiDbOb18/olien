@@ -2,7 +2,7 @@
 
 import { useQuery, type QueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { publicClient } from "@/lib/contracts";
+import { olienPublicClient as publicClient } from "@/lib/chain";
 import {
   errorMessage,
   getAccount,

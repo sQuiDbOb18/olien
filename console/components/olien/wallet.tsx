@@ -5,7 +5,7 @@ import { Plus, Wallet } from "lucide-react";
 import { useCallback, useState } from "react";
 import { useAccount, useConnect, useDisconnect, useSignMessage, useSwitchChain } from "wagmi";
 import { useSession } from "@/components/session-provider";
-import { arcTestnet } from "@/lib/contracts";
+import { olienChain } from "@/lib/chain";
 import { signInWithWallet, walletChallenge } from "@/lib/session";
 import { errorMessage, sameAddress, shortAddress, type AccountView, type SignerView } from "@/lib/treasury";
 import { Button, Dialog, InlineError, Spinner } from "./ui";
@@ -55,12 +55,12 @@ export function useSignIn() {
   return { signIn, busy, error };
 }
 
-// Switches the wallet to Arc testnet before any signature or transaction.
-export function useArcChain() {
+// Switches the wallet to the console's chain before any signature or transaction.
+export function useOlienChain() {
   const { chainId } = useAccount();
   const { switchChainAsync } = useSwitchChain();
   return useCallback(async () => {
-    if (chainId !== arcTestnet.id) await switchChainAsync({ chainId: arcTestnet.id });
+    if (chainId !== olienChain.id) await switchChainAsync({ chainId: olienChain.id });
   }, [chainId, switchChainAsync]);
 }
 

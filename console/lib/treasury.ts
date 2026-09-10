@@ -6,6 +6,7 @@
 
 import { formatUnits, hashTypedData, isAddress } from "viem";
 import { authFetch } from "./session";
+import { nativeSymbol } from "./chain";
 
 export type Hex = `0x${string}`;
 
@@ -489,12 +490,28 @@ export function formatUsdc(raw: string | bigint): string {
 
 // Arc's native balance is USDC with 18 decimals; it pays gas for a signer's own
 // transactions (veto), so the keys panel shows it beside each linked address.
+// The chain's gas token: USDC on Arc, MON on Monad. Named from lib/chain, never assumed.
 export function formatNative(wei: bigint): string {
   const value = Number(formatUnits(wei, 18));
-  if (value === 0) return "0 USDC";
-  if (value < 0.0001) return "<0.0001 USDC";
-  return `${value.toLocaleString("en-US", { maximumFractionDigits: 4 })} USDC`;
+  if (value === 0) return `0 ${nativeSymbol}`;
+  if (value < 0.0001) return `<0.0001 ${nativeSymbol}`;
+  return `${value.toLocaleString("en-US", { maximumFractionDigits: 4 })} ${nativeSymbol}`;
 }
+
+// What the service says about its own chain; Settings holds it against lib/chain.
+export interface ChainInfo {
+  chainId: number;
+  name: string;
+  native: { symbol: string; decimals: number };
+  explorerUrl: string;
+  usdc: string;
+  eurc: string | null;
+  entryPoint: string | null;
+  factory: string | null;
+  implementation: string | null;
+}
+
+export const getChainInfo = () => request<ChainInfo>("/chain");
 
 // Parses a human USDC amount to its 6-decimal integer string without floats.
 export function parseUsdc(input: string): string | null {

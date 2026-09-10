@@ -5,7 +5,7 @@ import { ArrowDown, ArrowUp, ChevronRight, Copy, ExternalLink } from "lucide-rea
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { erc20Abi } from "viem";
-import { explorerAddressUrl, publicClient, usdcAddress } from "@/lib/contracts";
+import { explorerAddressUrl, olienPublicClient as publicClient, olienUsdcAddress as usdcAddress } from "@/lib/chain";
 import { formatEuros, formatDollars, formatUsdc, shortAddress, type AccountView, type LedgerEntry, type SignerView } from "@/lib/treasury";
 import { DepositDialog } from "./deposit-dialog";
 import { InlineError, Loading, Note } from "./ui";

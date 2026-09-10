@@ -25,8 +25,9 @@ use crate::services::treasury_cheques;
 const CHUNK_BLOCKS: u64 = 5_000;
 const MAX_CHUNKS_PER_CYCLE: u64 = 50;
 
-/// Below this the relayer cannot be trusted to pay for the next creation or execution.
-pub const RELAYER_LOW_USDC: u128 = 5_000_000;
+/// Below this the relayer cannot be trusted to pay for the next creation or execution:
+/// five of the chain's gas token, whatever that is, in its 18 decimals.
+pub const RELAYER_LOW_NATIVE: u128 = 5_000_000_000_000_000_000;
 
 const GAS_NOTE: &str = "Gas for a user operation";
 const REVERTED_NOTE: &str = "The user operation ran but the account's call reverted; the gas was still paid";
@@ -43,7 +44,7 @@ pub async fn run(treasury: Treasury, pool: PgPool, interval_secs: u64) {
         // Every sixth cycle, about a minute: the relayer pays for every creation and
         // execution, so an emptying key is a warning here before it is a failed execute.
         if cycles.is_multiple_of(6) {
-            watch_relayer(&client, &relayer).await;
+            watch_relayer(&client, treasury.chain.native, &relayer).await;
         }
         cycles += 1;
         // Payday: a scheduled run whose date has come is opened here, once, as the
@@ -61,23 +62,28 @@ pub async fn run(treasury: Treasury, pool: PgPool, interval_secs: u64) {
     }
 }
 
-async fn watch_relayer(client: &OlienClient, status: &Arc<Mutex<Option<RelayerStatus>>>) {
-    match client.usdc_balance(client.relayer()).await {
+async fn watch_relayer(client: &OlienClient, native: crate::services::NativeToken, status: &Arc<Mutex<Option<RelayerStatus>>>) {
+    match client.native_balance(client.relayer()).await {
         Ok(balance) => {
             let units: u128 = balance.try_into().unwrap_or(u128::MAX);
-            let low = units < RELAYER_LOW_USDC;
+            let low = units < RELAYER_LOW_NATIVE;
+            let scale = 10f64.powi(native.decimals as i32);
             if low {
                 warn!(
-                    "relayer {:#x} holds {:.2} USDC, below the {:.0} USDC floor: fund it or executions will fail",
+                    "relayer {:#x} holds {:.4} {}, below the {:.0} {} floor: fund it or executions will fail",
                     client.relayer(),
-                    units as f64 / 1e6,
-                    RELAYER_LOW_USDC as f64 / 1e6
+                    units as f64 / scale,
+                    native.symbol,
+                    RELAYER_LOW_NATIVE as f64 / scale,
+                    native.symbol
                 );
             }
             if let Ok(mut slot) = status.lock() {
                 *slot = Some(RelayerStatus {
                     address: format!("{:#x}", client.relayer()),
-                    usdc_balance: units.to_string(),
+                    balance: units.to_string(),
+                    symbol: native.symbol.to_string(),
+                    decimals: native.decimals,
                     low,
                     checked_at: chrono::Utc::now().timestamp(),
                 });

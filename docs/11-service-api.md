@@ -16,6 +16,20 @@ caller is not a member of, 404 for a missing thing, 409 for a state conflict
 (a slot already executed, a proposal that cannot take that action), 502 when the
 chain or the relayer failed.
 
+## Which chain
+
+```
+GET /api/treasury/chain   -> { chainId, name, native: { symbol, decimals }, explorerUrl, usdc, eurc, entryPoint, factory, implementation }
+```
+
+Public, no session. One deployment of the service runs against one chain, chosen
+by its deployment file; the console is built for one chain too
+(`NEXT_PUBLIC_OLIEN_CHAIN`, `web/lib/chain.ts`) and holds this answer against
+its own in Settings, so a console pointed at a service on another chain says so.
+`native` is what pays gas: USDC with 18 decimals on Arc, MON on Monad. The
+relayer's balance, an account's EntryPoint deposit and the ledger's gas rows are
+in this unit.
+
 ## Signing in with a wallet
 
 The console's only door, the way Squads opens on a connected wallet: the address
@@ -532,11 +546,11 @@ caused it. A token Apple reports as gone is deleted on the spot.
 
 ## Health
 
-`GET /health` (outside `/api`) carries `relayer: { address, usdcBalance, low,
-checkedAt }` once the indexer has read the relayer's balance, about a minute after
-boot and every minute after; `low` is true under 5 USDC, and the same reading
-is a warning in the logs, because the relayer pays for every creation and
-execution.
+`GET /health` (outside `/api`) carries `relayer: { address, balance, symbol,
+decimals, low, checkedAt }` once the indexer has read the relayer's balance of
+the chain's gas token, about a minute after boot and every minute after; `low`
+is true under five of that token, and the same reading is a warning in the
+logs, because the relayer pays for every creation and execution.
 
 ## What the indexer guarantees
 

@@ -1,5 +1,6 @@
 "use client";
 
+import { chainName } from "@/lib/chain";
 import { useQueryClient } from "@tanstack/react-query";
 import { Check, Info, KeyRound, Plus, Trash2, TriangleAlert, Users } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -435,7 +436,7 @@ export function OlienNewAccount() {
           </Disclosure>
           {creating ? (
             <p className="olien-wiz-fine">
-              <Spinner /> Creating on Arc. This takes 10 to 30 seconds; the page moves to the new Olien when the receipt lands.
+              <Spinner /> Creating on {chainName}. This takes 10 to 30 seconds; the page moves to the new Olien when the receipt lands.
             </p>
           ) : null}
           <InlineError message={error} />
@@ -444,7 +445,7 @@ export function OlienNewAccount() {
               Back
             </button>
             <button type="button" className="olien-wiz-btn is-primary" disabled={creating} onClick={() => void create()}>
-              {creating ? "Creating on Arc" : "Confirm"}
+              {creating ? `Creating on ${chainName}` : "Confirm"}
             </button>
           </div>
         </section>

@@ -6,7 +6,7 @@ import { useSendTransaction } from "wagmi";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { usdcAddress } from "@/lib/contracts";
+import { olienUsdcAddress as usdcAddress } from "@/lib/chain";
 import {
   addAddressBookEntry,
   durationLabel,
@@ -48,7 +48,8 @@ import {
 import { AddressChip, Button, CopyButton, cx, DurationInput, EmptyState, Field, InlineError, KeyValue, Loading, Note, Panel, Pill, plural, Table, Tabs, TxChip } from "./ui";
 import { accountError, applyProposal, olienKeys, useAddressBook, useApiKeys, useLedger, useOlienAccount, useWebhookDeliveries, useWebhooks } from "./use-olien";
 import { AddressInput } from "./recipients";
-import { friendlyWalletError, useArcChain, useWalletSession, walletSigner } from "./wallet";
+import { friendlyWalletError, useOlienChain, useWalletSession, walletSigner } from "./wallet";
+import { chainName, chainSpec } from "@/lib/chain";
 import { friendlyPasskeyError, knownPasskeys, passkeySupported, signWithPasskey } from "@/lib/passkey";
 
 const HOUR = 3_600;
@@ -90,7 +91,7 @@ function AddressesSection({ account }: { account: AccountView }) {
           },
           { label: "Epoch", value: String(account.epoch) },
           { label: "Entry point deposit", value: formatNative(BigInt(account.entryPointDeposit || "0")) },
-          { label: "Chain", value: `Arc Testnet (${account.chainId})` },
+          { label: "Chain", value: account.chainId === chainSpec.id ? `${chainName} (${account.chainId})` : `Chain ${account.chainId}, but this console is built for ${chainName} (${chainSpec.id})` },
           { label: "Created", value: account.createTx ? <TxChip hash={account.createTx} /> : formatTime(account.createdAt) },
         ]}
       />
@@ -290,7 +291,7 @@ function LimitForm({ address, account, onClose }: { address: string; account: Ac
 function SpendForm({ address, account, limit, onClose }: { address: string; account: AccountView; limit: SpendingLimit; onClose: () => void }) {
   const queryClient = useQueryClient();
   const wallet = useWalletSession();
-  const ensureArc = useArcChain();
+  const ensureChain = useOlienChain();
   const { sendTransactionAsync } = useSendTransaction();
   const book = useAddressBook(address);
   const [to, setTo] = useState(limit.anyDestination ? "" : (limit.destinations[0] ?? ""));
@@ -328,7 +329,7 @@ function SpendForm({ address, account, limit, onClose }: { address: string; acco
     setBusy("wallet");
     try {
       const plan = await planSpend(address, limit.id, { ...input, signerId: mySigner.signerId });
-      await ensureArc();
+      await ensureChain();
       const tx = await sendTransactionAsync({ to: plan.call.to as Hex, data: plan.call.data as Hex });
       await finish(tx);
     } catch (cause) {

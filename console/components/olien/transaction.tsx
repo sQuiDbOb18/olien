@@ -6,7 +6,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useSendTransaction, useSignTypedData } from "wagmi";
-import { publicClient } from "@/lib/contracts";
+import { chainName, nativeSymbol, olienPublicClient as publicClient } from "@/lib/chain";
 import {
   cancelProposal,
   confirmProposal,
@@ -34,7 +34,7 @@ import {
 import { AddressChip, Button, CopyButton, Countdown, cx, Disclosure, InlineError, KeyValue, Loading, Note, Panel, plural, proposerLabel, Spinner, StatusPill, Tag, TxChip } from "./ui";
 import { accountError, applyProposal, olienKeys, useNow, useOlienAccount, useProposal, useVetoCall } from "./use-olien";
 import { friendlyPasskeyError, knownPasskeys, passkeySupported, signWithPasskey } from "@/lib/passkey";
-import { friendlyWalletError, useArcChain, useWalletSession, walletSigner } from "./wallet";
+import { friendlyWalletError, useOlienChain, useWalletSession, walletSigner } from "./wallet";
 
 const SIGNABLE = ["open", "ready", "blocked", "failed"];
 
@@ -109,7 +109,7 @@ function ResultBanner({ address, view }: { address: string; view: ProposalView }
 
 function VetoControls({ address, view, account }: { address: string; view: ProposalView; account: AccountView }) {
   const wallet = useWalletSession();
-  const ensureArc = useArcChain();
+  const ensureChain = useOlienChain();
   const queryClient = useQueryClient();
   const { sendTransactionAsync } = useSendTransaction();
   const vetoCall = useVetoCall(address, view.txHash, view.status === "scheduled");
@@ -150,10 +150,10 @@ function VetoControls({ address, view, account }: { address: string; view: Propo
     setError(null);
     setBusy("sending");
     try {
-      await ensureArc();
+      await ensureChain();
       const balance = await publicClient.getBalance({ address: wallet.address as Hex });
       if (balance === 0n) {
-        setError("Your wallet needs a little USDC on Arc Testnet for gas before it can veto.");
+        setError(`Your wallet needs a little ${nativeSymbol} on ${chainName} for gas before it can veto.`);
         return;
       }
       const hash = await sendTransactionAsync({ to: vetoCall.data.to as Hex, data: vetoCall.data.data as Hex });
@@ -216,7 +216,7 @@ function VetoControls({ address, view, account }: { address: string; view: Propo
             </Button>
           ) : null}
           <span className="olien-field-hint">
-            {canVeto ? "A veto from your wallet is a transaction of its own; it pays the gas in USDC." : "The Olien pays the gas for a passkey veto from its own balance."}
+            {canVeto ? `A veto from your wallet is a transaction of its own; it pays the gas in ${nativeSymbol}.` : "The Olien pays the gas for a passkey veto from its own balance."}
           </span>
         </div>
       ) : (
@@ -244,7 +244,7 @@ export function OlienTransaction({ address, txHash }: { address: string; txHash:
   const account = useOlienAccount(address);
   const proposal = useProposal(address, txHash);
   const wallet = useWalletSession();
-  const ensureArc = useArcChain();
+  const ensureChain = useOlienChain();
   const { signTypedDataAsync } = useSignTypedData();
   const [busy, setBusy] = useState<Action | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -291,7 +291,7 @@ export function OlienTransaction({ address, txHash }: { address: string; txHash:
   function approve() {
     return run("approve", async () => {
       if (!mySigner || !wallet.address) return;
-      await ensureArc();
+      await ensureChain();
       const computed = proposalHash(view);
       if (computed.toLowerCase() !== view.txHash.toLowerCase()) {
         setError(`Hash mismatch, not signing. The typed data hashes to ${computed}; the proposal says ${view.txHash}.`);

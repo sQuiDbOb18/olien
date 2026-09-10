@@ -826,6 +826,11 @@ impl OlienClient {
         }
     }
 
+    /// What the address holds of the chain's own gas token: USDC on Arc, MON on Monad.
+    pub async fn native_balance(&self, account: Address) -> Result<U256> {
+        self.provider.get_balance(account).await.context("reading the native balance")
+    }
+
     pub async fn usdc_balance(&self, account: Address) -> Result<U256> {
         self.token_balance(self.usdc, account).await
     }
