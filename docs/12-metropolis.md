@@ -91,6 +91,17 @@ PRF bytes from a passkey on the phone, derived to the same address mera's demo
 derives, and one order placed on Perpl testnet from a script. Fails either, and
 it is React Native or nothing.
 
+Spike status, 11 September: the derivation is built on both sides and pinned.
+`mobile/Recourse/Core/Auth/PasskeyAccounts.swift` follows mera's rule (PRF
+salt `sha256("mera.prf.salt.v1")`, the 32 bytes as BIP-39 entropy, empty
+passphrase, EVM at m/44'/60'/0'/0/0, Ed25519 at m/44'/501'/0'/0' by SLIP-0010)
+and `PasskeyAccountsTests` holds a vector computed with the libraries mera's
+demo uses. The debug "Passkey PRF probe" screen prints the accounts; the page at
+`/spike/passkey` on the marketing site runs mera's own library at the same
+relying party. What is left is the phone: run the probe, open the page in Safari
+with the same passkey, compare. The Perpl half stops at the exchange account,
+see `docs/treasury/perpl/README.md`.
+
 ## The calendar
 
 Six days of Arc mainnet first, because it is built and it is also a money story.
