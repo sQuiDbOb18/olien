@@ -71,36 +71,21 @@ membership by @handle or by Safe becomes an optional integration the service
 calls when configured. Railway gets a second service, Vercel a second project,
 the console its own domain.
 
-**A second project for Agora's mobile trading bounty ($10k, single prize, under
-track 1).** Mera passkey login, an AUSD balance, a trade on Perpl, judged on
-implementation quality, user experience and creative use of the three together.
-Verified 2026-09-10: Mera derives an EVM account and an Ed25519 key from one
-passkey (TypeScript; web, extensions, React Native on iOS 18+; a native app
-"can reuse passkeys created with mera by using the platform's WebAuthn APIs");
-Perpl authenticates every REST and websocket request with an Ed25519 API key
-enrolled by one EIP-712 wallet signature, withdrawals need the wallet on the
-Exchange contract, collateral is AUSD; AUSD is an ERC-20 with 6 decimals at
-`0x00000000eFE302BEAA2b3e6e1b18d08D69a9012a` on mainnet and
-`0xa9012a055bd4e0eDfF8Ce09f960291C09D5322dC` on testnet; Perpl testnet Exchange
-`0x1964C32f0bE608E7D29302AFF5E61268E72080cc`, API `https://testnet.perpl.xyz/api`,
-mainnet Exchange `0x34B6552d57a35a1D042CcAe1951BD1C370112a6F`, API
-`https://app.perpl.xyz/api`. The angle: the trading key is Face ID. The same
-passkey holds the AUSD, derives the Ed25519 key Perpl trades with, and signs
-the withdrawal; nothing is stored. Goes ahead only if a day-one spike passes:
-PRF bytes from a passkey on the phone, derived to the same address mera's demo
-derives, and one order placed on Perpl testnet from a script. Fails either, and
-it is React Native or nothing.
+**A second entry, for Agora's mobile trading bounty ($10k, single prize).** It is a
+separate product with a separate deadline, so it is a separate project, planned and
+built in its own repository rather than here. Olien on Monad is the primary entry and
+wins every collision on the calendar below.
 
-Spike status, 11 September: the derivation is built on both sides and pinned.
-`mobile/Recourse/Core/Auth/PasskeyAccounts.swift` follows mera's rule (PRF
-salt `sha256("mera.prf.salt.v1")`, the 32 bytes as BIP-39 entropy, empty
-passphrase, EVM at m/44'/60'/0'/0/0, Ed25519 at m/44'/501'/0'/0' by SLIP-0010)
-and `PasskeyAccountsTests` holds a vector computed with the libraries mera's
-demo uses. The debug "Passkey PRF probe" screen prints the accounts; the page at
-`/spike/passkey` on the marketing site runs mera's own library at the same
-relying party. What is left is the phone: run the probe, open the page in Safari
-with the same passkey, compare. The Perpl half stops at the exchange account,
-see `docs/treasury/perpl/README.md`.
+What belongs to this repo is the passkey work the two share, which is also what the
+Mera bounty in the table above asks for: one passkey, many keys.
+`mobile/Recourse/Core/Auth/PasskeyAccounts.swift` derives an EVM account and an
+Ed25519 account from one passkey's PRF output following mera's rule (salt
+`sha256("mera.prf.salt.v1")`, the 32 bytes as BIP-39 entropy, empty passphrase, EVM at
+m/44'/60'/0'/0/0, Ed25519 at m/44'/501'/0'/0' by SLIP-0010), and `PasskeyAccountsTests`
+pins it to a vector computed with the libraries mera's own demo uses. The debug
+"Passkey PRF probe" screen prints the accounts, and the page at `/spike/passkey` on the
+marketing site runs mera's own library at the same relying party. What is left is the
+phone: run the probe, open the page in Safari with the same passkey, and compare.
 
 ## The calendar
 
@@ -114,8 +99,7 @@ factory on the other seven chains), the Circle grant, the PRF spike on the
 phone, and on the 16th the deployer and EntryPoint verified on chain 5042 with
 nothing deployed that holds money. The service: the backend becomes properly
 multi-chain (a deployment file per chain, gas unit per chain), which touches
-nothing on Arc; the Perpl testnet enrolment and one order from a script; the
-file list and cut points for the split, ready for the 17th.
+nothing on Arc; the file list and cut points for the split, ready for the 17th.
 
 **17 to 23 September, live on Monad.** Contracts to Monad testnet and mainnet
 via CREATE2, relayer funded with MON, console pointed at Monad, an Olien
