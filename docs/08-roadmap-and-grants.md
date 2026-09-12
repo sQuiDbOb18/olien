@@ -204,9 +204,24 @@ one machine; what is left is listed under each item.
   `MockUSYCAdapter` stays behind the escrow, which is a separate path. Deployed
   to Arc testnet 2026-09-11 at `0xD7bA758a1a96DbeD42bDbE9a24c2faa3093745e8`: the
   teller and the token are immutable, so the live vault could not be upgraded to
-  hold USYC and a new one was the only way. Not yet: the escrow pointed at it,
-  the merchant enrolled again, and the first deposit invested, which is one
-  script away; and it does not go to mainnet before the audit in Phase 4.
+  hold USYC and a new one was the only way. The escrow points at it and the merchant
+  is enrolled again, both 2026-09-12.
+
+  **USYC will not take our money, and that is not a bug.** `teller.deposit` answers
+  `NotPermissioned` to the vault and to the attestor key alike. USYC is a permissioned
+  fund: its token and teller share an authority at
+  `0xCC205224862C7641930c87679E98999d23C26113`, where `canCall` is false for us and our
+  roles are zero, while its supply of 1.38M says holders exist and we are not among
+  them. That authority is owned by `0x8250e8c28178FDC736EC6e0258Cb26d4A8107F13`, which
+  is Circle's, so this is a request to make rather than code to write. Ask for the
+  vault address to be allowlisted on testnet.
+
+  Two consequences. The buffer goes to 100% until then, which keeps the vault all cash
+  and makes `invest` return before it reaches the teller. And **the Circle grant cannot
+  tick USYC**: the answers should say the vault is built and deployed to hold the
+  position the day the fund admits it, which is true and checkable, rather than
+  claiming an integration the video cannot show. It does not go to mainnet before the
+  audit in Phase 4 either way.
 
 - Deposit addresses, 2026-09-07: a person is shown a plain address on Base and
   sends USDC to it from an exchange or any wallet, with nothing to connect and
