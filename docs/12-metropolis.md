@@ -151,9 +151,20 @@ explicitly, in its own words. Submit on the 11th, not the 13th.
   by a person on any chain. The Monad week is where that debt gets paid, on the
   chain that is being judged.
 
-## Open facts to settle in week one
+## Facts settled 12 September, read off the chain and the sponsors' docs
 
-- Whether EURC exists on Monad (Convert stays out either way).
-- Which Monad RPC to run the indexer against, and its `eth_getLogs` cap.
-- Pimlico's Monad paymaster pricing, for the day the consumer account moves.
-- What the official rules on the application platform restrict.
+- **EURC is not on Monad.** Circle lists it on nine chains and Monad is not among
+  them, so Convert is out of the port for good rather than by choice.
+- **`eth_getLogs` is capped at 100 blocks on every public Monad testnet endpoint**
+  tested: the official one, Ankr, and thirdweb, which caps by response size instead.
+  Mainnet is better, 1,000 blocks on Alchemy's `rpc1.monad.xyz` and Ankr's
+  `rpc3.monad.xyz`, 100 on QuickNode's `rpc.monad.xyz` and the Foundation's. Blocks
+  arrive every 300ms, so 100 blocks is 30 seconds of history per call. The indexer
+  chunks at 5,000, which is Arc's limit, so the chunk size has to become a fact about
+  the chain rather than a constant.
+- **Pimlico supports Monad** on both 10143 and 143: bundler for EntryPoint v0.6, v0.7
+  and v0.8, and the verifying paymaster for v0.6 and v0.7. The ERC-20 paymaster is not
+  listed, which only matters on the day the consumer account moves.
+- **EntryPoint v0.7 and the Arachnid CREATE2 deployer are both live** on 10143, so the
+  addresses can be computed before anything is deployed.
+- Still open: what the rules on the application platform restrict.

@@ -20,9 +20,15 @@ use crate::services::webhooks;
 use crate::services::treasury::{self, AccountRow, RelayerStatus, Treasury};
 use crate::services::treasury_cheques;
 
-// drpc caps a getLogs answer at 10k entries; a fresh account has few logs, so a large
-// block window is safe and catches up fast.
-const CHUNK_BLOCKS: u64 = 5_000;
+// How wide a block window may be is a fact about the chain's RPCs, so it arrives as a
+// setting rather than living here: Arc's gateway takes 5,000, every public Monad
+// endpoint refuses more than 100. See `log_chunk_for`.
+//
+// The cap on chunks per cycle stays here because it is about us rather than them: each
+// chunk costs four log queries, so fifty is two hundred calls per account per cycle,
+// which is as much as a rate limited endpoint will tolerate. Even at Monad's hundred
+// that covers 5,000 blocks a cycle against the 200 a minute the chain produces, so a
+// restart still catches up far faster than it falls behind.
 const MAX_CHUNKS_PER_CYCLE: u64 = 50;
 
 /// Below this the relayer cannot be trusted to pay for the next creation or execution:
@@ -32,7 +38,7 @@ pub const RELAYER_LOW_NATIVE: u128 = 5_000_000_000_000_000_000;
 const GAS_NOTE: &str = "Gas for a user operation";
 const REVERTED_NOTE: &str = "The user operation ran but the account's call reverted; the gas was still paid";
 
-pub async fn run(treasury: Treasury, pool: PgPool, interval_secs: u64) {
+pub async fn run(treasury: Treasury, pool: PgPool, interval_secs: u64, chunk_blocks: u64) {
     let Some(client) = treasury.client.clone() else { return };
     let relayer = treasury.relayer.clone();
     let push = treasury.push.clone();
@@ -52,7 +58,7 @@ pub async fn run(treasury: Treasury, pool: PgPool, interval_secs: u64) {
         if let Err(e) = payroll::run_due(&pool, &treasury).await {
             warn!("scheduled payroll runs failed: {e:#}");
         }
-        if let Err(e) = index_once(&client, &pool, push.as_deref()).await {
+        if let Err(e) = index_once(&client, &pool, push.as_deref(), chunk_blocks).await {
             warn!("olien index cycle failed: {e:#}");
         }
         // What the chain just said goes out to whoever asked to hear it.
@@ -93,7 +99,7 @@ async fn watch_relayer(client: &OlienClient, native: crate::services::NativeToke
     }
 }
 
-async fn index_once(client: &OlienClient, pool: &PgPool, push: Option<&Push>) -> anyhow::Result<()> {
+async fn index_once(client: &OlienClient, pool: &PgPool, push: Option<&Push>, chunk_blocks: u64) -> anyhow::Result<()> {
     let accounts: Vec<AccountRow> =
         sqlx::query_as("SELECT * FROM olien_accounts WHERE status = 'live' ORDER BY id").fetch_all(pool).await?;
     if accounts.is_empty() {
@@ -101,7 +107,7 @@ async fn index_once(client: &OlienClient, pool: &PgPool, push: Option<&Push>) ->
     }
     let head = client.block_number().await?;
     for account in accounts {
-        if let Err(e) = index_account(client, pool, push, &account, head).await {
+        if let Err(e) = index_account(client, pool, push, &account, head, chunk_blocks).await {
             warn!("indexing {} failed: {e:#}", account.address);
         }
     }
@@ -116,14 +122,21 @@ fn addr(address: Address) -> String {
     format!("{address:#x}")
 }
 
-async fn index_account(client: &OlienClient, pool: &PgPool, push: Option<&Push>, account: &AccountRow, head: u64) -> anyhow::Result<()> {
+async fn index_account(
+    client: &OlienClient,
+    pool: &PgPool,
+    push: Option<&Push>,
+    account: &AccountRow,
+    head: u64,
+    chunk_blocks: u64,
+) -> anyhow::Result<()> {
     let address = account.address();
     let mut from = (account.indexed_block.max(0) as u64) + 1;
     let mut chunks = 0;
     let mut config_changed = false;
     let mut timestamps: HashMap<u64, u64> = HashMap::new();
     while from <= head && chunks < MAX_CHUNKS_PER_CYCLE {
-        let to = (from + CHUNK_BLOCKS - 1).min(head);
+        let to = (from + chunk_blocks.max(1) - 1).min(head);
         let logs = client.account_logs(address, from, to).await?;
         for log in &logs {
             match apply(client, pool, push, account, log, &mut timestamps).await {
