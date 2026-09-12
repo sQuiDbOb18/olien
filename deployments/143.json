@@ -1,0 +1,20 @@
+{
+  "network": "monad-mainnet",
+  "chainId": 143,
+  "rpcUrl": "https://rpc.monad.xyz",
+  "explorer": "https://monadexplorer.com",
+  "nativeCurrency": "MON",
+  "cctpDomain": 15,
+  "logChunkBlocks": 100,
+  "usdc": "0x754704Bc059F8C67012fEd69BC8A327a5aafb603",
+  "note": "Gas is MON, not USDC. The 100 block log chunk is the floor across endpoints: QuickNode's rpc.monad.xyz and the Foundation's allow 100, while Alchemy's rpc1.monad.xyz and Ankr's rpc3.monad.xyz allow 1,000. Raise it with LOG_CHUNK_BLOCKS once the endpoint in use is known. EURC is not on Monad, so Convert does not exist here.",
+  "verified": "Nothing in this file has been read off mainnet. The USDC address and the CCTP domain come from Circle's docs, and the RPC and explorer from the backend's chain table. Run ops/monad-check.sh --mainnet before trusting any of it.",
+  "olienNote": "Predictions, not deployments, and unlike the testnet file these have not been confirmed free. Each address is a pure function of a fixed salt and its creation code through the Arachnid deployer, so they should match Arc's. The check script is what turns that should into a fact.",
+  "olien": {
+    "entryPoint": "0x0000000071727De22E5E9d8BAf0edAc6f37da032",
+    "factory": "0xaF8c108D09E6A159D4dcE0919Ca6A81d6019f131",
+    "implementation": "0x8BFf8CCe4edbE882a21197D3942978CCd06fA427",
+    "subAccountImplementation": "0xDfc576536187eF72689c514f8c7ea6487960a637",
+    "verifier": "0xE196558Ce080229B256dDE6e62CDA2B051B882fC"
+  }
+}

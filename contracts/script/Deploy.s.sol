@@ -14,6 +14,8 @@ import {SubAccount} from "../src/olien/SubAccount.sol";
 // deployer and the v0.7 EntryPoint. Records them in the chain's address book.
 contract DeployOlien is Script {
     uint256 constant ARC_TESTNET = 5042002;
+    uint256 constant MONAD_TESTNET = 10143;
+    uint256 constant MONAD_MAINNET = 143;
     address constant ENTRY_POINT_V07 = 0x0000000071727De22E5E9d8BAf0edAc6f37da032;
 
     bytes32 constant VERIFIER_SALT = keccak256("olien.v1.verifier");
@@ -43,8 +45,18 @@ contract DeployOlien is Script {
         if (factory.code.length == 0) factory = address(new OlienFactory{salt: FACTORY_SALT}(implementation));
         vm.stopBroadcast();
 
-        string memory file =
-            block.chainid == ARC_TESTNET ? "arc-testnet.json" : string.concat("local-", vm.toString(block.chainid), ".json");
+        // Monad files are named by chain id, the convention the repo split moves every
+        // chain onto. Arc keeps its name until that lands, so both shapes live here for
+        // a week. Without this a Monad run writes local-10143.json, which calls a public
+        // chain local and hides the deployment from everything that reads the book.
+        string memory file;
+        if (block.chainid == ARC_TESTNET) {
+            file = "arc-testnet.json";
+        } else if (block.chainid == MONAD_TESTNET || block.chainid == MONAD_MAINNET) {
+            file = string.concat(vm.toString(block.chainid), ".json");
+        } else {
+            file = string.concat("local-", vm.toString(block.chainid), ".json");
+        }
         string memory path = string.concat(vm.projectRoot(), "/../deployments/", file);
         string memory book = "olien";
         vm.serializeAddress(book, "verifier", verifier);

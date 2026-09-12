@@ -1,0 +1,20 @@
+{
+  "network": "monad-testnet",
+  "chainId": 10143,
+  "rpcUrl": "https://testnet-rpc.monad.xyz",
+  "explorer": "https://testnet.monadexplorer.com",
+  "nativeCurrency": "MON",
+  "cctpDomain": 15,
+  "logChunkBlocks": 100,
+  "usdc": "0x534b2f3A21130d7a60830c2Df862319e593943A3",
+  "note": "Named by chain id because that is the convention the repo split moves every chain to. Gas is MON here, not USDC, so the relayer holds MON, an Olien's EntryPoint deposit is MON, and the ledger's gas rows are MON. Every public endpoint tested refuses an eth_getLogs range wider than 100 blocks, and a block every 300ms makes that 30 seconds of history per call. EURC is not on Monad at all, so Convert does not exist here.",
+  "verified": "2026-09-12, read off the chain: chain id 10143, USDC answers USDC at 6 decimals, and the CREATE2 deployer and EntryPoint v0.7 both carry bytecode identical to Arc testnet's.",
+  "olienNote": "These four are predictions, not deployments. Each address is a pure function of a fixed salt and its creation code through the Arachnid deployer, so they are the same addresses Olien already occupies on Arc. All four were confirmed free on 2026-09-12. Run ops/monad-check.sh to see whether they are still free or now ours, and ops/deploy-olien-monad.sh to fill them.",
+  "olien": {
+    "entryPoint": "0x0000000071727De22E5E9d8BAf0edAc6f37da032",
+    "factory": "0xaF8c108D09E6A159D4dcE0919Ca6A81d6019f131",
+    "implementation": "0x8BFf8CCe4edbE882a21197D3942978CCd06fA427",
+    "subAccountImplementation": "0xDfc576536187eF72689c514f8c7ea6487960a637",
+    "verifier": "0xE196558Ce080229B256dDE6e62CDA2B051B882fC"
+  }
+}
