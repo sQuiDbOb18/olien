@@ -216,8 +216,9 @@ one machine; what is left is listed under each item.
   is Circle's, so this is a request to make rather than code to write. Ask for the
   vault address to be allowlisted on testnet.
 
-  Two consequences. The buffer goes to 100% until then, which keeps the vault all cash
-  and makes `invest` return before it reaches the teller. And **the Circle grant cannot
+  Two consequences. The buffer went to 100% on 2026-09-12, which keeps the vault all
+  cash and makes `invest` return before it reaches the teller; it holds 5 USDC, its
+  first deposit went through on chain, and Earn works again without the yield. And **the Circle grant cannot
   tick USYC**: the answers should say the vault is built and deployed to hold the
   position the day the fund admits it, which is true and checkable, rather than
   claiming an integration the video cannot show. It does not go to mainnet before the
