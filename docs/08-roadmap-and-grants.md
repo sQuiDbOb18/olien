@@ -201,8 +201,12 @@ one machine; what is left is listed under each item.
   a withdrawal is larger than the cash, and reverts rather than short paying when
   the fund cannot meet it. Ten tests cover it, including a loss showing up
   honestly in the balance and a refused redeem leaving every share where it was.
-  `MockUSYCAdapter` stays behind the escrow, which is a separate path. Not yet:
-  deployed, and it does not go to mainnet before the audit in Phase 4.
+  `MockUSYCAdapter` stays behind the escrow, which is a separate path. Deployed
+  to Arc testnet 2026-09-11 at `0xD7bA758a1a96DbeD42bDbE9a24c2faa3093745e8`: the
+  teller and the token are immutable, so the live vault could not be upgraded to
+  hold USYC and a new one was the only way. Not yet: the escrow pointed at it,
+  the merchant enrolled again, and the first deposit invested, which is one
+  script away; and it does not go to mainnet before the audit in Phase 4.
 
 - Deposit addresses, 2026-09-07: a person is shown a plain address on Base and
   sends USDC to it from an exchange or any wallet, with nothing to connect and
@@ -233,9 +237,15 @@ one machine; what is left is listed under each item.
   which checks for the factory and idles if it is not there, so deploying to a
   new chain lights it up without new settings. Endpoints default to public ones
   and are overridden per chain with `DEPOSIT_RPCS`, as `base=https://...`.
-  `DEPOSIT_FACTORY` are set, rather than handing out a dead address. Not yet:
-  those two set on Railway, a real deposit end to end, chains past Base, and
-  mainnet.
+  `DEPOSIT_FACTORY` are set, rather than handing out a dead address. Proved end
+  to end 2026-09-11, twice: 20 USDC sent to a deposit address on Base Sepolia
+  arrived as 19.90 on Arc after Circle's fee, with nothing signed on Arc and no
+  Arc gas held. Five bugs stood in the way and are worth remembering, because
+  four of them were silent: an address cached from the retired factory, a gas
+  limit estimated from a call that catches its own failures and so was always
+  too small, a failed sweep the log cursor moved past and never retried, an
+  alarm that read the balance a block early and cried wolf, and History dying on
+  the explorer's rate limit. Not yet: chains past Base, and mainnet.
 - Deposits by connecting a wallet, 2026-09-07: the app's second deposit door is open.
   Circle's CCTP V2 carries USDC from Base, Arbitrum or Ethereum onto Arc, burned
   in the person's own wallet through a page at `/deposit` and minted on Arc by
