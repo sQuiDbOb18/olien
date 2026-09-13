@@ -207,22 +207,34 @@ one machine; what is left is listed under each item.
   hold USYC and a new one was the only way. The escrow points at it and the merchant
   is enrolled again, both 2026-09-12.
 
-  **USYC will not take our money, and that is not a bug.** `teller.deposit` answers
-  `NotPermissioned` to the vault and to the attestor key alike. USYC is a permissioned
-  fund: its token and teller share an authority at
-  `0xCC205224862C7641930c87679E98999d23C26113`, where `canCall` is false for us and our
-  roles are zero, while its supply of 1.38M says holders exist and we are not among
-  them. That authority is owned by `0x8250e8c28178FDC736EC6e0258Cb26d4A8107F13`, which
-  is Circle's, so this is a request to make rather than code to write. Ask for the
-  vault address to be allowlisted on testnet.
+  **USYC refused the vault, and then Circle opened it.** On 2026-09-12 `teller.deposit`
+  answered `NotPermissioned` to the vault and to the attestor key alike. USYC is a
+  permissioned fund: its token and teller share an authority at
+  `0xCC205224862C7641930c87679E98999d23C26113`, owned by
+  `0x8250e8c28178FDC736EC6e0258Cb26d4A8107F13`, which is Circle's, so it was a request
+  to make rather than code to write. Circle allowlisted both addresses on 2026-09-13,
+  within a day of asking. Checked by calling `canCall` on that authority: now true for
+  `teller.deposit`, `teller.redeem` and `usyc.transfer`, for the vault and the attestor
+  alike. The buffer had gone to 100% on 2026-09-12 to keep the vault working while the
+  fund refused it, which is why nothing invested until it was lowered again.
 
-  Two consequences. The buffer went to 100% on 2026-09-12, which keeps the vault all
-  cash and makes `invest` return before it reaches the teller; it holds 5 USDC, its
-  first deposit went through on chain, and Earn works again without the yield. And **the Circle grant cannot
-  tick USYC**: the answers should say the vault is built and deployed to hold the
-  position the day the fund admits it, which is true and checkable, rather than
-  claiming an integration the video cannot show. It does not go to mainnet before the
-  audit in Phase 4 either way.
+  The ask had to name the **vault contract**, not only an EOA, because `SettlementVault`
+  calls `teller.deposit` itself and that is the address the check applies to. Circle's
+  form asks for a wallet address and assumes a person's wallet, so saying this plainly
+  is what made it land.
+
+  `ops/vault-invest.sh` set the buffer to 2000 bps and invested on 2026-09-13. The vault
+  holds 3,517,554 USYC shares worth 3.998850 USDC against 1.000000 of cash, read at
+  block 61889274. Entry into the fund cost 2.9 bps, so the vault's share price sits at
+  0.99977 until yield recovers it. Earn needed no code change: it reads `investedAssets`
+  and chooses its sentence from that, so it began telling the true story the moment the
+  money moved.
+
+  So **the grant ticks four products**, USDC, EURC, CCTP and USYC, all provable on
+  testnet. The USYC claim stays testnet shaped: mainnet needs non-US institutional
+  status, full KYC and a $100,000 minimum, and Circle describes testnet access itself as
+  limited to a select group of developers. It does not go to mainnet before the audit in
+  Phase 4 either way.
 
 - Deposit addresses, 2026-09-07: a person is shown a plain address on Base and
   sends USDC to it from an exchange or any wallet, with nothing to connect and
