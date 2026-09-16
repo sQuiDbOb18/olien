@@ -41,8 +41,15 @@ else
   "$ROOT/ops/monad-check.sh"
 fi
 
-KEY="${DEPLOY_PK:-$(grep -E '^RELAYER_PK=' "$ROOT/backend/.env" 2>/dev/null | cut -d= -f2- | tr -d '"'"'"' ' || true)}"
-[ -n "$KEY" ] || { echo "no deploying key: set DEPLOY_PK, or RELAYER_PK in backend/.env"; exit 1; }
+# RELAYER_PK is the name the Olien service will use once it exists, but backend/.env
+# has no such key today, so this falls back to the attestor. Which key pays for the
+# deployment does not change where anything lands: CREATE2 makes every address a
+# function of the salt and the creation code, not of the sender.
+key_from_env() { grep -E "^$1=" "$ROOT/backend/.env" 2>/dev/null | cut -d= -f2- | tr -d '"'"'"' ' || true; }
+KEY="${DEPLOY_PK:-}"
+[ -n "$KEY" ] || KEY="$(key_from_env RELAYER_PK)"
+[ -n "$KEY" ] || KEY="$(key_from_env ATTESTOR_PK)"
+[ -n "$KEY" ] || { echo "no deploying key: set DEPLOY_PK, or RELAYER_PK or ATTESTOR_PK in backend/.env"; exit 1; }
 
 echo
 echo "deploying against $RPC, writing $BOOK"
