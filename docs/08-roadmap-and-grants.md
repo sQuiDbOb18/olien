@@ -1,9 +1,14 @@
 # Roadmap and grants
 
 Phases sized for one engineer with the code that exists today. Each phase ends with
-something a reviewer can use. The calendar has one fixed point: **Arc mainnet opens
-on 2026-09-16**, twelve days after the decision below. The account contract comes
-first now, because everything else is built on it (`05-onchain-design.md`).
+something a reviewer can use. The calendar's one fixed point has passed: **Arc mainnet
+opened on 2026-09-16**, chain 5042. `ops/arc-mainnet-check.sh` read it at head 21132817
+via `https://rpc.mainnet.arc.io` and found the CREATE2 deployer, EntryPoint v0.7 and all
+four Safe 1.4.1 pieces carrying bytecode identical to testnet's, with all five of our
+addresses free. USDC answers at the same precompile, 6 decimals, 401,939,829.014039 in
+supply, so it is a chain with real money on it. Nothing of ours is deployed there and
+nothing should be before Phase 4. The account contract comes first now, because
+everything else is built on it (`05-onchain-design.md`).
 
 ## Phase 0: what exists (done 2026-09-03)
 
