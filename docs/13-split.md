@@ -87,6 +87,33 @@ second process with its own database, which is also what the console assumes
 - The Recourse backend keeps serving `/api/treasury` until the console has
   moved, then the routes and modules are deleted from `recourse` in one commit.
 
+## Checked the day before, 2026-09-16
+
+Re-derived from the source rather than trusted, because the file table and the cut
+points above were both taken from the code on 2026-09-10 and the backend changed after
+that. Everything holds, with two corrections.
+
+- **The three cut points are unchanged.** `handlers/treasury.rs` still reaches only
+  `handlers::auth` and `account_sessions`, `treasury.rs` only `handles`, and
+  `olien_indexer.rs` only `push`. `olien.rs` imports nothing from the rest, and keys,
+  payroll and webhooks reach no further than `treasury.rs`.
+- **`cargo test` needs no database.** There is not one `sqlx::query!` macro in the
+  backend, only the 203 runtime forms, and no `#[sqlx::test]` and no `backend/tests`.
+  Nothing connects at build time or at test time, so the step 2 gate is green without
+  Postgres running. `ops/docker-compose.yml` has one on port 5433 if a later step wants
+  it.
+- **Correction:** `contracts/remappings.txt` is in the table above but does not exist.
+  Drop it from the filter-repo path list.
+- All eight migrations are present: 0013, 0018 through 0024.
+- Tooling is installed and signed in: `git-filter-repo`, git 2.50.1, Python 3.9.6, `gh`
+  as frankolien.
+- `backend/Cargo.toml` is a single package, there is no root `Cargo.toml` and no
+  `service/`, so the workspace in step 2 starts from nothing, as the plan assumes.
+- **The Dockerfile is at the repository root**, not `backend/Dockerfile`. It already
+  guards the cargo mtime trap, and it hardcodes `DEPLOYMENTS_PATH` to
+  `arc-testnet.json`, so `service/Dockerfile` should take that as a variable given one
+  process serves one chain.
+
 ## Order of work on the 17th
 
 1. `git filter-repo` into a fresh clone, verify `git log` dates survive.
