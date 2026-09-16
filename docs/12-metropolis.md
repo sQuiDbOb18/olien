@@ -135,6 +135,32 @@ never a gate on the contracts existing.
 
 Monad mainnet, chain 143, has nothing deployed and nothing read off it yet.
 
+**The service and the console do not need the split either, checked 2026-09-16.**
+The backend takes its chain entirely from `DEPLOYMENTS_PATH` and the image already
+carries every file in `deployments/`, so a second Railway service reading
+`10143.json` is a Monad Olien service. It refused to boot at first, because
+`Deployment` required the consumer contracts and Monad has none of them. Those four
+fields are optional now, and the consumer jobs sit behind a `consumer` flag, so the
+escrow indexer, the auto resolver, the projection reset and the attestor all stay off
+while the treasury service and its indexer run alone. 96 backend tests pass, two of
+them pinning the file contract in both directions: a Monad file must parse without the
+consumer contracts, and an Arc file must still yield them.
+
+On that chain the service reports what it should: id 10143, `Monad Testnet`, gas in
+MON rather than USDC, no EURC, and the Monad explorer. The treasury enables itself
+from `ATTESTOR_PK` where `RELAYER_PK` is absent, so it needs no new secret.
+
+The console was already chain-parameterised and builds for Monad today:
+`NEXT_PUBLIC_OLIEN_CHAIN=monad-testnet npm run build` compiles in 15 seconds and emits
+all seven Olien routes. `chain.ts` hardcodes Monad's id, RPC, explorer and USDC, and
+imports the Arc deployment file only to fill the Arc entry, so a Monad build needs no
+Monad deployment file.
+
+So "live on Monad" is now two deploys and no code: a Railway service with
+`DEPLOYMENTS_PATH=/app/deployments/10143.json`, its own `DATABASE_URL` and an
+`ATTESTOR_PK`, and a Vercel project with `NEXT_PUBLIC_OLIEN_CHAIN=monad-testnet` and
+`NEXT_PUBLIC_BACKEND_URL` pointed at that service.
+
 **24 to 30 September, the demo is true.** Payroll run on Monad. A cheque written
 by a treasury and cashed by its recipient on Monad, which needs a cashing page
 in the console since the phone is on Arc: a link the recipient opens, a wallet or
