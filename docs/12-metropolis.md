@@ -101,11 +101,39 @@ nothing deployed that holds money. The service: the backend becomes properly
 multi-chain (a deployment file per chain, gas unit per chain), which touches
 nothing on Arc; the file list and cut points for the split, ready for the 17th.
 
-**17 to 23 September, live on Monad.** Contracts to Monad testnet and mainnet
-via CREATE2, relayer funded with MON, console pointed at Monad, an Olien
-created, a payment proposed, signed by a wallet and by a passkey, executed. The
-proof accounts and hashes go in this file. End state: the thing exists on the
-chain the judges use.
+**17 to 23 September, live on Monad.** Contracts and funding are done, a day
+early. The rest of the week is the console pointed at Monad, an Olien created, a
+payment proposed, signed by a wallet and by a passkey, executed. End state: the
+thing exists on the chain the judges use.
+
+Olien went to Monad testnet on 2026-09-16, all four contracts, 9,549,513 gas at
+about 103 gwei for 0.9836 MON total. They landed on the addresses they already
+hold on Arc, and the deployed bytecode was read off both chains and hashed:
+identical. That is what a fixed salt and identical creation code through the
+Arachnid deployer at `0x4e59b44847b379578588920cA78FbF26c0B4956C` are supposed
+to give, and now it is measured rather than assumed.
+
+| Contract | Address | Transaction | Block |
+| --- | --- | --- | --- |
+| OlienVerifier | `0xE196558Ce080229B256dDE6e62CDA2B051B882fC` | `0x55f7fdae43cf616d742bcdf4babcdc0dbda6ef2c41090b3d98f22fba39edd78d` | 63016192 |
+| SubAccount | `0xDfc576536187eF72689c514f8c7ea6487960a637` | `0x6646f4b3df1e43884e2287380ee8aa82d6bd4183e79c569e2bf869d938d1e634` | 63016195 |
+| Olien | `0x8BFf8CCe4edbE882a21197D3942978CCd06fA427` | `0x78ad5cfb538a7f9762dc745d2dac9117eb0d625c2a0eca7002b3a13a58eeb2a8` | 63016199 |
+| OlienFactory | `0xaF8c108D09E6A159D4dcE0919Ca6A81d6019f131` | `0x4b6ff3f98107d48a89a0094fdcf0f034ba32c18d9ae2c8ee20708e310e92bda5` | 63016202 |
+
+All four receipts read back `status true`. Their `contractAddress` field is empty,
+which is not a problem: a CREATE2 deployment's recipient is the Arachnid deployer,
+so the receipt has no created address to report. A plain CREATE would have filled it.
+
+Deployed by the attestor EOA `0xD6c574461d96Ee708f58Fe553049aD4f48BB983A`, which
+held 5 MON from the faucet and has about 4.02 left. Gas on Monad is MON, not USDC.
+
+**This did not need the repo split.** CREATE2 derives an address from the salt and
+the creation code, never from the sender or the repository, so deploying out of
+`recourse` put them exactly where deploying out of a split `olien` would have. The
+split is still worth doing for a clean public repo the judges can read, but it was
+never a gate on the contracts existing.
+
+Monad mainnet, chain 143, has nothing deployed and nothing read off it yet.
 
 **24 to 30 September, the demo is true.** Payroll run on Monad. A cheque written
 by a treasury and cashed by its recipient on Monad, which needs a cashing page
