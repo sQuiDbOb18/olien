@@ -2,8 +2,8 @@
 pragma solidity ^0.8.28;
 
 import {OlienTestBase, MockToken} from "./OlienTestBase.sol";
-import {Olien} from "../../src/olien/Olien.sol";
-import {SubAccount} from "../../src/olien/SubAccount.sol";
+import {Olien} from "../src/Olien.sol";
+import {SubAccount} from "../src/SubAccount.sol";
 import {
     IOlien,
     Call,
@@ -17,7 +17,7 @@ import {
     PERM_RECOVER,
     PATH_THRESHOLD,
     PATH_RECOVERY
-} from "../../src/olien/IOlien.sol";
+} from "../src/IOlien.sol";
 
 contract OlienPoliciesTest is OlienTestBase {
     uint256 newDevicePk = 0xDE8;

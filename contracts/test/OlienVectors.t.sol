@@ -2,10 +2,10 @@
 pragma solidity ^0.8.28;
 
 import {Test} from "forge-std/Test.sol";
-import {OlienHash} from "../../src/olien/OlienHash.sol";
-import {PackedUserOperation, IAccountExecute} from "../../src/olien/IEntryPoint.sol";
-import {Call} from "../../src/olien/IOlien.sol";
-import {Olien} from "../../src/olien/Olien.sol";
+import {OlienHash} from "../src/OlienHash.sol";
+import {PackedUserOperation, IAccountExecute} from "../src/IEntryPoint.sol";
+import {Call} from "../src/IOlien.sol";
+import {Olien} from "../src/Olien.sol";
 
 /// @dev Library functions with calldata parameters need an external frame to be called on memory.
 contract VectorHelper {

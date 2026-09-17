@@ -4,12 +4,12 @@ pragma solidity ^0.8.28;
 import {Test} from "forge-std/Test.sol";
 import {Base64} from "@openzeppelin/contracts/utils/Base64.sol";
 
-import {Olien} from "../../src/olien/Olien.sol";
-import {OlienFactory} from "../../src/olien/OlienFactory.sol";
-import {OlienVerifier} from "../../src/olien/OlienVerifier.sol";
-import {OlienHash} from "../../src/olien/OlienHash.sol";
-import {SubAccount} from "../../src/olien/SubAccount.sol";
-import {PackedUserOperation, IEntryPoint, IAccountExecute} from "../../src/olien/IEntryPoint.sol";
+import {Olien} from "../src/Olien.sol";
+import {OlienFactory} from "../src/OlienFactory.sol";
+import {OlienVerifier} from "../src/OlienVerifier.sol";
+import {OlienHash} from "../src/OlienHash.sol";
+import {SubAccount} from "../src/SubAccount.sol";
+import {PackedUserOperation, IEntryPoint, IAccountExecute} from "../src/IEntryPoint.sol";
 import {
     Call,
     Transaction,
@@ -22,7 +22,7 @@ import {
     PERM_APPROVE,
     PERM_VETO,
     PERM_RECOVER
-} from "../../src/olien/IOlien.sol";
+} from "../src/IOlien.sol";
 
 /// @dev A token that behaves like USDC for transfers, with a switch to return false instead.
 contract MockToken {

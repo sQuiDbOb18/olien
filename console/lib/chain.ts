@@ -10,7 +10,6 @@
 // testnet one called on chain (symbol USDC, version 2, six decimals).
 
 import { createPublicClient, defineChain, http, type Chain } from "viem";
-import deployment from "../../deployments/arc-testnet.json";
 
 export type ChainSlug = "arc-testnet" | "monad-testnet" | "monad";
 
@@ -28,12 +27,12 @@ interface ChainSpec {
 const SPECS: Record<ChainSlug, ChainSpec> = {
   "arc-testnet": {
     slug: "arc-testnet",
-    id: deployment.chainId,
+    id: 5042002,
     name: "Arc Testnet",
     native: { symbol: "USDC", decimals: 18 },
     rpc: "https://arc-testnet.drpc.org",
     explorer: { name: "ArcScan", url: "https://testnet.arcscan.app" },
-    usdc: deployment.usdc as `0x${string}`,
+    usdc: "0x3600000000000000000000000000000000000000",
     testnet: true,
   },
   "monad-testnet": {

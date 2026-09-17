@@ -1,7 +1,8 @@
 import { Check } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
-import { GITHUB_URL } from "@/components/site/footer";
+// Olien's own repository, not a constant borrowed from another product's footer.
+const GITHUB_URL = "https://github.com/frankolien/olien";
 import { DashboardShot } from "./site-mockup";
 
 const APP = "/olien/app";

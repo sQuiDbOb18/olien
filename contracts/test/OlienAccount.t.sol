@@ -2,9 +2,9 @@
 pragma solidity ^0.8.28;
 
 import {OlienTestBase, MockToken, Reenterer} from "./OlienTestBase.sol";
-import {Olien} from "../../src/olien/Olien.sol";
-import {OlienProxy} from "../../src/olien/OlienProxy.sol";
-import {SubAccount} from "../../src/olien/SubAccount.sol";
+import {Olien} from "../src/Olien.sol";
+import {OlienProxy} from "../src/OlienProxy.sol";
+import {SubAccount} from "../src/SubAccount.sol";
 import {
     IOlien,
     Call,
@@ -18,7 +18,7 @@ import {
     PERM_RECOVER,
     FLAG_UV_REQUIRED,
     PATH_THRESHOLD
-} from "../../src/olien/IOlien.sol";
+} from "../src/IOlien.sol";
 
 contract OlienAccountTest is OlienTestBase {
     // ---------------------------------------------------------------- factory

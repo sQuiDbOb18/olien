@@ -1,0 +1,11 @@
+node_modules
+.next
+.vercel
+next-env.d.ts
+target
+contracts/out
+contracts/cache
+contracts/broadcast
+.env
+.env.local
+.DS_Store

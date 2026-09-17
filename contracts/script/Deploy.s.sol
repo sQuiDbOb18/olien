@@ -3,10 +3,10 @@ pragma solidity ^0.8.28;
 
 import {Script} from "forge-std/Script.sol";
 
-import {Olien} from "../src/olien/Olien.sol";
-import {OlienFactory} from "../src/olien/OlienFactory.sol";
-import {OlienVerifier} from "../src/olien/OlienVerifier.sol";
-import {SubAccount} from "../src/olien/SubAccount.sol";
+import {Olien} from "../src/Olien.sol";
+import {OlienFactory} from "../src/OlienFactory.sol";
+import {OlienVerifier} from "../src/OlienVerifier.sol";
+import {SubAccount} from "../src/SubAccount.sol";
 
 // Deploys the Olien account protocol: the verifier, the sub-account implementation, the
 // account implementation and the factory, each through the deterministic CREATE2 deployer

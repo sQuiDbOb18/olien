@@ -1,0 +1,58 @@
+/* Shared reset and tokens. The marketing site (app/(site)/site.css) and the Olien
+   console (app/olien/olien.css) each carry their own styles on top of this. */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+:root {
+  --ink: #111b19;
+  --muted: #66706d;
+  --line: #e4e7e2;
+  --line-soft: #eef0ec;
+  --white: #ffffff;
+  --mint: #edf3ef;
+  --green: #075b46;
+  --green-dark: #064535;
+  --night: #070907;
+  --night-chip: #141a16;
+  --night-text: #edf2ed;
+  --night-muted: #8c9991;
+  --night-line: #212923;
+  --sans: var(--font-geist-sans), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: var(--font-geist-mono), ui-monospace, "SFMono-Regular", Menlo, monospace;
+  --inter: var(--font-inter), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+body {
+  font-family: var(--sans);
+  color: var(--ink);
+  background: var(--white);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+a {
+  color: inherit;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+img,
+svg {
+  display: block;
+  max-width: 100%;
+}

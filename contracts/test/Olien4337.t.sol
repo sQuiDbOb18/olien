@@ -2,9 +2,9 @@
 pragma solidity ^0.8.28;
 
 import {OlienTestBase} from "./OlienTestBase.sol";
-import {Olien} from "../../src/olien/Olien.sol";
-import {OlienFactory} from "../../src/olien/OlienFactory.sol";
-import {PackedUserOperation, IEntryPoint, IAccountExecute} from "../../src/olien/IEntryPoint.sol";
+import {Olien} from "../src/Olien.sol";
+import {OlienFactory} from "../src/OlienFactory.sol";
+import {PackedUserOperation, IEntryPoint, IAccountExecute} from "../src/IEntryPoint.sol";
 import {
     IOlien,
     Call,
@@ -16,7 +16,7 @@ import {
     PERM_RECOVER,
     PATH_THRESHOLD,
     PATH_SINGLE
-} from "../../src/olien/IOlien.sol";
+} from "../src/IOlien.sol";
 
 interface IEntryPointErrors {
     error FailedOp(uint256 opIndex, string reason);
