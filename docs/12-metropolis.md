@@ -180,8 +180,34 @@ database came out named `Postgres-OWhw` rather than the name asked for.
 **The relayer is under its floor**: 4.0164 MON against a 5 MON minimum, which the
 indexer warns about on every cycle. Executions will fail until it is faucetted.
 
-Left: the Vercel project, `NEXT_PUBLIC_OLIEN_CHAIN=monad-testnet` and
-`NEXT_PUBLIC_BACKEND_URL` pointed at the service above.
+**The console is live too, 2026-09-17**, at `https://olien-console-monad.vercel.app`,
+a second Vercel project `olien-console-monad` in the same team as `recourse-web`, built
+from the same `web/` with `NEXT_PUBLIC_OLIEN_CHAIN=monad-testnet` and
+`NEXT_PUBLIC_BACKEND_URL` pointed at the Railway service. Both pages answer 200 and
+render the console.
+
+What is proven: the environment variables were on the project for Production before the
+build ran, the build succeeded, and the site is public. What is not proven by command
+line: that the running page talks to Monad rather than Arc, because the values are
+inlined into chunks React streams after hydration and never appear in the initial HTML.
+Settings shows it, since the console compares its own chain against the service's
+`/api/treasury/chain`. Check it once and write the answer here.
+
+Three traps, all of which cost time and will recur on the next chain:
+
+- The console imports `../../deployments/arc-testnet.json`, so it cannot be built from
+  inside `web/`. The upload has to be the repository root with the project's
+  `rootDirectory` set to `web`, which is how `recourse-web` is configured.
+- `vercel project add` cannot set `rootDirectory` or `framework`. Both had to go in by
+  PATCH to `/v9/projects/{id}`.
+- A new Vercel project defaults to `ssoProtection: all_except_custom_domains`, which
+  protects **production** as well, so the console answered 302 to a Vercel login until
+  it was set to null. `recourse-web` has it null. A judge hitting an SSO wall would
+  have looked like a broken entry.
+
+The root of the repository stays linked to `recourse-web` and `web/.vercel` links to
+the console, so a deploy from the wrong directory targets the wrong project. The live
+marketing deployment was checked before and after and did not move.
 
 **24 to 30 September, the demo is true.** Payroll run on Monad. A cheque written
 by a treasury and cashed by its recipient on Monad, which needs a cashing page
