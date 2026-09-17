@@ -13,7 +13,7 @@ use serde_json::Value;
 use sqlx::PgPool;
 use tracing::{info, warn};
 
-use crate::services::treasury::{self, bad, context_for, parse_address, ProposalView, RecipientBody, Res, Treasury, TreasuryError};
+use crate::treasury::{self, bad, context_for, parse_address, ProposalView, RecipientBody, Res, Treasury, TreasuryError};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]

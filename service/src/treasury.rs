@@ -16,8 +16,8 @@ use std::collections::{BTreeSet, HashMap, HashSet};
 use std::sync::{Arc, Mutex};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use crate::services::handles;
-use crate::services::olien::{
+use crate::members::Members;
+use crate::olien::{
     self, address_of_signer_id, calldata, signer_id_of_address, signer_id_of_key, Call, IOlien, Init, OlienClient, PackedUserOperation,
     SignerInput, SpendingLimitInput, Transaction, FLAG_UV_REQUIRED, KIND_CONTRACT, KIND_ECDSA, KIND_P256, KIND_WEBAUTHN,
     MAX_VALIDITY, PERM_APPROVE, PERM_RECOVER, PERM_VETO, SCHEDULE_WINDOW,
@@ -36,8 +36,9 @@ pub struct Treasury {
     // The indexer keeps this current; /health reports it, so an emptying relayer key is
     // seen by whoever watches the service rather than by the first failed execute.
     pub relayer: Arc<Mutex<Option<RelayerStatus>>>,
-    /// Alerts to members' phones; None when APNs is not configured.
-    pub push: Option<Arc<super::push::Push>>,
+    /// Names members by @handle where a directory is configured. `Members::None` on a
+    /// chain without one, where members are named by address.
+    pub members: Members,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -59,7 +60,7 @@ pub struct RelayerStatus {
 pub struct ChainInfo {
     pub chain_id: u64,
     pub name: String,
-    pub native: super::NativeToken,
+    pub native: crate::config::NativeToken,
     pub explorer_url: String,
     pub usdc: String,
     pub eurc: Option<String>,
@@ -722,37 +723,36 @@ pub async fn linked_addresses(pool: &PgPool, account_id: i64) -> Res<Vec<LinkedA
 }
 
 async fn linked_set(pool: &PgPool, account_id: i64) -> Res<HashSet<String>> {
-    let mut set: HashSet<String> = linked_addresses(pool, account_id).await?.into_iter().map(|l| l.address).collect();
-    // A Recourse account's own Safe stands for the person: an Olien that names it as a
-    // contract signer has them as a member, with nothing to link.
-    let safe: Option<(String,)> =
-        sqlx::query_as("SELECT safe_address FROM smart_accounts WHERE account_id = $1 AND status = 'live'")
-            .bind(account_id)
-            .fetch_optional(pool)
-            .await?;
-    if let Some((safe,)) = safe {
-        set.insert(safe.to_lowercase());
-    }
-    Ok(set)
+    // Every address a person signs with is one they linked. There is no directory of
+    // other accounts to consult, which is the point: an Olien knows its signers and
+    // nothing about who the people behind them are elsewhere.
+    Ok(linked_addresses(pool, account_id).await?.into_iter().map(|l| l.address).collect())
 }
 
 // A member named by @handle. The handle's address is the person's account on Arc: a
 // Safe once the app has provisioned one (a contract signer), a plain key before that.
-async fn resolve_handles(pool: &PgPool, signers: &mut [SignerBody]) -> Res<()> {
+async fn resolve_handles(treasury: &Treasury, signers: &mut [SignerBody]) -> Res<()> {
     for signer in signers.iter_mut() {
         let Some(handle) = signer.handle.as_deref().map(str::trim).filter(|h| !h.is_empty()) else {
             continue;
         };
-        let resolved = handles::resolve(pool, handle)
+        let resolved = treasury
+            .members
+            .resolve(handle)
             .await
-            .map_err(|e| bad(format!("@{}: {}", handle.trim_start_matches('@'), e.parts().1)))?;
+            .map_err(|e| bad(format!("@{}: {e}", handle.trim_start_matches('@'))))?;
         let address = resolved.address.to_lowercase();
-        let safe: Option<(String,)> =
-            sqlx::query_as("SELECT safe_address FROM smart_accounts WHERE lower(safe_address) = $1 AND status = 'live'")
-                .bind(&address)
-                .fetch_optional(pool)
-                .await?;
-        signer.kind = Some(if safe.is_some() { "contract" } else { "ecdsa" }.into());
+        // Whether this signer is a contract decides which branch the verifier takes, so
+        // it is read off the chain rather than from a directory that could be wrong or
+        // out of date. A Safe is code at an address; a plain key is not.
+        let contract = match treasury.client.as_ref() {
+            Some(client) => client
+                .is_contract(parse_address(&address)?)
+                .await
+                .map_err(|e| TreasuryError::Internal(anyhow!("reading code at {address}: {e}")))?,
+            None => false,
+        };
+        signer.kind = Some(if contract { "contract" } else { "ecdsa" }.into());
         signer.address = Some(address);
         if signer.label.as_deref().map(str::trim).unwrap_or("").is_empty() {
             signer.label = Some(format!("@{}", resolved.handle));
@@ -813,8 +813,7 @@ pub async fn list_accounts(pool: &PgPool, user: i64) -> Res<Vec<AccountSummary>>
         "SELECT DISTINCT a.* FROM olien_accounts a
          LEFT JOIN olien_signers s ON s.olien_id = a.id AND s.status = 'active'
          LEFT JOIN treasury_linked_addresses l ON l.address = s.address AND l.account_id = $1
-         LEFT JOIN smart_accounts sa ON sa.account_id = $1 AND sa.status = 'live' AND lower(sa.safe_address) = s.address
-         WHERE a.created_by = $1 OR l.account_id IS NOT NULL OR sa.account_id IS NOT NULL
+         WHERE a.created_by = $1 OR l.account_id IS NOT NULL
          ORDER BY a.created_at DESC",
     )
     .bind(user)
@@ -949,7 +948,7 @@ fn signer_input(body: &SignerBody) -> Res<(SignerInput, SignerKey)> {
 
 pub async fn create_account(pool: &PgPool, treasury: &Treasury, user: i64, body: CreateAccountBody) -> Res<AccountView> {
     let mut body = body;
-    resolve_handles(pool, &mut body.signers).await?;
+    resolve_handles(treasury, &mut body.signers).await?;
     let client = treasury.client.as_ref().ok_or(TreasuryError::Off)?;
     let name = body.name.trim().to_string();
     if name.is_empty() || name.len() > 80 {
@@ -1492,7 +1491,7 @@ pub async fn create_proposal(pool: &PgPool, treasury: &Treasury, user: i64, addr
         "transfer" | "batch" | "signer_change" | "rule_change" | "limit_change" | "cancel" | "contract_call" => body.kind.clone(),
         other => return Err(bad(format!("unknown kind {other}"))),
     };
-    insert_proposal(pool, client, treasury.chain_id, treasury.push.as_deref(), &ctx, user, kind, body.intent.unwrap_or_else(|| json!({})), calls, body.nonce_key, body.sequence, body.valid_after, body.valid_until, via_key).await
+    insert_proposal(pool, client, treasury.chain_id, &ctx, user, kind, body.intent.unwrap_or_else(|| json!({})), calls, body.nonce_key, body.sequence, body.valid_after, body.valid_until, via_key).await
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -1500,7 +1499,6 @@ async fn insert_proposal(
     pool: &PgPool,
     client: &OlienClient,
     chain_id: u64,
-    push: Option<&super::push::Push>,
     ctx: &AccountContext,
     user: i64,
     kind: String,
@@ -1597,20 +1595,9 @@ async fn insert_proposal(
     }
     refresh_statuses(pool, &ctx.row).await?;
     let view = proposal_view(pool, chain_id, user, &ctx.row, &hash_text).await?;
-    if let Some(push) = push {
-        // The other members hear now; the proposer is looking at it already.
-        let members = super::push::member_accounts(pool, ctx.row.id, Some(user)).await;
-        let who = view.proposer.as_ref().map(|p| p.name.clone()).unwrap_or_else(|| "A member".into());
-        let what = view.decoded.first().map(|d| d.summary.clone()).unwrap_or_else(|| view.kind.clone());
-        push.notify(
-            pool,
-            &members,
-            &ctx.row.name,
-            &format!("{who} proposed: {what}. Your approval is needed."),
-            json!({ "kind": "proposal", "account": ctx.row.address, "txHash": hash_text }),
-        )
-        .await;
-    }
+    // The other members learn about this through a webhook on the proposals topic,
+    // which reads olien_proposals.updated_at and so covers every proposal rather than
+    // only the ones a notifier was wired for.
     Ok(view)
 }
 
@@ -1647,7 +1634,7 @@ pub async fn propose_transfer(pool: &PgPool, treasury: &Treasury, user: i64, add
     let (calls, intent_rows, total, token) = transfer_batch(client, &body.recipients, body.token.as_deref())?;
     let intent = json!({ "recipients": intent_rows, "token": addr(token), "total": total.to_string() });
     let kind = if body.recipients.len() == 1 { "transfer" } else { "batch" };
-    insert_proposal(pool, client, treasury.chain_id, treasury.push.as_deref(), &ctx, user, kind.into(), intent, calls, body.nonce_key, None, None, body.valid_until, via_key).await
+    insert_proposal(pool, client, treasury.chain_id, &ctx, user, kind.into(), intent, calls, body.nonce_key, None, None, body.valid_until, via_key).await
 }
 
 /// A payroll run as a proposal: the template's recipients as one batch, kind
@@ -1674,14 +1661,14 @@ pub async fn propose_payroll(
         "total": total.to_string(),
         "payroll": { "id": payroll_id, "name": name },
     });
-    insert_proposal(pool, client, treasury.chain_id, treasury.push.as_deref(), &ctx, user, "payroll".into(), intent, calls, Some(PAYROLL_LANE.into()), None, None, None, via_key).await
+    insert_proposal(pool, client, treasury.chain_id, &ctx, user, "payroll".into(), intent, calls, Some(PAYROLL_LANE.into()), None, None, None, via_key).await
 }
 
 pub async fn propose_signers(pool: &PgPool, treasury: &Treasury, user: i64, address: &str, body: SignersProposalBody) -> Res<ProposalView> {
     let mut body = body;
-    resolve_handles(pool, &mut body.add).await?;
+    resolve_handles(treasury, &mut body.add).await?;
     for replacement in body.replace.iter_mut() {
-        resolve_handles(pool, std::slice::from_mut(&mut replacement.with)).await?;
+        resolve_handles(treasury, std::slice::from_mut(&mut replacement.with)).await?;
     }
     let client = treasury.client.as_ref().ok_or(TreasuryError::Off)?;
     let ctx = context_for(pool, user, address).await?;
@@ -1716,7 +1703,7 @@ pub async fn propose_signers(pool: &PgPool, treasury: &Treasury, user: i64, addr
     }
     let intent = json!({ "labels": labels.iter().map(|(a, l)| json!({ "address": a, "label": l })).collect::<Vec<_>>() });
     let kind = if body.add.is_empty() && body.remove.is_empty() && body.replace.is_empty() { "rule_change" } else { "signer_change" };
-    insert_proposal(pool, client, treasury.chain_id, treasury.push.as_deref(), &ctx, user, kind.into(), intent, calls, None, None, None, None, None).await
+    insert_proposal(pool, client, treasury.chain_id, &ctx, user, kind.into(), intent, calls, None, None, None, None, None).await
 }
 
 pub async fn propose_limit(pool: &PgPool, treasury: &Treasury, user: i64, address: &str, body: LimitProposalBody) -> Res<ProposalView> {
@@ -1759,7 +1746,7 @@ pub async fn propose_limit(pool: &PgPool, treasury: &Treasury, user: i64, addres
         calls.push(Call { to: account, value: U256::ZERO, data: calldata::allow_limit_destination(id, parse_address(d)?) });
     }
     let intent = json!({ "limitId": id, "token": addr(token), "amount": amount.to_string(), "period": body.period, "signers": body.signers, "destinations": body.destinations });
-    insert_proposal(pool, client, treasury.chain_id, treasury.push.as_deref(), &ctx, user, "limit_change".into(), intent, calls, None, None, None, None, None).await
+    insert_proposal(pool, client, treasury.chain_id, &ctx, user, "limit_change".into(), intent, calls, None, None, None, None, None).await
 }
 
 pub async fn propose_remove_limit(pool: &PgPool, treasury: &Treasury, user: i64, address: &str, body: RemoveLimitBody) -> Res<ProposalView> {
@@ -1768,7 +1755,7 @@ pub async fn propose_remove_limit(pool: &PgPool, treasury: &Treasury, user: i64,
     require_live(&ctx.row)?;
     let account = ctx.row.address();
     let calls = vec![Call { to: account, value: U256::ZERO, data: calldata::remove_spending_limit(body.id) }];
-    insert_proposal(pool, client, treasury.chain_id, treasury.push.as_deref(), &ctx, user, "limit_change".into(), json!({ "removeLimitId": body.id }), calls, None, None, None, None, None).await
+    insert_proposal(pool, client, treasury.chain_id, &ctx, user, "limit_change".into(), json!({ "removeLimitId": body.id }), calls, None, None, None, None, None).await
 }
 
 /// A proposal from calls the service built itself, in the default lane.
@@ -1776,7 +1763,7 @@ pub(crate) async fn propose_calls(pool: &PgPool, treasury: &Treasury, user: i64,
     let client = treasury.client.as_ref().ok_or(TreasuryError::Off)?;
     let ctx = context_for(pool, user, address).await?;
     require_live(&ctx.row)?;
-    insert_proposal(pool, client, treasury.chain_id, treasury.push.as_deref(), &ctx, user, kind, intent, calls, None, None, None, None, None).await
+    insert_proposal(pool, client, treasury.chain_id, &ctx, user, kind, intent, calls, None, None, None, None, None).await
 }
 
 pub async fn propose_cancel(pool: &PgPool, treasury: &Treasury, user: i64, address: &str, tx_hash: &str) -> Res<ProposalView> {
@@ -1789,7 +1776,7 @@ pub async fn propose_cancel(pool: &PgPool, treasury: &Treasury, user: i64, addre
     }
     let account = ctx.row.address();
     let calls = vec![Call { to: account, value: U256::ZERO, data: calldata::cancel(parse_hash(tx_hash)?) }];
-    insert_proposal(pool, client, treasury.chain_id, treasury.push.as_deref(), &ctx, user, "cancel".into(), json!({ "cancels": target.tx_hash }), calls, None, None, None, None, None).await
+    insert_proposal(pool, client, treasury.chain_id, &ctx, user, "cancel".into(), json!({ "cancels": target.tx_hash }), calls, None, None, None, None, None).await
 }
 
 async fn load_proposal(pool: &PgPool, olien_id: i64, tx_hash: &str) -> Res<ProposalRow> {

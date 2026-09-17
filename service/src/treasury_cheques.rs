@@ -15,11 +15,11 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use sqlx::PgPool;
 
-use crate::services::olien::{self, calldata, Call, OlienClient};
-use crate::services::treasury::{
+use crate::olien::{self, calldata, Call, OlienClient};
+use crate::treasury::{
     self, bad, check_signature, context_for, parse_address, parse_amount, AccountContext, ConfirmationJson, Res, SignerRow, Treasury, TreasuryError,
 };
-use crate::services::treasury_keys::member_name;
+use crate::treasury_keys::member_name;
 
 /// A cheque is good for ninety days unless the writer says otherwise.
 const DEFAULT_VALIDITY: u64 = 90 * 86_400;
@@ -294,7 +294,15 @@ pub async fn sign(pool: &PgPool, treasury: &Treasury, user: i64, address: &str, 
 }
 
 /// Enough approvers have signed: pack the set the way the account verifies it and
-/// store the cheque where the recipient's app reads its inbox.
+/// keep it on the cheque, which is the issued cheque.
+///
+/// This used to insert a row into the consumer app's `cheques` table, so the treasury
+/// service wrote into a schema it does not own and could not be deployed without. The
+/// packed signature is the entire cheque: USDC verifies it against the account through
+/// EIP-1271 and needs nothing else. Keeping it here and serving it over
+/// `GET /api/treasury/cheques/issued` says the same thing with the dependency pointing
+/// the other way, so an app that wants an inbox reads this service rather than the
+/// service writing into the app.
 async fn issue_if_ready(pool: &PgPool, ctx: &AccountContext, row: &Row) -> Res<()> {
     let signed: Vec<(String, Vec<u8>)> =
         sqlx::query_as("SELECT signer_id, signature FROM olien_cheque_signatures WHERE cheque_id = $1").bind(row.id).fetch_all(pool).await?;
@@ -307,29 +315,79 @@ async fn issue_if_ready(pool: &PgPool, ctx: &AccountContext, row: &Row) -> Res<(
     }
     let entries: Vec<(B256, Vec<u8>)> = counted.iter().map(|(id, sig)| Ok((treasury::parse_hash(id)?, sig.clone()))).collect::<Res<_>>()?;
     let packed = olien::pack(&entries)?;
-    let (cheque_id,): (i64,) = sqlx::query_as(
-        "INSERT INTO cheques (writer_account_id, from_address, to_address, amount_base_units, valid_after, valid_before, nonce, signature, memo)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-         ON CONFLICT (from_address, nonce) DO UPDATE SET signature = EXCLUDED.signature
-         RETURNING cheque_id",
-    )
-    .bind(row.proposer)
-    .bind(&ctx.row.address)
-    .bind(&row.to_address)
-    .bind(row.amount.parse::<i64>().map_err(|_| bad("the amount does not fit a cheque"))?)
-    .bind(row.valid_after)
-    .bind(row.valid_before)
-    .bind(&row.nonce)
-    .bind(hex(&packed))
-    .bind(&row.memo)
-    .fetch_one(pool)
-    .await?;
-    sqlx::query("UPDATE olien_cheques SET status = 'issued', cheque_id = $2, issued_at = now(), updated_at = now() WHERE id = $1 AND status = 'open'")
+    sqlx::query("UPDATE olien_cheques SET status = 'issued', signature = $2, issued_at = now(), updated_at = now() WHERE id = $1 AND status = 'open'")
         .bind(row.id)
-        .bind(cheque_id)
+        .bind(hex(&packed))
         .execute(pool)
         .await?;
     Ok(())
+}
+
+/// Every cheque this treasury has issued to one recipient, newest first.
+///
+/// The replacement for writing into the consumer app's inbox table. A recipient's app
+/// polls this with its own address and gets back everything it needs to cash: the
+/// authorization's fields and the packed signature USDC will verify. Public on purpose,
+/// the way a cheque in a drawer is: the signature authorises a transfer to `to` and to
+/// nobody else, so learning it grants no one anything they did not already have.
+pub async fn issued_to(pool: &PgPool, to: &str) -> Res<Vec<IssuedCheque>> {
+    let to = treasury::parse_address(to)?;
+    let rows: Vec<IssuedRow> = sqlx::query_as(
+        "SELECT a.address AS from_address, c.to_address, c.amount, c.valid_after, c.valid_before,
+                c.nonce, c.signature, c.memo, c.status, c.issued_at
+         FROM olien_cheques c JOIN olien_accounts a ON a.id = c.olien_id
+         WHERE c.to_address = $1 AND c.status IN ('issued', 'cashed') AND c.signature IS NOT NULL
+         ORDER BY c.issued_at DESC LIMIT 200",
+    )
+    .bind(format!("{to:#x}"))
+    .fetch_all(pool)
+    .await?;
+    Ok(rows
+        .into_iter()
+        .map(|r| IssuedCheque {
+            from_address: r.from_address,
+            to_address: r.to_address,
+            amount: r.amount,
+            valid_after: r.valid_after,
+            valid_before: r.valid_before,
+            nonce: r.nonce,
+            signature: r.signature,
+            memo: r.memo,
+            status: r.status,
+            // Seconds, like every other time this API hands out, rather than the
+            // timestamp's own format.
+            issued_at: r.issued_at.map(|t| t.timestamp()),
+        })
+        .collect())
+}
+
+#[derive(sqlx::FromRow)]
+struct IssuedRow {
+    from_address: String,
+    to_address: String,
+    amount: String,
+    valid_after: i64,
+    valid_before: i64,
+    nonce: String,
+    signature: Option<String>,
+    memo: Option<String>,
+    status: String,
+    issued_at: Option<DateTime<Utc>>,
+}
+
+#[derive(Debug, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct IssuedCheque {
+    pub from_address: String,
+    pub to_address: String,
+    pub amount: String,
+    pub valid_after: i64,
+    pub valid_before: i64,
+    pub nonce: String,
+    pub signature: Option<String>,
+    pub memo: Option<String>,
+    pub status: String,
+    pub issued_at: Option<i64>,
 }
 
 /// Void an issued cheque: a proposal to `cancel` the message hash on the account,

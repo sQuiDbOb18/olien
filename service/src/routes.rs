@@ -1,17 +1,17 @@
 // The /api/treasury routes (docs/treasury/11-service-api.md). Thin: parse, resolve the
-// caller, hand to services::treasury, map its error to a status.
+// caller, hand to treasury, map its error to a status.
 
 use actix_web::{web, HttpRequest, HttpResponse};
 use serde::Deserialize;
 use sqlx::PgPool;
 
-use crate::handlers::auth::{account_error_response, bearer_token, error_response};
-use crate::services::account_sessions;
-use crate::services::payroll::{self, PayrollBody};
-use crate::services::webhooks::{self, WebhookBody};
-use crate::services::treasury::{self, Treasury, TreasuryError};
-use crate::services::treasury_cheques::{self, ChequeSignatureBody, NewChequeBody};
-use crate::services::treasury_keys::{self, Need};
+use crate::auth::{account_error_response, bearer_token, error_response};
+use crate::sessions as account_sessions;
+use crate::payroll::{self, PayrollBody};
+use crate::webhooks::{self, WebhookBody};
+use crate::treasury::{self, Treasury, TreasuryError};
+use crate::treasury_cheques::{self, ChequeSignatureBody, NewChequeBody};
+use crate::treasury_keys::{self, Need};
 
 /// Who is asking: a person with a session, or an API key standing in for the member
 /// who minted it. The key id rides along so a proposal can say a key opened it.
@@ -517,10 +517,25 @@ pub async fn void_cheque(pool: web::Data<PgPool>, service: web::Data<Treasury>, 
     }
 }
 
+#[derive(Deserialize)]
+pub struct IssuedQuery {
+    to: String,
+}
+
+/// Cheques written to one recipient, for whatever app holds that recipient's inbox.
+///
+/// Unauthenticated, because a cheque is an authorization to pay this address and
+/// nobody else: reading one grants no power over it. This replaced the treasury
+/// writing rows into the consumer app's own table.
+pub async fn issued_cheques(pool: web::Data<PgPool>, query: web::Query<IssuedQuery>) -> HttpResponse {
+    reply(treasury_cheques::issued_to(pool.get_ref(), &query.to).await)
+}
+
 /// The route table, mounted under /api/treasury.
 pub fn routes(scope: actix_web::Scope) -> actix_web::Scope {
     scope
         .route("/chain", web::get().to(chain))
+        .route("/cheques/issued", web::get().to(issued_cheques))
         .route("/linked-addresses", web::get().to(linked_addresses))
         .route("/link-address", web::post().to(link_address))
         .route("/accounts", web::get().to(list_accounts))

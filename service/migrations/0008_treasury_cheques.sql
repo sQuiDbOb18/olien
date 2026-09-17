@@ -1,9 +1,9 @@
 -- Cheques written by a treasury (docs/treasury/06-algorithms.md §10, "Cheques as
 -- payables"). A cheque is USDC's own signed authorization; for an Olien the signature
 -- is the account's EIP-1271 answer, threshold approvers over Message(digest). The
--- members sign here, one at a time, and once enough have the packed set becomes a
--- row in `cheques`, the same table the consumer app reads its inbox from. The
--- recipient cashes it there when they like.
+-- members sign here, one at a time, and once enough have, the packed set is stored on
+-- the row and the cheque is issued. A recipient's app finds it through
+-- GET /api/treasury/cheques/issued?to=, and cashes it when they like.
 --
 -- Nothing on chain moves when a cheque is written. Cashed is the token's own
 -- authorizationState, mirrored by the indexer; voided is the account's `cancel` over
@@ -23,7 +23,10 @@ CREATE TABLE IF NOT EXISTS olien_cheques (
     memo TEXT,
     -- open (collecting signatures) | issued | cashed | voiding | voided | expired
     status TEXT NOT NULL DEFAULT 'open',
-    cheque_id BIGINT REFERENCES cheques(cheque_id) ON DELETE SET NULL,
+    -- The packed approver set, hex. Present exactly when status has passed 'open',
+    -- and it is the whole cheque: USDC verifies it against the account through
+    -- EIP-1271 and asks for nothing else.
+    signature TEXT,
     void_proposal_id BIGINT REFERENCES olien_proposals(id) ON DELETE SET NULL,
     proposer BIGINT REFERENCES accounts(account_id) ON DELETE SET NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),

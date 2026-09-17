@@ -750,6 +750,21 @@ impl OlienClient {
         Ok(self.provider.get_block_number().await?)
     }
 
+    /// Whether there is code at this address.
+    ///
+    /// Decides whether a signer is KIND_CONTRACT, verified through EIP-1271, or
+    /// KIND_ECDSA, verified by recovery. Getting it wrong makes every signature from
+    /// that member fail on chain, so it is read from the chain rather than inferred
+    /// from whatever directory named the member.
+    pub async fn is_contract(&self, address: Address) -> Result<bool> {
+        let code = self
+            .provider
+            .get_code_at(address)
+            .await
+            .context("reading code at a signer's address")?;
+        Ok(!code.is_empty())
+    }
+
     pub async fn block_timestamp(&self, number: u64) -> Result<u64> {
         let block = self
             .provider
@@ -991,6 +1006,9 @@ impl OlienClient {
     /// The account's own logs plus USDC transfers touching it, in one block range.
     /// Every USDC transfer into any of the given addresses in the block range, one
     /// query: the recipient topic takes a list, so a hundred Safes cost one call.
+    // Part of the client's surface rather than of any job here: an app watching for
+    // money arriving into its own accounts is the caller, and this service is not it.
+    #[allow(dead_code)]
     pub async fn usdc_received(&self, recipients: &[Address], from_block: u64, to_block: u64) -> Result<Vec<Log>> {
         let topics: Vec<B256> = recipients.iter().map(|a| signer_id_of_address(*a)).collect();
         let filter = Filter::new()

@@ -13,12 +13,11 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use tracing::{info, warn};
 
-use crate::services::olien::{IEntryPointView, IOlien, OlienClient, IERC20, PATH_RECOVERY, PATH_SINGLE, SCHEDULE_WINDOW};
-use crate::services::push::{self, Push};
-use crate::services::payroll;
-use crate::services::webhooks;
-use crate::services::treasury::{self, AccountRow, RelayerStatus, Treasury};
-use crate::services::treasury_cheques;
+use crate::olien::{IEntryPointView, IOlien, OlienClient, IERC20, PATH_RECOVERY, PATH_SINGLE, SCHEDULE_WINDOW};
+use crate::payroll;
+use crate::webhooks;
+use crate::treasury::{self, AccountRow, RelayerStatus, Treasury};
+use crate::treasury_cheques;
 
 // How wide a block window may be is a fact about the chain's RPCs, so it arrives as a
 // setting rather than living here: Arc's gateway takes 5,000, every public Monad
@@ -41,7 +40,6 @@ const REVERTED_NOTE: &str = "The user operation ran but the account's call rever
 pub async fn run(treasury: Treasury, pool: PgPool, interval_secs: u64, chunk_blocks: u64) {
     let Some(client) = treasury.client.clone() else { return };
     let relayer = treasury.relayer.clone();
-    let push = treasury.push.clone();
     let mut ticker = tokio::time::interval(Duration::from_secs(interval_secs.max(5)));
     let mut cycles: u64 = 0;
     let http = reqwest::Client::new();
@@ -58,7 +56,7 @@ pub async fn run(treasury: Treasury, pool: PgPool, interval_secs: u64, chunk_blo
         if let Err(e) = payroll::run_due(&pool, &treasury).await {
             warn!("scheduled payroll runs failed: {e:#}");
         }
-        if let Err(e) = index_once(&client, &pool, push.as_deref(), chunk_blocks).await {
+        if let Err(e) = index_once(&client, &pool, chunk_blocks).await {
             warn!("olien index cycle failed: {e:#}");
         }
         // What the chain just said goes out to whoever asked to hear it.
@@ -68,7 +66,7 @@ pub async fn run(treasury: Treasury, pool: PgPool, interval_secs: u64, chunk_blo
     }
 }
 
-async fn watch_relayer(client: &OlienClient, native: crate::services::NativeToken, status: &Arc<Mutex<Option<RelayerStatus>>>) {
+async fn watch_relayer(client: &OlienClient, native: crate::config::NativeToken, status: &Arc<Mutex<Option<RelayerStatus>>>) {
     match client.native_balance(client.relayer()).await {
         Ok(balance) => {
             let units: u128 = balance.try_into().unwrap_or(u128::MAX);
@@ -99,7 +97,7 @@ async fn watch_relayer(client: &OlienClient, native: crate::services::NativeToke
     }
 }
 
-async fn index_once(client: &OlienClient, pool: &PgPool, push: Option<&Push>, chunk_blocks: u64) -> anyhow::Result<()> {
+async fn index_once(client: &OlienClient, pool: &PgPool, chunk_blocks: u64) -> anyhow::Result<()> {
     let accounts: Vec<AccountRow> =
         sqlx::query_as("SELECT * FROM olien_accounts WHERE status = 'live' ORDER BY id").fetch_all(pool).await?;
     if accounts.is_empty() {
@@ -107,7 +105,7 @@ async fn index_once(client: &OlienClient, pool: &PgPool, push: Option<&Push>, ch
     }
     let head = client.block_number().await?;
     for account in accounts {
-        if let Err(e) = index_account(client, pool, push, &account, head, chunk_blocks).await {
+        if let Err(e) = index_account(client, pool, &account, head, chunk_blocks).await {
             warn!("indexing {} failed: {e:#}", account.address);
         }
     }
@@ -125,7 +123,6 @@ fn addr(address: Address) -> String {
 async fn index_account(
     client: &OlienClient,
     pool: &PgPool,
-    push: Option<&Push>,
     account: &AccountRow,
     head: u64,
     chunk_blocks: u64,
@@ -139,7 +136,7 @@ async fn index_account(
         let to = (from + chunk_blocks.max(1) - 1).min(head);
         let logs = client.account_logs(address, from, to).await?;
         for log in &logs {
-            match apply(client, pool, push, account, log, &mut timestamps).await {
+            match apply(client, pool, account, log, &mut timestamps).await {
                 Ok(touched_config) => config_changed |= touched_config,
                 Err(e) => warn!("log {:?}/{:?} on {} skipped: {e:#}", log.transaction_hash, log.log_index, account.address),
             }
@@ -216,7 +213,7 @@ async fn proposal_id(pool: &PgPool, olien_id: i64, hash: B256) -> anyhow::Result
 
 /// Applies one log. Returns whether it changed who decides or the rules, which means
 /// the signer set and config must be re-read from the chain.
-async fn apply(client: &OlienClient, pool: &PgPool, push: Option<&Push>, account: &AccountRow, log: &Log, timestamps: &mut HashMap<u64, u64>) -> anyhow::Result<bool> {
+async fn apply(client: &OlienClient, pool: &PgPool, account: &AccountRow, log: &Log, timestamps: &mut HashMap<u64, u64>) -> anyhow::Result<bool> {
     let Some(topic0) = log.topic0().copied() else { return Ok(false) };
     let tx = hex(log.transaction_hash.unwrap_or_default().as_slice());
     let block = log.block_number.unwrap_or_default();
@@ -342,20 +339,9 @@ async fn apply(client: &OlienClient, pool: &PgPool, push: Option<&Push>, account
                     .bind(if event.path == PATH_RECOVERY { "recovery" } else { "threshold" })
                     .execute(pool)
                     .await?;
-                    if let Some(push) = push {
-                        // A scheduled change is the one thing a member who did not
-                        // sign can still stop, so every member hears about it.
-                        let members = push::member_accounts(pool, account.id, None).await;
-                        let hash_text = hex(event.hash.as_slice());
-                        push.notify(
-                            pool,
-                            &members,
-                            &account.name,
-                            "A change to this treasury is scheduled. You can veto it until the delay runs out.",
-                            serde_json::json!({ "kind": "proposal", "account": account.address, "txHash": hash_text }),
-                        )
-                        .await;
-                    }
+                    // A scheduled change is the one thing a member who did not sign can
+                    // still stop, and a webhook on the proposals topic is how they hear:
+                    // the row's updated_at moves here, so the next cycle delivers it.
                 }
                 treasury::mark_replaced(pool, account.id, &key, sequence, id).await.map_err(|e| anyhow::anyhow!("{}", e.parts().1))?;
             }

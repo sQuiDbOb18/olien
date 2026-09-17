@@ -14,7 +14,7 @@ use rand::RngCore;
 use serde::Serialize;
 use sqlx::PgPool;
 
-use crate::services::treasury::{bad, context_for, parse_address, Res, TreasuryError};
+use crate::treasury::{bad, context_for, parse_address, Res, TreasuryError};
 
 /// What the key starts with. A session token is base64url and never contains an
 /// underscore, so the handler can route on this without a database read.

@@ -17,7 +17,7 @@ use sqlx::PgPool;
 use std::time::Duration as StdDuration;
 use tracing::{info, warn};
 
-use crate::services::treasury::{self, bad, context_for, load_account_by_id, Res, Treasury, TreasuryError};
+use crate::treasury::{self, bad, context_for, load_account_by_id, Res, Treasury, TreasuryError};
 
 const MAX_ATTEMPTS: i32 = 8;
 /// Past this many deliveries in a row that never got through, the hook is switched off
