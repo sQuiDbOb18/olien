@@ -10,7 +10,7 @@ const consoleOn = process.env.NEXT_PUBLIC_OLIEN_CONSOLE === "on";
 
 export const metadata: Metadata = {
   title: { default: "Olien", template: "%s | Olien" },
-  description: "Olien is a multisig account on Arc. Members propose, approve and execute USDC payments together.",
+  description: "Olien is a multisig account. Members propose, approve and execute USDC payments together.",
 };
 
 export const viewport: Viewport = {

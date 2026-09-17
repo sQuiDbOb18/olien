@@ -313,7 +313,7 @@ export function OlienNewAccount() {
           </div>
           <InlineError message={error} />
           <div className="olien-wiz-actions">
-            <button type="button" className="olien-wiz-btn" onClick={() => router.push("/olien/app")}>
+            <button type="button" className="olien-wiz-btn" onClick={() => router.push("/app")}>
               Cancel
             </button>
             <button type="button" className="olien-wiz-btn is-primary" onClick={next}>

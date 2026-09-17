@@ -2,10 +2,10 @@ import { Check } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 // Olien's own repository, not a constant borrowed from another product's footer.
-const GITHUB_URL = "https://github.com/frankolien/olien";
+const GITHUB_URL = "https://github.com/sQuiDbOb18/olien";
 import { DashboardShot } from "./site-mockup";
 
-const APP = "/olien/app";
+const APP = "/app";
 const SPEC_URL = `${GITHUB_URL}/blob/main/docs/treasury/10-account-spec.md`;
 const DOCS_URL = `${GITHUB_URL}/tree/main/docs/treasury`;
 
@@ -34,7 +34,7 @@ function Nav() {
   return (
     <header className="osite-nav">
       <div className="osite-nav-inner">
-        <Link href="/olien" className="osite-brand" aria-label="Olien Multisig">
+        <Link href="/" className="osite-brand" aria-label="Olien Multisig">
           <span className="osite-brand-mark" aria-hidden />
           <span className="osite-brand-word">OLIEN</span>
           <span className="osite-brand-sep" aria-hidden />
@@ -45,7 +45,6 @@ function Nav() {
           <a href="#rules">Rules</a>
           <a href="#protocol">Protocol</a>
           <a href="#pricing">Pricing</a>
-          <Link href="/">Recourse</Link>
         </nav>
         <Link href={APP} className="osite-btn osite-btn--dark osite-btn--sm">
           Get started
@@ -61,7 +60,7 @@ function Hero() {
       <div className="osite-hero-card">
         <div className="osite-hero-copy">
           <h1>Olien Multisig</h1>
-          <p>The multisig platform to secure and manage USDC on Arc</p>
+          <p>The multisig platform to secure and manage USDC</p>
           <Link href={APP} className="osite-btn osite-btn--dark">
             Get started
           </Link>
@@ -91,9 +90,6 @@ function Proof() {
         </li>
         <li>
           <Image src="/brand/circle-mark.png" alt="" width={22} height={22} /> Circle
-        </li>
-        <li>
-          <Image src="/brand/recourse-mark.png" alt="" width={22} height={22} /> Recourse
         </li>
         <li>
           <span className="osite-logo-glyph" aria-hidden>
@@ -223,7 +219,7 @@ function Members() {
     <section className="osite-chapter osite-chapter--light osite-chapter--members">
       <div className="osite-chapter-head">
         <h2>Members that are people, not keys</h2>
-        <p>Add a Recourse account by @handle, a passkey on a laptop, or a hardware wallet. A member who loses a phone recovers their own account without the treasury changing at all.</p>
+        <p>Add a passkey on a laptop, a hardware wallet, or an account from an app that carries a member directory. A member who loses a phone recovers their own account without the treasury changing at all.</p>
       </div>
       <ul className="osite-member-grid">
         <li>
@@ -231,7 +227,7 @@ function Members() {
             A
           </span>
           <strong>@ade</strong>
-          <small>Recourse account, approves with Face ID</small>
+          <small>Named through a member directory, approves on a phone</small>
         </li>
         <li>
           <span className="osite-member-avatar is-key" aria-hidden />
@@ -384,15 +380,15 @@ function Footer() {
             <span className="osite-brand-word">OLIEN</span>
           </span>
           <p>All rights reserved.</p>
-          <p>Recourse is a software company, not a bank or a digital asset custodian. The team holds every key; Olien holds none.</p>
+          <p>Olien is software, not a bank or a digital asset custodian. The team holds every key; Olien holds none.</p>
         </div>
         <div className="osite-footer-cols">
           <div>
             <h4>Products</h4>
-            <Link href="/">Recourse</Link>
-            <Link href="/olien" aria-current="page">
+            <Link href="/" aria-current="page">
               Olien Multisig
             </Link>
+            <Link href={APP}>Console</Link>
           </div>
           <div>
             <h4>Resources</h4>
@@ -404,9 +400,6 @@ function Footer() {
             </a>
             <a href={GITHUB_URL} target="_blank" rel="noreferrer">
               GitHub
-            </a>
-            <a href="https://x.com/useRecourse" target="_blank" rel="noreferrer">
-              X
             </a>
           </div>
           <div>

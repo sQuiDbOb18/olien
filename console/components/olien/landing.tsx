@@ -9,14 +9,14 @@ export function OlienLanding({ action, note }: { action: ReactNode; note?: strin
   return (
     <div className="olien-landing">
       <header className="olien-landing-bar">
-        <Link href="/olien" className="olien-wordmark">
+        <Link href="/" className="olien-wordmark">
           Olien<span className="olien-dot" aria-hidden />
         </Link>
         <div className="olien-landing-bar-right">
           <span className="olien-network-chip">
             Network Status <span className="olien-dot" aria-hidden />
           </span>
-          <Link href="/olien" className="olien-landing-back">
+          <Link href="/" className="olien-landing-back">
             About Olien
           </Link>
         </div>
@@ -25,7 +25,7 @@ export function OlienLanding({ action, note }: { action: ReactNode; note?: strin
       <section className="olien-landing-hero">
         <span className="olien-landing-glyph" aria-hidden />
         <p className="olien-landing-kicker">Introducing Olien</p>
-        <h1>Management of treasury assets for teams on Arc</h1>
+        <h1>Management of treasury assets for teams</h1>
         <div className="olien-landing-action">{action}</div>
         {note ? <p className="olien-landing-note">{note}</p> : null}
       </section>

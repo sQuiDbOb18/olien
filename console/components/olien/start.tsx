@@ -54,12 +54,12 @@ export function OlienStart() {
               </div>
             </Link>
           ))}
-          <Link href="/olien/new" className="olien-card olien-card--create">
+          <Link href="/new" className="olien-card olien-card--create">
             <span className="olien-card-plus">
               <Plus size={18} />
             </span>
             <strong>Create an Olien</strong>
-            <p>Name it, add members, set the threshold. It exists on Arc in a few seconds and can take deposits at once.</p>
+            <p>Name it, add members, set the threshold. It exists on chain in a few seconds and can take deposits at once.</p>
           </Link>
         </div>
       ) : null}

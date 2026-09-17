@@ -3,11 +3,11 @@ import "./olien-site.css";
 
 export const metadata: Metadata = {
   title: { absolute: "Olien Multisig" },
-  description: "The multisig platform to secure and manage USDC on Arc. Propose, approve and pay together, with rules the chain enforces.",
+  description: "The multisig platform to secure and manage USDC. Propose, approve and pay together, with rules the chain enforces.",
   openGraph: {
     title: "Olien Multisig",
-    description: "The multisig platform to secure and manage USDC on Arc.",
-    url: "/olien",
+    description: "The multisig platform to secure and manage USDC.",
+    url: "/",
   },
 };
 

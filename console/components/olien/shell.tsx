@@ -113,7 +113,7 @@ function AccountSwitcher({ address, name, view }: { address: string | null; name
             </Link>
           ))}
           {!accounts.isLoading && others.length === 0 ? <div className="olien-menu-note">{address ? "No other Oliens" : "No Oliens yet"}</div> : null}
-          <Link role="menuitem" href="/olien/new" className="olien-menu-item olien-menu-item--create" onClick={() => setOpen(false)}>
+          <Link role="menuitem" href="/new" className="olien-menu-item olien-menu-item--create" onClick={() => setOpen(false)}>
             <Plus size={14} /> Create an Olien
           </Link>
         </div>
@@ -199,7 +199,7 @@ export function OlienShell({ children }: { children: ReactNode }) {
       <div className="olien olien-focus">
         {!wallet.matches ? <MismatchBanner /> : null}
         <header className="olien-landing-bar">
-          <Link href="/olien/app" className="olien-wordmark">
+          <Link href="/app" className="olien-wordmark">
             Olien<span className="olien-dot" aria-hidden />
           </Link>
           <div className="olien-landing-bar-right">
@@ -230,14 +230,14 @@ export function OlienShell({ children }: { children: ReactNode }) {
   async function signOut() {
     await wallet.signOut();
     disconnect();
-    router.push("/olien/app");
+    router.push("/app");
   }
 
   return (
     <div className="olien olien-shell" data-theme={theme}>
       <aside className={cx("olien-sidebar", menuOpen && "is-open")}>
         <div className="olien-sidebar-top">
-          <Link href="/olien/app" className="olien-wordmark">
+          <Link href="/app" className="olien-wordmark">
             Olien<span className="olien-dot" aria-hidden />
           </Link>
           <button type="button" className="olien-icon-btn olien-menu-toggle" aria-label={menuOpen ? "Close menu" : "Open menu"} aria-expanded={menuOpen} onClick={() => setMenuOpen((current) => !current)}>
