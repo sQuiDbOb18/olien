@@ -156,10 +156,32 @@ all seven Olien routes. `chain.ts` hardcodes Monad's id, RPC, explorer and USDC,
 imports the Arc deployment file only to fill the Arc entry, so a Monad build needs no
 Monad deployment file.
 
-So "live on Monad" is now two deploys and no code: a Railway service with
-`DEPLOYMENTS_PATH=/app/deployments/10143.json`, its own `DATABASE_URL` and an
-`ATTESTOR_PK`, and a Vercel project with `NEXT_PUBLIC_OLIEN_CHAIN=monad-testnet` and
-`NEXT_PUBLIC_BACKEND_URL` pointed at that service.
+So "live on Monad" was two deploys and no code. The first is done.
+
+**The service is live, 2026-09-17**, at
+`https://olien-monad-testnet-production.up.railway.app`, a second Railway service in
+the Recourse project built from the same root Dockerfile, with its own Postgres
+(`Postgres-OWhw`, confirmed a different database from the consumer one by comparing
+hashes rather than eyes), `DEPLOYMENTS_PATH=/app/deployments/10143.json`, and
+`ATTESTOR_PK` as the relayer.
+
+It answers what it should. `/health` gives chain 10143 and a relayer balance in MON.
+`/api/treasury/chain` gives `Monad Testnet`, native MON, the Monad explorer, Monad's
+USDC, `eurc: null`, and the factory and implementation deployed the day before. The
+Olien indexer runs, and `indexedPayments` is 0 because the escrow indexer is off,
+which is the consumer gating doing its job on a real chain rather than in a test.
+
+Two things worth keeping. A generated Railway domain comes with **no target port**,
+and the service is unreachable until one is set: `railway domain update <id> --port
+8080`, which is what the consumer service already had and the new one silently did
+not. And `railway add` ignores its flags and opens an interactive picker, so the
+database came out named `Postgres-OWhw` rather than the name asked for.
+
+**The relayer is under its floor**: 4.0164 MON against a 5 MON minimum, which the
+indexer warns about on every cycle. Executions will fail until it is faucetted.
+
+Left: the Vercel project, `NEXT_PUBLIC_OLIEN_CHAIN=monad-testnet` and
+`NEXT_PUBLIC_BACKEND_URL` pointed at the service above.
 
 **24 to 30 September, the demo is true.** Payroll run on Monad. A cheque written
 by a treasury and cashed by its recipient on Monad, which needs a cashing page
