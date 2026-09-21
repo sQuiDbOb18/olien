@@ -30,9 +30,9 @@ before execution, the signature matches nothing (spec §4, §7.1). That is how
 The name `"Olien"` is part of every hash and is final since 2026-09-04
 (`09-open-questions.md` item 1); clients hard-code that exact string.
 
-Exists: `SafeHashing.transactionHash` (Swift, `mobile/.../SafeSigning.swift`) is the
-Safe shape; the Olien version is the same layout with the fields above and is
-pending. Rule: the service computes locally and, once per account, compares against
+The Safe client implementation's `SafeHashing.transactionHash` is the Safe shape;
+the Olien version is the same layout with the fields above and is pending. Rule: the
+service computes locally and, once per account, compares against
 the contract's own answer for a fixed sample (`getTransactionHash`,
 `getMessageHash`; the operation hash has no view and is pinned by the tests
 instead); a mismatch disables the account rather than risking a wrong hash.
@@ -432,7 +432,7 @@ Two USDC-native options a payroll product elsewhere cannot offer:
   overload, `02-arc-facts.md`); the Olien proof is pending. Recipients cash when they want, the treasury sees committed
   versus cashed, and an uncashed cheque can be voided. This is the consumer app's
   cheque feature with a treasury as the writer.
-- **Invoices.** A contractor's invoice (`backend/src/services/invoices.rs`) fixes the
+- **Invoices.** A contractor's invoice fixes the
   nonce and terms; the treasury's approval produces the authorization; collection is
   the contractor's transaction. Reconciliation is exact because the invoice id is
   known before any money moves.

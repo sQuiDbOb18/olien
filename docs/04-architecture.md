@@ -88,7 +88,7 @@ Responsibilities:
 
 ### Indexer
 
-Already exists for the escrow (`backend/src/jobs/indexer.rs`); grows to cover
+Already exists for the escrow (`service/src/indexer.rs`); grows to cover
 Olien accounts. Reads logs and receipts through the RPC (Arc has no `trace_*` API
 in the public RPC as far as tested, so this is the events-based indexer shape).
 Sources:
@@ -157,17 +157,9 @@ rule is a hard one. The UI labels them.
 
 ### Clients
 
-- **Web app** (Next.js in `web/`): the treasury console. Members sign with a
+- **Web app** (Next.js in `console/`): the treasury console. Members sign with a
   browser wallet, a hardware wallet through it, or a passkey registered as a
   WEBAUTHN signer.
-- **iOS app** (`mobile/`): a Recourse account can be a signer. Its confirmation is
-  a nested signature: the app signs `Message(outerHash)` in its own account's domain
-  with device key and cloud key, and the packed result is the CONTRACT entry (spec
-  §9). A `OlienSigner` beside `SafeAccountSigner` produces it
-  (`05-onchain-design.md`). The app shows the team queue and lets the member
-  approve with Face ID, and shows `Scheduled` changes with a veto button; a veto
-  applies to a scheduled change only, and the app's keys cast it through a user
-  operation (spec §8.3, §11).
 - **API keys** for finance tooling: read-only history and exports; proposal creation
   for payroll systems, never signing.
 
@@ -325,15 +317,15 @@ account; the chain does the same at execution (spec §9).
 
 ## What runs where, at the start
 
-One Railway service (the existing backend) hosts all of it since the evening of
-2026-09-04: the routes of `11-service-api.md` (`backend/src/handlers/treasury.rs`,
+One Railway service (the existing service) hosts all of it since the evening of
+2026-09-04: the routes of `11-service-api.md` (`service/src/routes.rs`,
 mounted at `/api/treasury`), the queue, the hash, the per-kind signature checks and
-the relayer (`services/treasury.rs`, `services/olien.rs`), the event indexer
-(`jobs/olien_indexer.rs`) and the tables (`migrations/0013_treasury.sql`, all
+the relayer (`service/src/treasury.rs`, `service/src/olien.rs`), the event indexer
+(`service/src/indexer.rs`) and the tables (`service/migrations/0002_treasury.sql`, all
 prefixed `olien_`, because `accounts` already names the users). The web app is
 two things since 2026-09-04: a marketing site for the iOS app at `/` (there is no
 web version of the consumer product) and the Olien console at `/olien`
-(`web/lib/treasury.ts`, `web/components/olien/`), which follows the Squads app in
+(`console/lib/treasury.ts`, `console/components/olien/`), which follows the Squads app in
 layout and flow and opens on a connected wallet: `POST /api/auth/wallet` turns a
 signature over a server-issued challenge into a session whose identity is the
 address (`11-service-api.md`). The iOS app gains a team queue and a veto screen
