@@ -14,7 +14,7 @@
 # check runs first either way, since deploying onto a chain whose EntryPoint is not the
 # one the code expects is the failure worth spending thirty seconds to avoid.
 #
-# The deploying key comes from DEPLOY_PK, or RELAYER_PK in backend/.env, and is never
+# The deploying key comes from DEPLOY_PK, or RELAYER_PK in service/.env, and is never
 # printed. Gas is MON.
 set -euo pipefail
 
@@ -41,15 +41,15 @@ else
   "$ROOT/ops/monad-check.sh"
 fi
 
-# RELAYER_PK is the name the Olien service will use once it exists, but backend/.env
+# RELAYER_PK is the name the Olien service will use once it exists, but service/.env
 # has no such key today, so this falls back to the attestor. Which key pays for the
 # deployment does not change where anything lands: CREATE2 makes every address a
 # function of the salt and the creation code, not of the sender.
-key_from_env() { grep -E "^$1=" "$ROOT/backend/.env" 2>/dev/null | cut -d= -f2- | tr -d '"'"'"' ' || true; }
+key_from_env() { grep -E "^$1=" "$ROOT/service/.env" 2>/dev/null | cut -d= -f2- | tr -d '"'"'"' ' || true; }
 KEY="${DEPLOY_PK:-}"
 [ -n "$KEY" ] || KEY="$(key_from_env RELAYER_PK)"
 [ -n "$KEY" ] || KEY="$(key_from_env ATTESTOR_PK)"
-[ -n "$KEY" ] || { echo "no deploying key: set DEPLOY_PK, or RELAYER_PK or ATTESTOR_PK in backend/.env"; exit 1; }
+[ -n "$KEY" ] || { echo "no deploying key: set DEPLOY_PK, or RELAYER_PK or ATTESTOR_PK in service/.env"; exit 1; }
 
 echo
 echo "deploying against $RPC, writing $BOOK"
