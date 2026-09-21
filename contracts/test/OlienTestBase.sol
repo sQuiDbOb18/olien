@@ -211,8 +211,8 @@ abstract contract OlienTestBase is Test {
     }
 
     function signWebAuthn(uint256 pk, bytes32 hash, bytes1 flags) internal pure returns (bytes memory) {
-        bytes memory authenticatorData = abi.encodePacked(keccak256("recourse.app"), flags, uint32(7));
-        bytes memory clientDataFields = bytes('"origin":"https://recourse.app","crossOrigin":false');
+        bytes memory authenticatorData = abi.encodePacked(keccak256("olien.org"), flags, uint32(7));
+        bytes memory clientDataFields = bytes('"origin":"https://olien.org","crossOrigin":false');
         bytes memory clientDataJSON = bytes.concat(
             '{"type":"webauthn.get","challenge":"',
             bytes(Base64.encodeURL(abi.encodePacked(hash))),
